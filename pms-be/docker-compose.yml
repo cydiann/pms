@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:17
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: pms_db
+      POSTGRES_USER: pms_user
+      POSTGRES_PASSWORD: pms_password
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    command: ./entrypoint.sh
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=1
+      - DB_HOST=db
+      - DB_NAME=pms_db
+      - DB_USER=pms_user
+      - DB_PASSWORD=pms_password
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
