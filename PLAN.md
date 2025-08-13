@@ -199,9 +199,12 @@ pms-fe/
 - [x] Cross-platform compatibility fixes (React version alignment, web storage)
 - [x] Working development server at http://localhost:3000
 - [x] Language switching functionality (English ↔ Turkish)
-- [ ] Authentication system
-- [ ] Core screens implementation
-- [ ] API integration
+- [x] Authentication system (login screen, JWT handling, form validation)
+- [x] API service layer (axios client, token management, error handling)
+- [x] Authentication routing (login/dashboard navigation)
+- [ ] Core screens implementation (dashboard variations by user role)
+- [ ] Request management UI (create, list, approve workflows)
+- [ ] Navigation setup (role-based tabs)
 - [ ] Testing setup
 - [ ] Deployment configuration
 
