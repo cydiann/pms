@@ -17,6 +17,7 @@ export interface User {
   supervisor: number | null;
   is_staff: boolean;
   is_superuser: boolean;
+  groups?: Array<{ id: number; name: string }>;
   created_at: string;
 }
 

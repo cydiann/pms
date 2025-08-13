@@ -1,0 +1,261 @@
+import apiClient from './apiClient';
+import { API_ENDPOINTS } from '../constants/api';
+import {
+  ExtendedUser,
+  CreateUserDto,
+  UpdateUserDto,
+  ChangePasswordDto,
+  UserListItem,
+  Subordinate,
+  UserFilters,
+  UserStats,
+  UserGroup,
+} from '../types/users';
+import { PaginatedResponse, UserQueryParams } from '../types/api';
+
+interface UserPermissions {
+  is_superuser: boolean;
+  groups: Array<{ id: number; name: string }>;
+  permissions: string[];
+}
+
+interface ViewAsResponse {
+  user: ExtendedUser;
+  permissions: string[];
+  groups: Array<{ id: number; name: string }>;
+  is_superuser: boolean;
+}
+
+interface ManageGroupsDto {
+  action: 'add' | 'remove' | 'set';
+  group_ids: number[];
+}
+
+interface ManagePermissionsDto {
+  action: 'add' | 'remove' | 'set';
+  permission_ids: number[];
+}
+
+interface Permission {
+  id: number;
+  name: string;
+  codename: string;
+  content_type?: string;
+}
+
+interface UsersByGroupResponse {
+  group: { id: number; name: string };
+  user_count: number;
+  users: ExtendedUser[];
+}
+
+class UserService {
+  // Get all users (admin only, or filtered for supervisors)
+  async getUsers(params?: UserQueryParams): Promise<PaginatedResponse<UserListItem>> {
+    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    const url = `${API_ENDPOINTS.AUTH.USERS}${queryString ? `?${queryString}` : ''}`;
+    return await apiClient.get<PaginatedResponse<UserListItem>>(url);
+  }
+
+  // Get single user details
+  async getUser(id: number): Promise<ExtendedUser> {
+    return await apiClient.get<ExtendedUser>(API_ENDPOINTS.AUTH.USER_DETAIL(id));
+  }
+
+  // Get current user profile
+  async getCurrentUser(): Promise<ExtendedUser> {
+    return await apiClient.get<ExtendedUser>(API_ENDPOINTS.AUTH.USER_ME);
+  }
+
+  // Get current user's permissions
+  async getCurrentUserPermissions(): Promise<UserPermissions> {
+    return await apiClient.get<UserPermissions>(API_ENDPOINTS.AUTH.USER_MY_PERMISSIONS);
+  }
+
+  // Admin: View user as if logged in as them
+  async viewAsUser(id: number): Promise<ViewAsResponse> {
+    return await apiClient.get<ViewAsResponse>(API_ENDPOINTS.AUTH.USER_VIEW_AS(id));
+  }
+
+  // Create new user (admin only)
+  async createUser(data: CreateUserDto): Promise<ExtendedUser> {
+    return await apiClient.post<ExtendedUser>(API_ENDPOINTS.AUTH.USERS, data);
+  }
+
+  // Update user (admin only, or self for basic info)
+  async updateUser(id: number, data: UpdateUserDto): Promise<ExtendedUser> {
+    return await apiClient.put<ExtendedUser>(API_ENDPOINTS.AUTH.USER_DETAIL(id), data);
+  }
+
+  // Delete user (soft delete - admin only)
+  async deleteUser(id: number): Promise<void> {
+    return await apiClient.delete<void>(API_ENDPOINTS.AUTH.USER_DETAIL(id));
+  }
+
+  // Change password for current user
+  async changePassword(data: ChangePasswordDto): Promise<void> {
+    return await apiClient.post<void>('/auth/change-password/', data);
+  }
+
+  // Get users by group
+  async getUsersByGroup(groupId?: number, groupName?: string): Promise<UsersByGroupResponse> {
+    const params = new URLSearchParams();
+    if (groupId) params.append('group_id', groupId.toString());
+    if (groupName) params.append('group_name', groupName);
+    
+    const url = `${API_ENDPOINTS.AUTH.USERS_BY_GROUP}?${params.toString()}`;
+    return await apiClient.get<UsersByGroupResponse>(url);
+  }
+
+  // Get subordinates (users supervised by current user)
+  async getSubordinates(): Promise<Subordinate[]> {
+    // This would be implemented based on the user's supervisor relationship
+    const currentUser = await this.getCurrentUser();
+    if (!currentUser.id) return [];
+    
+    // Get all users where supervisor = current user
+    const response = await this.getUsers({ supervisor: currentUser.id });
+    return response.results.map(user => ({
+      ...user,
+      total_requests: 0, // Would be computed by backend
+      pending_requests: 0,
+      approved_requests: 0,
+      draft_requests: 0,
+    }));
+  }
+
+  // Admin: Manage user groups
+  async manageUserGroups(userId: number, data: ManageGroupsDto): Promise<{
+    message: string;
+    groups: Array<{ id: number; name: string }>;
+  }> {
+    return await apiClient.post(API_ENDPOINTS.AUTH.USER_MANAGE_GROUPS(userId), data);
+  }
+
+  // Admin: Manage user permissions
+  async manageUserPermissions(userId: number, data: ManagePermissionsDto): Promise<{
+    message: string;
+    user_permissions: Array<{ id: number; name: string; codename: string }>;
+  }> {
+    return await apiClient.post(API_ENDPOINTS.AUTH.USER_MANAGE_PERMISSIONS(userId), data);
+  }
+
+  // Get all groups
+  async getGroups(): Promise<Array<{
+    id: number;
+    name: string;
+    user_count: number;
+    permissions: Permission[];
+  }>> {
+    return await apiClient.get(API_ENDPOINTS.AUTH.GROUPS);
+  }
+
+  // Get single group details
+  async getGroup(id: number): Promise<{
+    id: number;
+    name: string;
+    users: Array<{ id: number; username: string; full_name: string }>;
+    permissions: Permission[];
+  }> {
+    return await apiClient.get(API_ENDPOINTS.AUTH.GROUP_DETAIL(id));
+  }
+
+  // Create new group (admin only)
+  async createGroup(data: { name: string; permissions?: number[] }): Promise<UserGroup> {
+    return await apiClient.post<UserGroup>(API_ENDPOINTS.AUTH.GROUPS, data);
+  }
+
+  // Update group (admin only)
+  async updateGroup(id: number, data: { name?: string }): Promise<UserGroup> {
+    return await apiClient.put<UserGroup>(API_ENDPOINTS.AUTH.GROUP_DETAIL(id), data);
+  }
+
+  // Delete group (admin only)
+  async deleteGroup(id: number): Promise<void> {
+    return await apiClient.delete<void>(API_ENDPOINTS.AUTH.GROUP_DETAIL(id));
+  }
+
+  // Manage group permissions
+  async manageGroupPermissions(groupId: number, data: ManagePermissionsDto): Promise<{
+    message: string;
+    permissions: Permission[];
+  }> {
+    return await apiClient.post(API_ENDPOINTS.AUTH.GROUP_MANAGE_PERMISSIONS(groupId), data);
+  }
+
+  // Get all permissions
+  async getPermissions(): Promise<Permission[]> {
+    return await apiClient.get<Permission[]>(API_ENDPOINTS.AUTH.PERMISSIONS);
+  }
+
+  // Get permissions grouped by content type
+  async getPermissionsByContentType(): Promise<Record<string, Permission[]>> {
+    return await apiClient.get<Record<string, Permission[]>>(API_ENDPOINTS.AUTH.PERMISSIONS_BY_CONTENT_TYPE);
+  }
+
+  // Get user statistics (for admin dashboard)
+  async getUserStats(): Promise<UserStats> {
+    return await apiClient.get<UserStats>(`${API_ENDPOINTS.AUTH.USERS}stats/`);
+  }
+
+  // Utility methods for user management
+  canUserEdit(user: ExtendedUser, currentUser: ExtendedUser): boolean {
+    // Users can edit themselves or admin can edit anyone
+    return user.id === currentUser.id || currentUser.is_superuser;
+  }
+
+  canUserDelete(user: ExtendedUser, currentUser: ExtendedUser): boolean {
+    // Only admin can delete users, and cannot delete themselves
+    return currentUser.is_superuser && user.id !== currentUser.id;
+  }
+
+  canUserManagePermissions(currentUser: ExtendedUser): boolean {
+    return currentUser.is_superuser;
+  }
+
+  isUserSupervisor(user: ExtendedUser): boolean {
+    // Check if user has any direct reports (would need to be computed by backend)
+    return true; // This would be determined by checking if user.id appears as supervisor for other users
+  }
+
+  getUserRoleDisplay(user: ExtendedUser): string {
+    if (user.is_superuser) return 'Administrator';
+    if (user.groups && user.groups.length > 0) {
+      return user.groups.map(g => g.name).join(', ');
+    }
+    return 'Employee';
+  }
+
+  getUserStatusColor(user: ExtendedUser): string {
+    if (!user.is_active) return '#dc3545'; // red
+    if (user.is_superuser) return '#6f42c1'; // purple
+    return '#28a745'; // green
+  }
+
+  formatUserPermissions(permissions: string[]): string[] {
+    return permissions.map(perm => {
+      // Convert 'app.action_model' to readable format
+      const parts = perm.split('.');
+      if (parts.length === 2) {
+        const [app, codename] = parts;
+        return codename.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      }
+      return perm;
+    });
+  }
+
+  // Utility to safely get worksite name
+  getWorksiteName(user: ExtendedUser): string {
+    if (!user.worksite_name) return 'No Worksite';
+    
+    // Handle Django method wrapper bug
+    if (user.worksite_name.includes('method-wrapper') || user.worksite_name.includes('NoneType')) {
+      return 'No Worksite';
+    }
+    
+    return user.worksite_name;
+  }
+}
+
+const userService = new UserService();
+export default userService;

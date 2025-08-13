@@ -16,13 +16,21 @@ module.exports = {
       'react-native$': 'react-native-web',
       'react-native-vector-icons': 'react-native-vector-icons/dist',
       '@': path.resolve(__dirname, 'src'),
+      // React Navigation Web compatibility fixes - simpler approach
+      'react-native-gesture-handler': 'react-native-web',
+      'react-native-safe-area-context': 'react-native-safe-area-context/lib/module/SafeAreaContext',
+      'react-native-screens': 'react-native-web',
+      'react-native-reanimated': 'react-native-web',
+    },
+    fallback: {
+      'react-native': 'react-native-web',
     },
   },
   module: {
     rules: [
       {
         test: /\.(js|jsx|ts|tsx)$/,
-        exclude: /node_modules\/(?!(react-native-vector-icons|react-native-elements)\/).*/,
+        exclude: /node_modules\/(?!(react-native-vector-icons|react-native-elements|@react-navigation|react-native-web|react-native-reanimated|react-native-gesture-handler|react-native-safe-area-context|react-native-screens)\/).*/,
         use: {
           loader: 'babel-loader',
         },

@@ -63,6 +63,17 @@ const LoginScreen: React.FC = () => {
     );
   };
 
+  // Dev helper function - remove in production
+  const quickLogin = async (username: string, password: string) => {
+    try {
+      clearError();
+      console.log(`Quick login as ${username}`);
+      await login({ username, password });
+    } catch (error) {
+      console.error('Quick login failed:', error);
+    }
+  };
+
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
@@ -179,6 +190,41 @@ const LoginScreen: React.FC = () => {
               {t('auth.forgotPassword')}
             </Text>
           </TouchableOpacity>
+
+          {/* Dev Login Helpers - Remove in production */}
+          <View style={styles.devSection}>
+            <Text style={styles.devTitle}>Dev Quick Login:</Text>
+            <View style={styles.devButtons}>
+              <TouchableOpacity
+                style={styles.devButton}
+                onPress={() => quickLogin('admin', 'admin123')}
+                disabled={authState.loading}
+              >
+                <Text style={styles.devButtonText}>Admin</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.devButton}
+                onPress={() => quickLogin('ceo', 'ceo123')}
+                disabled={authState.loading}
+              >
+                <Text style={styles.devButtonText}>CEO</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.devButton}
+                onPress={() => quickLogin('manager', 'manager123')}
+                disabled={authState.loading}
+              >
+                <Text style={styles.devButtonText}>Manager</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.devButton}
+                onPress={() => quickLogin('engineer', 'engineer123')}
+                disabled={authState.loading}
+              >
+                <Text style={styles.devButtonText}>Engineer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -273,6 +319,40 @@ const styles = StyleSheet.create({
     color: '#007bff',
     fontSize: 16,
     textDecorationLine: 'underline',
+  },
+  devSection: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: '#f1f3f4',
+    borderRadius: 8,
+    borderColor: '#e9ecef',
+    borderWidth: 1,
+  },
+  devTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6c757d',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  devButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+  },
+  devButton: {
+    backgroundColor: '#6c757d',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginBottom: 8,
+    minWidth: '22%',
+    alignItems: 'center',
+  },
+  devButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 
