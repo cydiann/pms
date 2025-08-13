@@ -1,48 +1,52 @@
-export interface User {
-  id: number;
-  username: string;
-  first_name: string;
-  last_name: string;
-  email?: string;
-  full_name: string;
-  is_staff: boolean;
-  is_superuser: boolean;
-  worksite: number | null;
-  supervisor: number | null;
-  deleted_at: string | null;
-  created_at: string;
-  direct_reports?: User[];
-}
-
-export interface AuthTokens {
-  access: string;
-  refresh: string;
-}
-
 export interface LoginRequest {
   username: string;
   password: string;
 }
 
-export interface PasswordResetRequest {
+export interface LoginResponse {
+  access: string;
+  refresh: string;
+}
+
+export interface User {
+  id: number;
   username: string;
-  reason?: string;
+  first_name: string;
+  last_name: string;
+  worksite: number | null;
+  supervisor: number | null;
+  is_staff: boolean;
+  is_superuser: boolean;
+  created_at: string;
 }
 
 export interface AuthState {
-  user: User | null;
-  tokens: AuthTokens | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
+  user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  loading: boolean;
   error: string | null;
 }
 
-export type UserRole = 'employee' | 'supervisor' | 'admin';
+export interface AuthContextType {
+  authState: AuthState;
+  login: (credentials: LoginRequest) => Promise<void>;
+  logout: () => void;
+  refreshAccessToken: () => Promise<boolean>;
+  clearError: () => void;
+}
 
-export interface UserPermissions {
-  canCreateRequests: boolean;
-  canApproveRequests: boolean;
-  canManageUsers: boolean;
-  canViewAllRequests: boolean;
-  canManageSystem: boolean;
+export interface TokenPair {
+  access: string;
+  refresh: string;
+}
+
+export interface PasswordResetRequest {
+  username: string;
+}
+
+export interface PasswordResetResponse {
+  message: string;
+  success: boolean;
 }

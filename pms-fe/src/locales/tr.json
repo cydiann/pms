@@ -1,0 +1,78 @@
+{
+  "auth": {
+    "login": "Giriş Yap",
+    "username": "Kullanıcı Adı",
+    "password": "Şifre",
+    "forgotPassword": "Şifremi Unuttum?",
+    "logout": "Çıkış Yap",
+    "loginError": "Geçersiz kullanıcı adı veya şifre",
+    "loginSuccess": "Giriş başarılı"
+  },
+  "dashboard": {
+    "title": "Ana Sayfa",
+    "myRequests": "Taleplerim",
+    "createRequest": "Yeni Talep Oluştur",
+    "pendingApprovals": "Bekleyen Onaylar",
+    "myTeam": "Ekibim",
+    "allRequests": "Tüm Talepler",
+    "statistics": "İstatistikler"
+  },
+  "requests": {
+    "title": "Talepler",
+    "item": "Ürün",
+    "description": "Açıklama",
+    "quantity": "Miktar",
+    "unit": "Birim",
+    "category": "Kategori",
+    "deliveryAddress": "Teslimat Adresi",
+    "reason": "Gerekçe",
+    "status": "Durum",
+    "requestNumber": "Talep Numarası",
+    "createdAt": "Oluşturulma Tarihi",
+    "submittedAt": "Gönderilme Tarihi"
+  },
+  "status": {
+    "draft": "Taslak",
+    "pending": "Onay Bekliyor",
+    "in_review": "İnceleme Aşamasında",
+    "revision_requested": "Revizyon İstendi",
+    "approved": "Son Onay - Satın Alıma Hazır",
+    "rejected": "Reddedildi",
+    "purchasing": "Satın Alma Ekibine Atandı",
+    "ordered": "Sipariş Verildi",
+    "delivered": "Teslim Edildi",
+    "completed": "Talep Tamamlandı"
+  },
+  "actions": {
+    "submit": "Gönder",
+    "approve": "Onayla",
+    "reject": "Reddet",
+    "requestRevision": "Revizyon İste",
+    "save": "Kaydet",
+    "cancel": "İptal",
+    "edit": "Düzenle",
+    "delete": "Sil",
+    "view": "Görüntüle"
+  },
+  "navigation": {
+    "dashboard": "Ana Sayfa",
+    "requests": "Talepler",
+    "team": "Ekip",
+    "profile": "Profil",
+    "settings": "Ayarlar"
+  },
+  "forms": {
+    "required": "Bu alan zorunludur",
+    "invalidEmail": "Geçersiz e-posta adresi",
+    "passwordTooShort": "Şifre en az 6 karakter olmalıdır",
+    "pleaseWait": "Lütfen bekleyin...",
+    "loading": "Yükleniyor..."
+  },
+  "messages": {
+    "success": "İşlem başarıyla tamamlandı",
+    "error": "Bir hata oluştu",
+    "networkError": "Ağ bağlantısı hatası",
+    "unauthorized": "Yetkisiz erişim",
+    "notFound": "Kaynak bulunamadı"
+  }
+}

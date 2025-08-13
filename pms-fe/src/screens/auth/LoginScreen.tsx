@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, TextInput, Button, Card } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
+} from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
-
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { loginUser, selectIsLoading, selectAuthError } from '@/store/slices/authSlice';
-import { showErrorNotification, showSuccessNotification } from '@/store/slices/appSlice';
-
-import { Colors, Spacing, Dimensions } from '@/constants/theme';
-import { SCREENS, APP_INFO, VALIDATION_RULES } from '@/constants/app';
-import { LoginRequest } from '@/types/auth';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../store/AuthContext';
+import LoadingButton from '../../components/common/LoadingButton';
+import { LoginRequest } from '../../types/auth';
 
 interface LoginFormData {
   username: string;
@@ -18,18 +22,15 @@ interface LoginFormData {
 }
 
 const LoginScreen: React.FC = () => {
-  const navigation = useNavigation();
-  const dispatch = useAppDispatch();
-  
-  const isLoading = useAppSelector(selectIsLoading);
-  const error = useAppSelector(selectAuthError);
-
-  const [showPassword, setShowPassword] = useState(false);
+  const { t } = useTranslation();
+  const { authState, login, clearError } = useAuth();
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const {
     control,
     handleSubmit,
     formState: { errors },
+    reset,
   } = useForm<LoginFormData>({
     defaultValues: {
       username: '',
@@ -39,133 +40,147 @@ const LoginScreen: React.FC = () => {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      const loginData: LoginRequest = {
+      clearError();
+      const credentials: LoginRequest = {
         username: data.username.trim(),
         password: data.password,
       };
-
-      const result = await dispatch(loginUser(loginData));
       
-      if (loginUser.fulfilled.match(result)) {
-        dispatch(showSuccessNotification('Welcome back!'));
-      } else {
-        dispatch(showErrorNotification(
-          result.payload as string || 'Login failed. Please try again.'
-        ));
-      }
-    } catch (err) {
-      dispatch(showErrorNotification('An unexpected error occurred.'));
+      await login(credentials);
+      // Navigation will be handled by App.tsx based on auth state
+    } catch (error: any) {
+      // Error is already handled by the auth context
+      // Show additional user feedback if needed
+      console.warn('Login error:', error);
     }
   };
 
   const handleForgotPassword = () => {
-    navigation.navigate(SCREENS.FORGOT_PASSWORD as never);
+    Alert.alert(
+      t('auth.forgotPassword'),
+      'Password reset requests are handled by your supervisor. Please contact your immediate supervisor to request a password reset.',
+      [{ text: 'OK' }]
+    );
   };
 
   return (
     <KeyboardAvoidingView 
-      style={styles.container}
+      style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.content}>
-        {/* App Logo/Title */}
-        <View style={styles.header}>
-          <Text variant="headlineLarge" style={styles.title}>
-            {APP_INFO.NAME}
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.headerContainer}>
+          <Text style={styles.title}>
+            {t('auth.login')} - PMS
           </Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            {APP_INFO.DESCRIPTION}
+          <Text style={styles.subtitle}>
+            Procurement Management System
           </Text>
         </View>
 
-        {/* Login Form */}
-        <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
-            <Text variant="headlineSmall" style={styles.formTitle}>
-              Sign In
-            </Text>
+        <View style={styles.formContainer}>
+          {authState.error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>
+                {authState.error}
+              </Text>
+            </View>
+          )}
 
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>{t('auth.username')}</Text>
             <Controller
               control={control}
               name="username"
-              rules={VALIDATION_RULES.USERNAME}
+              rules={{
+                required: t('forms.required'),
+                minLength: {
+                  value: 2,
+                  message: 'Username must be at least 2 characters',
+                },
+              }}
               render={({ field: { onChange, onBlur, value } }) => (
                 <TextInput
-                  mode="outlined"
-                  label="Username"
+                  style={[
+                    styles.input,
+                    errors.username && styles.inputError,
+                  ]}
+                  placeholder={t('auth.username')}
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  error={!!errors.username}
-                  style={styles.input}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  returnKeyType="next"
+                  autoComplete="username"
+                  editable={!authState.loading}
                 />
               )}
             />
             {errors.username && (
-              <Text style={styles.errorText}>{errors.username.message}</Text>
+              <Text style={styles.fieldError}>
+                {errors.username.message}
+              </Text>
             )}
+          </View>
 
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>{t('auth.password')}</Text>
             <Controller
               control={control}
               name="password"
-              rules={VALIDATION_RULES.PASSWORD}
+              rules={{
+                required: t('forms.required'),
+                minLength: {
+                  value: 1,
+                  message: 'Password is required',
+                },
+              }}
               render={({ field: { onChange, onBlur, value } }) => (
                 <TextInput
-                  mode="outlined"
-                  label="Password"
+                  style={[
+                    styles.input,
+                    errors.password && styles.inputError,
+                  ]}
+                  placeholder={t('auth.password')}
                   value={value}
                   onChangeText={onChange}
                   onBlur={onBlur}
-                  error={!!errors.password}
-                  secureTextEntry={!showPassword}
-                  right={
-                    <TextInput.Icon
-                      icon={showPassword ? 'eye-off' : 'eye'}
-                      onPress={() => setShowPassword(!showPassword)}
-                    />
-                  }
-                  style={styles.input}
-                  returnKeyType="done"
-                  onSubmitEditing={handleSubmit(onSubmit)}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="current-password"
+                  editable={!authState.loading}
                 />
               )}
             />
             {errors.password && (
-              <Text style={styles.errorText}>{errors.password.message}</Text>
+              <Text style={styles.fieldError}>
+                {errors.password.message}
+              </Text>
             )}
+          </View>
 
-            <Button
-              mode="contained"
-              onPress={handleSubmit(onSubmit)}
-              loading={isLoading}
-              disabled={isLoading}
-              style={styles.loginButton}
-              contentStyle={styles.loginButtonContent}
-            >
-              Sign In
-            </Button>
+          <LoadingButton
+            title={t('auth.login')}
+            onPress={handleSubmit(onSubmit)}
+            loading={authState.loading}
+            style={styles.loginButton}
+          />
 
-            <Button
-              mode="text"
-              onPress={handleForgotPassword}
-              disabled={isLoading}
-              style={styles.forgotButton}
-            >
-              Forgot Password?
-            </Button>
-          </Card.Content>
-        </Card>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text variant="bodySmall" style={styles.footerText}>
-            Version {APP_INFO.VERSION}
-          </Text>
+          <TouchableOpacity
+            style={styles.forgotPasswordContainer}
+            onPress={handleForgotPassword}
+            disabled={authState.loading}
+          >
+            <Text style={styles.forgotPasswordText}>
+              {t('auth.forgotPassword')}
+            </Text>
+          </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -173,63 +188,91 @@ const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#f8f9fa',
   },
-  content: {
-    flex: 1,
-    padding: Spacing.lg,
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
+    padding: 24,
   },
-  header: {
+  headerContainer: {
     alignItems: 'center',
-    marginBottom: Spacing.xl,
+    marginBottom: 40,
   },
   title: {
-    color: Colors.primary,
+    fontSize: 32,
     fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 8,
     textAlign: 'center',
-    marginBottom: Spacing.sm,
   },
   subtitle: {
-    color: Colors.textSecondary,
+    fontSize: 16,
+    color: '#6c757d',
     textAlign: 'center',
   },
-  card: {
-    marginBottom: Spacing.xl,
+  formContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
-  cardContent: {
-    padding: Spacing.lg,
-  },
-  formTitle: {
-    textAlign: 'center',
-    marginBottom: Spacing.lg,
-    color: Colors.text,
-  },
-  input: {
-    marginBottom: Spacing.md,
-    height: Dimensions.input.height,
+  errorContainer: {
+    backgroundColor: '#f8d7da',
+    borderColor: '#f5c6cb',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
   },
   errorText: {
-    color: Colors.error,
+    color: '#721c24',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#495057',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ced4da',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    backgroundColor: '#fff',
+    minHeight: 50,
+  },
+  inputError: {
+    borderColor: '#dc3545',
+  },
+  fieldError: {
+    color: '#dc3545',
     fontSize: 12,
-    marginTop: -Spacing.sm,
-    marginBottom: Spacing.sm,
+    marginTop: 4,
   },
   loginButton: {
-    marginTop: Spacing.md,
-    marginBottom: Spacing.sm,
+    marginTop: 8,
+    marginBottom: 20,
   },
-  loginButtonContent: {
-    height: Dimensions.button.height,
-  },
-  forgotButton: {
-    marginTop: Spacing.sm,
-  },
-  footer: {
+  forgotPasswordContainer: {
     alignItems: 'center',
+    paddingVertical: 12,
   },
-  footerText: {
-    color: Colors.textSecondary,
+  forgotPasswordText: {
+    color: '#007bff',
+    fontSize: 16,
+    textDecorationLine: 'underline',
   },
 });
 

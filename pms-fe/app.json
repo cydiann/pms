@@ -1,0 +1,13 @@
+{
+  "name": "PMSFrontend",
+  "displayName": "PMS - Procurement Management",
+  "expo": {
+    "name": "PMS Frontend",
+    "slug": "pms-frontend",
+    "version": "1.0.0",
+    "platforms": ["ios", "android", "web"],
+    "web": {
+      "bundler": "webpack"
+    }
+  }
+}

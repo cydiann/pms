@@ -1,45 +1,134 @@
-import React, { useEffect } from 'react';
-import { StatusBar, LogBox } from 'react-native';
-import { Provider as PaperProvider } from 'react-native-paper';
-import { Provider as ReduxProvider } from 'react-redux';
-import { PersistGate } from 'redux-persist/integration/react';
-import { NavigationContainer } from '@react-navigation/native';
+import React from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { AuthProvider, useAuth } from './store/AuthContext';
+import LoginScreen from './screens/auth/LoginScreen';
+import { useTranslation } from 'react-i18next';
 
-import { store, persistor } from './store';
-import { PaperTheme } from './constants/theme';
-import AppNavigator from './navigation/AppNavigator';
-import LoadingScreen from './screens/common/LoadingScreen';
-import NotificationManager from './components/common/NotificationManager';
-
-// Ignore specific warnings for development
-LogBox.ignoreLogs([
-  'Warning: componentWillReceiveProps',
-  'Warning: componentWillUpdate',
-  'VirtualizedLists should never be nested',
-]);
-
-const App: React.FC = () => {
-  useEffect(() => {
-    // Any app initialization logic can go here
-  }, []);
+// Simple Dashboard placeholder - will be replaced with proper navigation later
+const DashboardPlaceholder: React.FC = () => {
+  const { t } = useTranslation();
+  const { authState, logout } = useAuth();
 
   return (
-    <ReduxProvider store={store}>
-      <PersistGate loading={<LoadingScreen />} persistor={persistor}>
-        <PaperProvider theme={PaperTheme}>
-          <NavigationContainer>
-            <StatusBar
-              barStyle="dark-content"
-              backgroundColor={PaperTheme.colors.surface}
-              translucent={false}
-            />
-            <AppNavigator />
-            <NotificationManager />
-          </NavigationContainer>
-        </PaperProvider>
-      </PersistGate>
-    </ReduxProvider>
+    <View style={styles.dashboardContainer}>
+      <Text style={styles.title}>
+        {t('dashboard.title')} - PMS
+      </Text>
+      
+      <Text style={styles.welcomeText}>
+        Welcome back, {authState.user?.first_name} {authState.user?.last_name}!
+      </Text>
+      
+      <Text style={styles.userInfo}>
+        Username: {authState.user?.username}
+      </Text>
+      
+      <Text style={styles.userInfo}>
+        Role: {authState.user?.is_superuser ? 'Admin' : 'Employee'}
+      </Text>
+      
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity 
+          style={styles.logoutButton}
+          onPress={logout}
+        >
+          <Text style={styles.logoutButtonText}>
+            {t('auth.logout')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
+
+// Loading screen component
+const LoadingScreen: React.FC = () => (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color="#007bff" />
+    <Text style={styles.loadingText}>Loading...</Text>
+  </View>
+);
+
+// Main app component that handles authentication routing
+const AppContent: React.FC = () => {
+  const { authState } = useAuth();
+
+  // Show loading screen while checking authentication
+  if (authState.loading) {
+    return <LoadingScreen />;
+  }
+
+  // Show login screen if not authenticated
+  if (!authState.isAuthenticated) {
+    return <LoginScreen />;
+  }
+
+  // Show dashboard if authenticated
+  return <DashboardPlaceholder />;
+};
+
+// Root app component with providers
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+};
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6c757d',
+  },
+  dashboardContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    padding: 20,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#2c3e50',
+    textAlign: 'center',
+  },
+  welcomeText: {
+    fontSize: 20,
+    marginBottom: 16,
+    color: '#495057',
+    textAlign: 'center',
+  },
+  userInfo: {
+    fontSize: 16,
+    marginBottom: 8,
+    color: '#6c757d',
+    textAlign: 'center',
+  },
+  buttonContainer: {
+    marginTop: 30,
+  },
+  logoutButton: {
+    backgroundColor: '#dc3545',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  logoutButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+});
 
 export default App;

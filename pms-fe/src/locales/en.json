@@ -1,0 +1,78 @@
+{
+  "auth": {
+    "login": "Login",
+    "username": "Username",
+    "password": "Password",
+    "forgotPassword": "Forgot Password?",
+    "logout": "Logout",
+    "loginError": "Invalid username or password",
+    "loginSuccess": "Login successful"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "myRequests": "My Requests",
+    "createRequest": "Create New Request",
+    "pendingApprovals": "Pending Approvals",
+    "myTeam": "My Team",
+    "allRequests": "All Requests",
+    "statistics": "Statistics"
+  },
+  "requests": {
+    "title": "Requests",
+    "item": "Item",
+    "description": "Description",
+    "quantity": "Quantity",
+    "unit": "Unit",
+    "category": "Category",
+    "deliveryAddress": "Delivery Address",
+    "reason": "Reason",
+    "status": "Status",
+    "requestNumber": "Request Number",
+    "createdAt": "Created At",
+    "submittedAt": "Submitted At"
+  },
+  "status": {
+    "draft": "Draft",
+    "pending": "Pending Approval",
+    "in_review": "Under Review",
+    "revision_requested": "Revision Requested",
+    "approved": "Final Approved - Ready for Purchase",
+    "rejected": "Rejected",
+    "purchasing": "Assigned to Purchasing Team",
+    "ordered": "Order Placed",
+    "delivered": "Delivered",
+    "completed": "Request Completed"
+  },
+  "actions": {
+    "submit": "Submit",
+    "approve": "Approve",
+    "reject": "Reject",
+    "requestRevision": "Request Revision",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "view": "View"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "requests": "Requests",
+    "team": "Team",
+    "profile": "Profile",
+    "settings": "Settings"
+  },
+  "forms": {
+    "required": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "passwordTooShort": "Password must be at least 6 characters",
+    "pleaseWait": "Please wait...",
+    "loading": "Loading..."
+  },
+  "messages": {
+    "success": "Operation completed successfully",
+    "error": "An error occurred",
+    "networkError": "Network connection error",
+    "unauthorized": "Unauthorized access",
+    "notFound": "Resource not found"
+  }
+}

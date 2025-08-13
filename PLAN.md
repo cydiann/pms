@@ -1,285 +1,242 @@
-# PMS React Native App - Development Plan & Status
+# React Native Frontend Development Plan for PMS
 
-## 📋 **Project Overview**
+## Project Setup and Structure
 
-**Procurement Management System (PMS)** - React Native mobile frontend for Django backend
-- **Focus**: Worksite-friendly, simple interfaces for non-technical users
-- **Architecture**: Offline-first with Redux Toolkit, TypeScript, React Native Paper
-- **Users**: Employees, Supervisors, Purchasing Team, Administrators
+### 1. Initialize React Native Project
+- Create new React Native CLI project or clean up existing pms-fe directory
+- Set up TypeScript configuration
+- Install required dependencies for cross-platform development
+- Configure build tools for both iOS/Android and web
 
----
-
-## ✅ **COMPLETED PHASES (Phases 1-3)**
-
-### **Phase 1: Foundation Architecture** ✅
-**Status**: 100% Complete
-- ✅ React Native 0.72.6 + TypeScript setup
-- ✅ Redux Toolkit with persistence (auth, organization data)
-- ✅ React Navigation 6 (Stack + Bottom Tabs)
-- ✅ React Native Paper Material Design UI
-- ✅ JWT authentication with auto-refresh
-- ✅ API service layer with interceptors
-- ✅ Role-based navigation architecture
-
-**Key Files**: 
-- `src/store/` - Redux store configuration
-- `src/services/api.ts` - Core API service
-- `src/navigation/` - Navigation structure
-- `src/constants/theme.ts` - Design system
-
-### **Phase 2: Request Management Core** ✅
-**Status**: 100% Complete
-- ✅ Comprehensive request CRUD operations
-- ✅ Dynamic form with validation (`CreateRequestScreen.tsx`)
-- ✅ Detailed request view with status-based actions (`RequestDetailsScreen.tsx`)
-- ✅ Advanced search, filtering, and sorting (`MyRequestsScreen.tsx`)
-- ✅ Request status timeline and approval history
-- ✅ Category management and auto-complete
-
-**Key Files**:
-- `src/screens/common/CreateRequestScreen.tsx`
-- `src/screens/common/RequestDetailsScreen.tsx`  
-- `src/screens/employee/MyRequestsScreen.tsx`
-- `src/store/slices/requestsSlice.ts`
-
-### **Phase 3: Approval Workflow** ✅
-**Status**: 100% Complete  
-- ✅ Supervisor team management (`TeamRequestsScreen.tsx`)
-- ✅ Bulk approval operations with multi-select
-- ✅ Purchasing queue with priority-based workflow (`PurchasingQueueScreen.tsx`)
-- ✅ Admin password reset management (`PasswordResetScreen.tsx`)
-- ✅ Advanced notification system with push notifications
-- ✅ Status transition state machine implementation
-
-**Key Files**:
-- `src/screens/supervisor/TeamRequestsScreen.tsx`
-- `src/screens/purchasing/PurchasingQueueScreen.tsx`
-- `src/screens/admin/PasswordResetScreen.tsx`
-- `src/services/notificationService.ts`
-
----
-
-## 🚧 **PHASE 4: Advanced Features (In Progress)**
-
-### **Week 1: Simple Admin Panel** ✅ **COMPLETED**
-**Status**: 100% Complete
-- ✅ **AdminDashboardScreen.tsx**: Simple overview with basic counts
-  - Request stats (total, pending, approved, completed)
-  - User stats (total, active, inactive)
-  - Recent activity feed (last 10 actions)
-  - Quick action buttons for main admin functions
-- ✅ **UserManagementScreen.tsx**: Complete user operations
-  - User search and filtering
-  - Password reset with temporary password display
-  - User activation/deactivation
-  - Role and worksite information display
-- ✅ **AdminSlice + AdminService**: Full state management and API integration
-- ✅ **Updated store configuration** with admin slice
-
-### **Week 2: Basic Offline Support** 🔄 **NEXT UP**
-**Planned Features**:
-- **OfflineService.ts**: Core offline functionality
-  - Cache user's own requests for offline viewing
-  - Store draft requests locally using AsyncStorage
-  - Queue approval actions when offline
-  - Simple sync when back online
-- **OfflineIndicator.tsx**: Network status component
-- **SyncProgress.tsx**: Simple "syncing..." indicator
-- **Basic conflict resolution**: Last write wins approach
-
-### **Week 3: App Polish** 📅 **PLANNED**
-**Planned Features**:
-- **DeepLinking.ts**: Direct links to specific requests
-- **QuickActions.tsx**: Home screen shortcuts (iOS/Android)
-- **TabBadges.tsx**: Show pending count on supervisor tabs
-- **AccessibilityLabels.tsx**: Screen reader support for key buttons
-- **FontScaling.tsx**: Support system font size changes
-- **Performance optimizations**: Image caching, list pagination
-
-### **Week 4: Notification Enhancement** 📅 **PLANNED**  
-**Planned Features**:
-- **RichNotifications.ts**: Show request details in notifications
-- **NotificationActions.ts**: Quick approve/reject from notification
-- **SystemAnnouncements.tsx**: Admin can post simple announcements
-- **MaintenanceMode.tsx**: Show maintenance messages
-
-### **Week 5: Search & Security** 📅 **PLANNED**
-**Planned Features**:
-- **GlobalSearch.tsx**: Search across all user's requests
-- **SearchHistory.ts**: Remember recent searches
-- **QuickFilters.tsx**: Common filter buttons (This Week, My Approvals)
-- **SessionTimeout.ts**: Auto-logout after inactivity
-- **DeviceCheck.ts**: Warn if login from new device
-- **BasicAudit.ts**: Log important actions
-
-### **Week 6: Testing & Final Polish** 📅 **PLANNED**
-**Planned Features**:
-- **CriticalPathTests/**: Test main user flows
-- **ErrorHandling.tsx**: Better error messages
-- **CrashPrevention.ts**: Catch and handle common errors
-- **Performance monitoring and optimization**
-
----
-
-## 🏗️ **CURRENT ARCHITECTURE**
-
-### **Tech Stack**
-- **Framework**: React Native 0.72.6
-- **Language**: TypeScript
-- **State Management**: Redux Toolkit + Redux Persist
-- **Navigation**: React Navigation 6
-- **UI Library**: React Native Paper (Material Design)
-- **Authentication**: JWT with auto-refresh
-- **Networking**: Axios with interceptors
-- **Storage**: AsyncStorage + Redux Persist
-
-### **Folder Structure**
+### 2. Project Structure Setup
 ```
-src/
-├── components/         # Reusable UI components
-│   ├── common/        # Shared components
-│   ├── forms/         # Form-specific components
-│   └── request/       # Request-related components
-├── screens/           # Screen components
-│   ├── admin/         # Admin-only screens
-│   ├── auth/          # Authentication screens
-│   ├── common/        # Shared screens
-│   ├── employee/      # Employee screens
-│   ├── purchasing/    # Purchasing team screens
-│   └── supervisor/    # Supervisor screens
-├── navigation/        # Navigation configuration
-├── services/          # API and business logic services
-├── store/             # Redux store and slices
-│   └── slices/        # Redux slices
-├── types/             # TypeScript type definitions
-├── utils/             # Utility functions
-└── constants/         # App constants and configuration
+pms-fe/
+├── src/
+│   ├── components/          # Reusable UI components
+│   ├── screens/            # Screen components
+│   ├── navigation/         # Navigation configuration
+│   ├── services/           # API service layer
+│   ├── store/             # State management (Context/Redux)
+│   ├── types/             # TypeScript type definitions
+│   ├── utils/             # Utility functions
+│   ├── constants/         # App constants
+│   └── locales/           # Internationalization files
+│       ├── en.json        # English translations
+│       └── tr.json        # Turkish translations
+├── assets/                # Images, fonts, etc.
+└── __tests__/            # Test files
 ```
 
-### **State Management Structure**
-```
-Redux Store:
-├── auth              # User authentication & profile (PERSISTED)
-├── organization      # Worksites, divisions, users (PERSISTED)
-├── requests          # Request CRUD and approval workflow
-├── admin             # Admin dashboard and user management
-└── app               # UI state, notifications, loading states
-```
+## Core Dependencies Installation
 
-### **Key Design Patterns**
-- **Offline-first**: All data cached for offline access
-- **Role-based UI**: Different interfaces per user type
-- **State machine**: Strict request status transitions
-- **Optimistic updates**: Immediate UI feedback
-- **Error boundaries**: Graceful error handling
+### 3. Install Essential Libraries
+- React Navigation v6 for navigation
+- React Hook Form for form management
+- AsyncStorage for local storage
+- React Query/TanStack Query for API state management
+- JWT token management utilities
+- React Native Elements or NativeBase for UI components
+- Date/time picker components
+- Status bar and pull-to-refresh components
+- **react-i18next** for internationalization
+- **react-native-localize** for device language detection
 
----
+### 4. Internationalization Setup
+- Configure react-i18next with language detection
+- Create translation files for English and Turkish
+- Set up translation keys for all user-facing text
+- Implement language switching functionality
+- Add RTL support consideration (for future expansion)
+- Create translation helper functions for dynamic content
 
-## 👥 **USER ROLES & FEATURES**
+## Authentication System Implementation
 
-### **Employee** 
-- ✅ View and create requests
-- ✅ Edit draft requests
-- ✅ Submit requests for approval
-- ✅ Track request status and history
-- 🔄 Offline request viewing (Week 2)
+### 5. Authentication Flow
+- Create login screen with username/password fields
+- Implement JWT token storage and refresh logic
+- Create authentication context for app-wide user state
+- Add password reset request functionality
+- Implement logout and token expiration handling
+- Create route protection for authenticated screens
 
-### **Supervisor**
-- ✅ All employee features
-- ✅ View team requests requiring approval
-- ✅ Approve, reject, or request revisions
-- ✅ Bulk approval operations
-- ✅ Team member password reset handling
+### 6. User Management
+- Build user profile screen showing current user info
+- Implement supervisor hierarchy display
+- Create password change functionality
+- Add worksite information display
+- Add language preference selection in profile
 
-### **Purchasing Team**
-- ✅ All employee features  
-- ✅ View purchasing queue with priority sorting
-- ✅ Update request status (purchasing → ordered → delivered)
-- ✅ Handle approved requests through completion
+## Core Application Screens
 
-### **Administrator**
-- ✅ All user features
-- ✅ System overview dashboard
-- ✅ Complete user management (create, edit, activate/deactivate)
-- ✅ Password reset management
-- ✅ System activity monitoring
-- 📅 System configuration (Week 5)
+### 7. Dashboard Implementation
+- Create role-based dashboard layouts:
+  - Employee Dashboard: My Requests + Create New Request
+  - Supervisor Dashboard: My Requests + My Team + Pending Approvals
+  - Admin Dashboard: All Requests + Statistics + User Management
+- Implement request status overview cards
+- Add quick action buttons for common tasks
 
----
+### 8. Request Management System
+- Build request creation form with all required fields
+- Implement request listing with filtering and search
+- Create request detail screens with full approval history
+- Add request status tracking with visual indicators
+- Implement draft saving functionality
+- Build request editing capabilities for draft requests
 
-## 🎯 **SUCCESS CRITERIA**
+### 9. Approval Workflow Interface
+- Create pending approvals screen for supervisors
+- Build approval action interface (approve/reject/request revision)
+- Implement revision request form with feedback fields
+- Add approval history timeline display
+- Create team member request overview for supervisors
 
-### **Technical Excellence**
-- ✅ Crash-free app startup and navigation
-- ✅ Responsive UI on various screen sizes
-- ✅ Proper error handling and user feedback
-- 🔄 Offline capability for core features (Week 2)
-- 📅 <2 second app startup time (Week 6)
+### 10. Purchasing Team Features
+- Build purchasing queue screen
+- Implement order management interface
+- Create delivery tracking functionality
+- Add purchasing team specific actions and workflows
 
-### **User Experience**
-- ✅ Intuitive navigation for all user types
-- ✅ Clear visual feedback for all actions
-- ✅ Worksite-friendly language and workflows
-- 📅 Accessibility compliance (Week 3)
-- 📅 Multi-language support ready (Week 3)
+## Navigation and User Experience
 
-### **Business Value**
-- ✅ Complete procurement workflow digitization
-- ✅ Role-based approval hierarchy enforcement
-- ✅ Full audit trail and request history
-- 📅 Reduced approval processing time (Week 4)
-- 📅 High user adoption rate (Week 6)
+### 11. Navigation Structure
+- Implement tab-based navigation for main sections
+- Create stack navigation for detailed screens
+- Add role-based navigation hiding/showing
+- Implement deep linking for request notifications
+- Add bottom tab navigation with proper icons
 
----
+### 12. User Interface Polish
+- Implement consistent design system
+- Add loading states and error handling
+- Create empty states for lists
+- Implement pull-to-refresh functionality
+- Add proper form validation and user feedback
+- Create confirmation dialogs for critical actions
+- Ensure all text uses translation keys
 
-## 🚀 **IMMEDIATE NEXT STEPS**
+## API Integration Layer
 
-### **Current Priority: Week 2 - Basic Offline Support**
+### 13. API Service Implementation
+- Create centralized API client with base URL configuration
+- Implement authentication interceptors for JWT tokens
+- Build request service methods for all CRUD operations
+- Add error handling and retry logic
+- Implement offline capability with request queuing
+- Create type-safe API response interfaces
 
-1. **Create OfflineService.ts**
-   - Implement AsyncStorage for local request caching
-   - Build draft request local storage system
-   - Create action queue for offline operations
+### 14. State Management
+- Set up Context API or Redux for global state
+- Implement user authentication state
+- Create request state management
+- Add loading and error states
+- Implement local caching strategies
+- Add language preference persistence
 
-2. **Build Offline UI Components**
-   - Network status indicator
-   - Sync progress feedback
-   - Offline mode visual cues
+## Advanced Features
 
-3. **Implement Basic Sync**
-   - Background sync when network returns
-   - Simple conflict resolution (last write wins)
-   - Queue processing with retry logic
+### 15. Offline Support
+- Implement local SQLite database for offline data
+- Add request drafting offline capability
+- Create sync mechanism for when connectivity returns
+- Add offline indicators and user feedback
 
-### **Dependencies & Considerations**
-- **AsyncStorage**: Already available, needs schema definition
-- **Network detection**: @react-native-community/netinfo
-- **Background sync**: Need to handle app state changes
-- **Data integrity**: Ensure sync doesn't corrupt existing data
+### 16. Notifications and Updates
+- Implement push notifications for approval requests
+- Add in-app notifications for status changes
+- Create notification history and management
+- Add real-time updates for request status changes
 
----
+## Testing and Quality Assurance
 
-## 📝 **IMPLEMENTATION NOTES**
+### 17. Testing Implementation
+- Set up Jest for unit testing
+- Create tests for authentication flow
+- Add integration tests for API services
+- Implement end-to-end testing for critical workflows
+- Add accessibility testing
+- Test internationalization functionality
 
-### **Maintained Design Philosophy**
-- **Simplicity first**: No complex features that confuse worksite users
-- **Visual clarity**: Clear status indicators and action buttons
-- **Human-centered**: Designed for face-to-face supervisor interactions
-- **Offline-friendly**: Works in areas with poor connectivity
+### 18. Performance Optimization
+- Implement lazy loading for screens
+- Add image optimization and caching
+- Optimize list rendering with FlatList
+- Implement proper memory management
+- Add performance monitoring
 
-### **Technical Debt & Future Considerations**
-- **Testing coverage**: Currently minimal, needs comprehensive test suite (Week 6)
-- **Performance optimization**: Large request lists need virtualization (Week 3)  
-- **Security hardening**: Biometric auth and advanced session management (Week 5)
-- **Scalability**: Current architecture supports growth to 1000+ users
+## Deployment and Configuration
 
-### **Known Limitations**
-- **No real-time updates**: Pull-to-refresh model (acceptable for worksite use)
-- **Single organization**: No multi-tenant support (not required)
-- **Basic reporting**: No complex analytics (intentionally simple)
+### 19. Build Configuration
+- Configure environment variables for different stages
+- Set up build scripts for development/production
+- Configure code signing for iOS
+- Set up Android release configurations
+- Add proper app icons and splash screens
+- Configure localization for app store listings
 
----
+### 20. Documentation and Deployment
+- Create user documentation in both languages
+- Set up deployment pipelines
+- Configure app store submissions
+- Create deployment guides for different environments
 
-**Last Updated**: Current Phase 4, Week 1 Complete
-**Next Milestone**: Week 2 - Basic Offline Support
-**Target Completion**: End of Week 6 - Full Phase 4 Implementation
+## Security Implementation
+
+### 21. Security Measures
+- Implement secure token storage
+- Add certificate pinning for API calls
+- Create proper session management
+- Implement biometric authentication (optional)
+- Add security headers and validation
+
+## Implementation Progress Tracking
+
+### Completed Tasks
+- [x] Project initialization (React Native with TypeScript)
+- [x] Dependencies installation (Navigation, i18n, API tools, UI components)
+- [x] Internationalization setup (react-i18next with EN/TR translations)
+- [x] Web development environment (webpack config, ready for rapid iteration)
+- [x] Cross-platform compatibility fixes (React version alignment, web storage)
+- [x] Working development server at http://localhost:3000
+- [x] Language switching functionality (English ↔ Turkish)
+- [ ] Authentication system
+- [ ] Core screens implementation
+- [ ] API integration
+- [ ] Testing setup
+- [ ] Deployment configuration
+
+### Notes
+- Use react-i18next for internationalization with JSON translation files
+- Store language preference in localStorage (web) / AsyncStorage (mobile)
+- Implement device language detection on first app launch
+- Consider Turkish language specific UI adjustments (longer text strings)
+- All user-facing strings must use translation keys from day one
+- Plan for future language additions with extensible translation structure
+- Web-first development approach for rapid iteration (code identical for mobile)
+- React 19.1.1 + react-dom for proper compatibility with React Native Web
+
+### Current Development Status
+✅ **Foundation Ready**: Full React Native setup with TypeScript, internationalization
+✅ **Web Development**: Hot-reload server running at http://localhost:3000
+✅ **Cross-Platform**: Single codebase works on web, will work identically on iOS/Android
+✅ **Language Support**: English/Turkish switching with persistent preferences
+✅ **Development Speed**: Fast browser-based iteration vs slow mobile simulators
+
+### Next Priorities
+1. Authentication system (login screen, JWT handling)
+2. API integration layer (axios client, base URL config)
+3. Navigation setup (role-based tabs)
+4. Core screens (dashboard variations by user role)
+5. Request management UI (create, list, approve workflows)
+
+## Key Translation Categories
+- Authentication (login, password reset, etc.)
+- Request management (statuses, forms, actions)
+- Navigation labels
+- Error messages
+- Success messages
+- Form validation messages
+- Dashboard content
+- Settings and profile options
+
+This plan provides a complete, production-ready React Native application with full English/Turkish language support that matches the backend's capabilities while maintaining the simplicity and offline-friendly design principles of the PMS system.
