@@ -6,6 +6,7 @@ from rest_framework.response import Response
 
 from .models import User
 from .serializers import UserSerializer
+from .filters import UserFilter
 from .permissions import (
     CanCreateUser, CanChangeUser, CanDeleteUser, CanManageGroups,
     ActionBasedPermissions, MethodBasedPermissions, permission_required
@@ -16,6 +17,10 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.filter(deleted_at__isnull=True)
     serializer_class = UserSerializer
     permission_classes = [ActionBasedPermissions]
+    filterset_class = UserFilter
+    search_fields = ['username', 'first_name', 'last_name', 'email', 'worksite__name', 'supervisor__username', 'supervisor__first_name', 'supervisor__last_name']
+    ordering_fields = ['username', 'first_name', 'last_name', 'date_joined', 'created_at', 'is_active', 'is_staff']
+    ordering = ['first_name', 'last_name']
     
     # Define permissions for each action
     action_permissions = {

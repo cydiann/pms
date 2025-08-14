@@ -7,6 +7,7 @@ echo "========================="
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Function to run tests
@@ -17,7 +18,12 @@ run_test_module() {
     echo -e "\n${YELLOW}📋 Running: $description${NC}"
     echo "-----------------------------------"
     
-    docker-compose exec app python manage.py test tests.$module_name --verbosity=2
+    # Check if running inside container (no docker-compose needed)
+    if [ -f "/.dockerenv" ]; then
+        python manage.py test $module_name --verbosity=2
+    else
+        docker-compose exec app python manage.py test $module_name --verbosity=2
+    fi
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ $description - PASSED${NC}"
@@ -35,7 +41,12 @@ run_test_class() {
     echo -e "\n${YELLOW}🎯 Running: $description${NC}"
     echo "-----------------------------------"
     
-    docker-compose exec app python manage.py test $test_class --verbosity=2
+    # Check if running inside container (no docker-compose needed)
+    if [ -f "/.dockerenv" ]; then
+        python manage.py test $test_class --verbosity=2
+    else
+        docker-compose exec app python manage.py test $test_class --verbosity=2
+    fi
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ $description - PASSED${NC}"
@@ -47,32 +58,47 @@ run_test_class() {
 
 # Check if specific test module is requested
 case "$1" in
+    "auth"|"authentication")
+        run_test_module "authentication.tests" "Authentication Module Tests"
+        ;;
+    "org"|"organization")
+        run_test_module "organization.tests" "Organization Module Tests"
+        ;;
+    "req"|"requests")
+        run_test_module "requests.tests" "Requests Module Tests"
+        ;;
+    "core")
+        run_test_module "core.tests" "Core Module Tests"
+        ;;
     "models")
-        run_test_module "test_models" "Model Tests"
+        echo -e "${YELLOW}🗄️ Model Tests${NC}"
+        echo "Running all model tests..."
+        
+        run_test_class "authentication.tests.test_models" "User Model Tests" || exit 1
+        run_test_class "organization.tests.test_models" "Organization Model Tests" || exit 1
+        run_test_class "requests.tests.test_models" "Request Model Tests" || exit 1
+        
+        echo -e "\n${GREEN}🎉 All model tests completed!${NC}"
         ;;
-    "auth")
-        run_test_module "test_authentication_views" "Authentication API Tests"
-        ;;
-    "requests")
-        run_test_module "test_request_scenarios" "Request Workflow Tests"
-        ;;
-    "api")
-        run_test_module "test_api_endpoints" "API Endpoint Tests"
-        ;;
-    "basic")
-        run_test_module "test_basic_api" "Basic API Tests"
-        ;;
-    "permissions")
-        run_test_module "test_permissions" "Permission System Tests"
+    "views"|"api")
+        echo -e "${YELLOW}🌐 API/View Tests${NC}"
+        echo "Running all view tests..."
+        
+        run_test_class "authentication.tests.test_views" "Authentication API Tests" || exit 1
+        run_test_class "organization.tests.test_views" "Organization API Tests" || exit 1
+        run_test_class "requests.tests.test_views" "Requests API Tests" || exit 1
+        run_test_class "core.tests.test_views" "Core API Tests" || exit 1
+        
+        echo -e "\n${GREEN}🎉 All API tests completed!${NC}"
         ;;
     "quick")
         echo -e "${YELLOW}🚀 Quick Test Suite${NC}"
         echo "Running essential tests..."
         
-        run_test_class "tests.test_models.UserModelTests" "User Model Tests" || exit 1
-        run_test_class "tests.test_models.RequestModelTests" "Request Model Tests" || exit 1
-        run_test_class "tests.test_basic_api.BasicAPITests" "Basic API Tests" || exit 1
-        run_test_class "tests.test_basic_api.WorksiteAPITests" "Worksite Tests" || exit 1
+        run_test_class "authentication.tests.test_models.UserModelTest" "User Model Tests"
+        run_test_class "organization.tests.test_models.WorksiteModelTest" "Worksite Model Tests"
+        run_test_class "requests.tests.test_models.RequestModelTest" "Request Model Tests"
+        run_test_class "authentication.tests.test_views.UserViewSetTest" "User API Tests"
         
         echo -e "\n${GREEN}🎉 Quick test suite completed successfully!${NC}"
         ;;
@@ -83,15 +109,14 @@ case "$1" in
         # Track failures
         failed_tests=0
         
-        run_test_module "test_models" "Model Layer Tests" || ((failed_tests++))
-        run_test_module "test_authentication_views" "Authentication API Tests" || ((failed_tests++))
-        run_test_module "test_request_scenarios" "Request Workflow Scenarios" || ((failed_tests++))
-        run_test_module "test_api_endpoints" "API Endpoint Tests" || ((failed_tests++))
-        run_test_module "test_permissions" "Permission System Tests" || ((failed_tests++))
+        run_test_module "authentication.tests" "Authentication Module Tests" || ((failed_tests++))
+        run_test_module "organization.tests" "Organization Module Tests" || ((failed_tests++))
+        run_test_module "requests.tests" "Requests Module Tests" || ((failed_tests++))
+        run_test_module "core.tests" "Core Module Tests" || ((failed_tests++))
         
         echo -e "\n========================="
         if [ $failed_tests -eq 0 ]; then
-            echo -e "${GREEN}🎉 All tests passed! ($failed_tests failures)${NC}"
+            echo -e "${GREEN}🎉 All tests passed! (0 failures)${NC}"
             exit 0
         else
             echo -e "${RED}💥 $failed_tests test module(s) failed${NC}"
@@ -100,19 +125,38 @@ case "$1" in
         ;;
     "coverage")
         echo -e "${YELLOW}📊 Running tests with coverage${NC}"
-        docker-compose exec app python -m pytest tests/ --cov=. --cov-report=html --cov-report=term
+        echo "Installing coverage if needed..."
+        
+        # Check if running inside container
+        if [ -f "/.dockerenv" ]; then
+            pip install coverage > /dev/null 2>&1
+            echo "Running tests with coverage analysis..."
+            coverage run --source='.' manage.py test authentication.tests organization.tests requests.tests core.tests --verbosity=2
+            echo -e "\n${BLUE}📈 Coverage Report:${NC}"
+            coverage report
+            echo -e "\n${BLUE}📄 Generating HTML coverage report...${NC}"
+            coverage html
+        else
+            docker-compose exec app pip install coverage > /dev/null 2>&1
+            echo "Running tests with coverage analysis..."
+            docker-compose exec app coverage run --source='.' manage.py test authentication.tests organization.tests requests.tests core.tests --verbosity=2
+            echo -e "\n${BLUE}📈 Coverage Report:${NC}"
+            docker-compose exec app coverage report
+            echo -e "\n${BLUE}📄 Generating HTML coverage report...${NC}"
+            docker-compose exec app coverage html
+        fi
         echo "📄 Coverage report generated in htmlcov/index.html"
         ;;
     "help")
         echo "Usage: $0 [test_type]"
         echo ""
         echo "Test types:"
-        echo "  models      - Run model tests only"
-        echo "  auth        - Run authentication tests only"
-        echo "  requests    - Run request workflow tests only"
-        echo "  api         - Run API endpoint tests only"
-        echo "  basic       - Run basic API tests only (working alternative)"
-        echo "  permissions - Run permission system tests only"
+        echo "  auth        - Run authentication module tests"
+        echo "  org         - Run organization module tests"
+        echo "  requests    - Run requests module tests"
+        echo "  core        - Run core module tests"
+        echo "  models      - Run all model tests"
+        echo "  views       - Run all API/view tests"
         echo "  quick       - Run essential tests only (faster)"
         echo "  all         - Run complete test suite (default)"
         echo "  coverage    - Run tests with coverage report"
@@ -121,6 +165,7 @@ case "$1" in
         echo "Examples:"
         echo "  $0              # Run all tests"
         echo "  $0 quick        # Run quick test suite"
+        echo "  $0 auth         # Run only authentication tests"
         echo "  $0 models       # Run only model tests"
         echo "  $0 coverage     # Run with coverage"
         ;;

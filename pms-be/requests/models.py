@@ -1,4 +1,6 @@
 from django.db import models
+import uuid
+from datetime import datetime
 
 
 class Request(models.Model):
@@ -130,6 +132,21 @@ class Request(models.Model):
         except ValueError:
             # If not in chain, could be purchasing team or admin
             return 0
+    
+    def save(self, *args, **kwargs):
+        """Auto-generate request number if not provided"""
+        if not self.request_number:
+            # Generate format: REQ-YYYY-XXXXXX (year + 6 random chars)
+            year = datetime.now().year
+            random_part = str(uuid.uuid4()).replace('-', '').upper()[:6]
+            self.request_number = f"REQ-{year}-{random_part}"
+            
+            # Ensure uniqueness by checking existing request numbers
+            while Request.objects.filter(request_number=self.request_number).exists():
+                random_part = str(uuid.uuid4()).replace('-', '').upper()[:6]
+                self.request_number = f"REQ-{year}-{random_part}"
+        
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.request_number} - {self.item}"

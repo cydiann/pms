@@ -4,14 +4,24 @@ from .managers import UserManager
 
 
 class User(AbstractUser):
+    username = models.CharField(max_length=150, unique=True, blank=True)  # Make username optional in forms
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
+    phone_number = models.CharField(max_length=20, blank=True, help_text="Phone number with country code")
     supervisor = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='direct_reports')
     worksite = models.ForeignKey('organization.Worksite', on_delete=models.SET_NULL, null=True)
+    division = models.ForeignKey('organization.Division', on_delete=models.SET_NULL, null=True, blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     objects = UserManager()
+    
+    def save(self, *args, **kwargs):
+        """Override save to auto-generate username if not provided"""
+        if not self.username and self.first_name and self.last_name:
+            # Generate username using the manager method
+            self.username = self.__class__.objects.generate_username(self.first_name, self.last_name)
+        super().save(*args, **kwargs)
     
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}"

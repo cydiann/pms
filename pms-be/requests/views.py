@@ -1,4 +1,6 @@
 from django.shortcuts import get_object_or_404
+from django.contrib.auth import get_user_model
+from django.db.models import Count, Q
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -11,11 +13,17 @@ from .serializers import (
     RequestSerializer, RequestCreateSerializer, RequestUpdateSerializer,
     ApprovalHistorySerializer, AuditLogSerializer
 )
+from .filters import RequestFilter, ApprovalHistoryFilter, AuditLogFilter
+from organization.models import Worksite, Division
 
 
 class RequestViewSet(viewsets.ModelViewSet):
     serializer_class = RequestSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filterset_class = RequestFilter
+    search_fields = ['item', 'description', 'category', 'reason', 'request_number', 'created_by__username', 'created_by__first_name', 'created_by__last_name']
+    ordering_fields = ['created_at', 'submitted_at', 'updated_at', 'status', 'quantity', 'item', 'category', 'revision_count']
+    ordering = ['-created_at']
     
     def get_queryset(self):
         user = self.request.user
@@ -308,6 +316,10 @@ class ApprovalHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ApprovalHistory.objects.all()
     serializer_class = ApprovalHistorySerializer
     permission_classes = [permissions.IsAuthenticated]
+    filterset_class = ApprovalHistoryFilter
+    search_fields = ['request__request_number', 'request__item', 'user__username', 'user__first_name', 'user__last_name', 'notes']
+    ordering_fields = ['created_at', 'level', 'action']
+    ordering = ['-created_at']
     
     def get_queryset(self):
         if self.request.user.is_staff:
@@ -322,27 +334,27 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
     permission_classes = [permissions.IsAdminUser]
+    filterset_class = AuditLogFilter
+    search_fields = ['user__username', 'user__first_name', 'user__last_name', 'action', 'table_name']
+    ordering_fields = ['timestamp', 'action', 'table_name']
+    ordering = ['-timestamp']
     
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        from django.contrib.auth import get_user_model
-        from django.db.models import Count
         
         User = get_user_model()
         
-        # Basic request counts following the state machine
-        total_requests = Request.objects.count()
-        pending_requests = Request.objects.filter(status='pending').count()
-        approved_requests = Request.objects.filter(status='approved').count()  # Fixed: use 'approved' not 'purchasing'
-        rejected_requests = Request.objects.filter(status='rejected').count()
-        draft_requests = Request.objects.filter(status='draft').count()
-        completed_requests = Request.objects.filter(status='completed').count()
-        
-        # Requests by status breakdown (for the status chart)
+        # Optimized: Single query for all status counts
         status_counts = Request.objects.values('status').annotate(count=Count('id'))
-        requests_by_status = {}
-        for item in status_counts:
-            requests_by_status[item['status']] = item['count']
+        requests_by_status = {item['status']: item['count'] for item in status_counts}
+        
+        # Extract specific counts from the aggregated data
+        total_requests = sum(requests_by_status.values())
+        pending_requests = requests_by_status.get('pending', 0)
+        approved_requests = requests_by_status.get('approved', 0)
+        rejected_requests = requests_by_status.get('rejected', 0)
+        draft_requests = requests_by_status.get('draft', 0)
+        completed_requests = requests_by_status.get('completed', 0)
         
         # Requests by category breakdown  
         category_counts = Request.objects.values('category').annotate(count=Count('id'))
@@ -350,9 +362,11 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         for item in category_counts:
             requests_by_category[item['category']] = item['count']
         
-        # User statistics
-        total_users = User.objects.count()
-        active_users = User.objects.filter(is_active=True).count()
+        # Optimized: User statistics with single query
+        user_stats = User.objects.aggregate(
+            total_users=Count('id'),
+            active_users=Count('id', filter=Q(is_active=True))
+        )
         
         # Admin specific: all pending approvals (pending + in_review)
         all_pending_approvals = Request.objects.filter(
@@ -374,8 +388,8 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
             
             # AdminStats interface fields  
             'all_pending_approvals': all_pending_approvals,
-            'total_users': total_users,
-            'active_users': active_users,
-            'total_worksites': 0,  # Add when worksite model is available
-            'total_divisions': 0,  # Add when division model is available
+            'total_users': user_stats['total_users'],
+            'active_users': user_stats['active_users'],
+            'total_worksites': Worksite.objects.count(),
+            'total_divisions': Division.objects.count(),
         })
