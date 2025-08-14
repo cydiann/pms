@@ -325,15 +325,57 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        # Dashboard statistics
+        from django.contrib.auth import get_user_model
+        from django.db.models import Count
+        
+        User = get_user_model()
+        
+        # Basic request counts following the state machine
         total_requests = Request.objects.count()
         pending_requests = Request.objects.filter(status='pending').count()
-        approved_requests = Request.objects.filter(status='purchasing').count()
+        approved_requests = Request.objects.filter(status='approved').count()  # Fixed: use 'approved' not 'purchasing'
         rejected_requests = Request.objects.filter(status='rejected').count()
+        draft_requests = Request.objects.filter(status='draft').count()
+        completed_requests = Request.objects.filter(status='completed').count()
+        
+        # Requests by status breakdown (for the status chart)
+        status_counts = Request.objects.values('status').annotate(count=Count('id'))
+        requests_by_status = {}
+        for item in status_counts:
+            requests_by_status[item['status']] = item['count']
+        
+        # Requests by category breakdown  
+        category_counts = Request.objects.values('category').annotate(count=Count('id'))
+        requests_by_category = {}
+        for item in category_counts:
+            requests_by_category[item['category']] = item['count']
+        
+        # User statistics
+        total_users = User.objects.count()
+        active_users = User.objects.filter(is_active=True).count()
+        
+        # Admin specific: all pending approvals (pending + in_review)
+        all_pending_approvals = Request.objects.filter(
+            status__in=['pending', 'in_review']
+        ).count()
         
         return Response({
+            # RequestStats interface fields
             'total_requests': total_requests,
             'pending_requests': pending_requests,
             'approved_requests': approved_requests,
             'rejected_requests': rejected_requests,
+            'draft_requests': draft_requests,
+            'completed_requests': completed_requests,
+            'requests_by_status': requests_by_status,
+            'requests_by_category': requests_by_category,
+            'average_processing_time': 0,  # Can be calculated later if needed
+            'monthly_request_count': 0,    # Can be calculated later if needed
+            
+            # AdminStats interface fields  
+            'all_pending_approvals': all_pending_approvals,
+            'total_users': total_users,
+            'active_users': active_users,
+            'total_worksites': 0,  # Add when worksite model is available
+            'total_divisions': 0,  # Add when division model is available
         })

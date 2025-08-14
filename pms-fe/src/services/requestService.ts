@@ -110,7 +110,7 @@ class RequestService {
 
   // Get admin dashboard stats
   async getAdminStats(): Promise<AdminStats> {
-    return await apiClient.get<AdminStats>(`${API_ENDPOINTS.REQUESTS.LIST}admin_stats/`);
+    return await apiClient.get<AdminStats>(`${API_ENDPOINTS.REQUESTS.LIST}admin/stats/`);
   }
 
   // Utility methods for request status and transitions
@@ -151,8 +151,8 @@ class RequestService {
   }
 
   canUserApprove(request: Request, currentUserId: number): boolean {
-    return request.current_approver === currentUserId && 
-           ['pending', 'in_review'].includes(request.status);
+    return request.current_approver === currentUserId &&
+      ['pending', 'in_review'].includes(request.status);
   }
 
   canUserDelete(request: Request, currentUserId: number): boolean {
