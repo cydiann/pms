@@ -13,7 +13,7 @@ class Worksite(models.Model):
 
 class Division(models.Model):
     name = models.CharField(max_length=100)
-    created_by = models.ForeignKey('authentication.User', on_delete=models.CASCADE)
+    created_by = models.ForeignKey('authentication.User', on_delete=models.CASCADE, related_name='created_divisions')
     worksites = models.ManyToManyField(Worksite, blank=True)
     
     def __str__(self):

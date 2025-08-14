@@ -22,6 +22,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY . /app/
 
+# Make scripts executable
+RUN chmod +x /app/entrypoint.sh /app/run_tests.sh
+
 # Expose port
 EXPOSE 8000
 

@@ -239,6 +239,35 @@ print('💡 Use the Postman collection to test all API endpoints!')
 "
 fi
 
+# Run tests if DEBUG=True
+if [ "$DEBUG" = "True" ] || [ "$DEBUG" = "true" ] || [ "$DEBUG" = "1" ]; then
+    echo ""
+    echo "🧪 DEBUG mode detected - Running test suite..."
+    echo "================================================="
+    
+    # Check if run_tests.sh exists and is executable
+    if [ -f "./run_tests.sh" ]; then
+        chmod +x ./run_tests.sh
+        echo "Running quick test suite..."
+        ./run_tests.sh quick
+        
+        if [ $? -eq 0 ]; then
+            echo ""
+            echo "✅ All tests passed! Starting server..."
+        else
+            echo ""
+            echo "❌ Some tests failed, but continuing with server startup..."
+            echo "💡 Run './run_tests.sh all' to see detailed test results"
+        fi
+    else
+        echo "⚠️  run_tests.sh not found, running basic Django test command..."
+        python manage.py test --verbosity=1
+    fi
+    
+    echo ""
+    echo "================================================="
+fi
+
 # Start the Django development server
 echo "Starting Django development server..."
 python manage.py runserver 0.0.0.0:8000

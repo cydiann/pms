@@ -22,4 +22,5 @@ urlpatterns = [
     path('auth/', include('authentication.urls')),
     path('org/', include('organization.urls')),
     path('requests/', include('requests.urls')),
+    path('core/', include('core.urls')),
 ]
