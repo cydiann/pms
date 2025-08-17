@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from decimal import Decimal
-from requests.models import Request, ApprovalHistory, AuditLog
+from requisition.models import Request, ApprovalHistory, AuditLog
 from organization.models import Worksite, Division
 
 User = get_user_model()

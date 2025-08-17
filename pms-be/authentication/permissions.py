@@ -48,25 +48,25 @@ class CanManageGroups(permissions.BasePermission):
 class CanViewAllRequests(permissions.BasePermission):
     """Permission to view all purchase requests in the system"""
     def has_permission(self, request, view):
-        return request.user.has_perm('requests.view_all_requests')
+        return request.user.has_perm('requisition.view_all_requests')
 
 
 class CanApproveRequests(permissions.BasePermission):
     """Permission to approve purchase requests"""
     def has_permission(self, request, view):
-        return request.user.has_perm('requests.approve_request')
+        return request.user.has_perm('requisition.approve_request')
 
 
 class CanViewPurchasingQueue(permissions.BasePermission):
     """Permission to view purchasing team queue"""
     def has_permission(self, request, view):
-        return request.user.has_perm('requests.view_purchasing_queue')
+        return request.user.has_perm('requisition.view_purchasing_queue')
 
 
 class CanManageOrders(permissions.BasePermission):
     """Permission to mark orders as ordered/delivered"""
     def has_permission(self, request, view):
-        return request.user.has_perm('requests.manage_orders')
+        return request.user.has_perm('requisition.manage_orders')
 
 
 # Convenience function to create permission class on the fly
@@ -128,6 +128,25 @@ class ActionBasedPermissions(permissions.BasePermission):
         
         if required_permission is None:
             return True  # No specific permission required for this action
+            
+        return request.user.has_perm(required_permission)
+    
+    def has_object_permission(self, request, view, obj):
+        """Allow users to update themselves even without change_user permission"""
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # For update actions, allow users to update themselves
+        if view.action in ['update', 'partial_update', 'retrieve']:
+            if obj == request.user:
+                return True
+        
+        # Fall back to regular permission check
+        action_permissions = getattr(view, 'action_permissions', {})
+        required_permission = action_permissions.get(view.action)
+        
+        if required_permission is None:
+            return True
             
         return request.user.has_perm(required_permission)
 

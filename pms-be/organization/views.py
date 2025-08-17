@@ -8,7 +8,7 @@ from .filters import WorksiteFilter, DivisionFilter
 
 from authentication.models import User
 from authentication.serializers import UserSerializer
-from requests.models import Request
+from requisition.models import Request
 
 class WorksiteViewSet(viewsets.ModelViewSet):
     queryset = Worksite.objects.all()

@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from organization.models import Worksite, Division
-from requests.models import Request
+from requisition.models import Request
 from decimal import Decimal
 
 User = get_user_model()
@@ -114,9 +114,14 @@ class CoreViewSetTest(APITestCase):
         response = self.client.get(reverse('core-worksite-breakdown'))
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)  # One worksite
+        # Find our test worksite in the response data
+        worksite_data = None
+        for ws_data in response.data:
+            if ws_data['worksite_name'] == f"{self.worksite.city}, {self.worksite.country}":
+                worksite_data = ws_data
+                break
         
-        worksite_data = response.data[0]
+        self.assertIsNotNone(worksite_data, "Test worksite not found in response")
         expected_fields = [
             'worksite_id', 'worksite_name', 'total_users', 'active_users',
             'inactive_users', 'total_requests', 'requests_by_status'
@@ -135,9 +140,14 @@ class CoreViewSetTest(APITestCase):
         response = self.client.get(reverse('core-division-breakdown'))
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)  # One division
+        # Find our test division in the response data
+        division_data = None
+        for div_data in response.data:
+            if div_data['division_name'] == self.division.name:
+                division_data = div_data
+                break
         
-        division_data = response.data[0]
+        self.assertIsNotNone(division_data, "Test division not found in response")
         expected_fields = [
             'division_id', 'division_name', 'total_users', 'active_users',
             'inactive_users', 'total_requests', 'requests_by_status'

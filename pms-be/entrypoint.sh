@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Django PMS Backend Entrypoint
+
 # Wait for database to be ready
 echo "Waiting for database..."
 until python manage.py check --database default > /dev/null 2>&1; do
@@ -245,23 +247,16 @@ if [ "$DEBUG" = "True" ] || [ "$DEBUG" = "true" ] || [ "$DEBUG" = "1" ]; then
     echo "🧪 DEBUG mode detected - Running test suite..."
     echo "================================================="
     
-    # Check if run_tests.sh exists and is executable
-    if [ -f "./run_tests.sh" ]; then
-        chmod +x ./run_tests.sh
-        echo "Running quick test suite..."
-        ./run_tests.sh quick
-        
-        if [ $? -eq 0 ]; then
-            echo ""
-            echo "✅ All tests passed! Starting server..."
-        else
-            echo ""
-            echo "❌ Some tests failed, but continuing with server startup..."
-            echo "💡 Run './run_tests.sh all' to see detailed test results"
-        fi
+    echo "Running all tests with Django test discovery..."
+    python manage.py test . --verbosity=2
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo "✅ All tests passed! Starting server..."
     else
-        echo "⚠️  run_tests.sh not found, running basic Django test command..."
-        python manage.py test --verbosity=1
+        echo ""
+        echo "❌ Some tests failed, but continuing with server startup..."
+        echo "💡 Check test output above for details"
     fi
     
     echo ""

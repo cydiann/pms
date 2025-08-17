@@ -18,17 +18,15 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [ActionBasedPermissions]
     filterset_class = UserFilter
-    search_fields = ['username', 'first_name', 'last_name', 'email', 'worksite__name', 'supervisor__username', 'supervisor__first_name', 'supervisor__last_name']
+    search_fields = ['username', 'first_name', 'last_name', 'worksite__city', 'supervisor__username', 'supervisor__first_name', 'supervisor__last_name']
     ordering_fields = ['username', 'first_name', 'last_name', 'date_joined', 'created_at', 'is_active', 'is_staff']
     ordering = ['first_name', 'last_name']
     
     # Define permissions for each action
     action_permissions = {
         'list': 'auth.view_user',
-        'retrieve': 'auth.view_user', 
+        # 'retrieve', 'update', 'partial_update' allow all authenticated users (queryset filtering + object permissions handle access)
         'create': 'auth.add_user',
-        'update': 'auth.change_user',
-        'partial_update': 'auth.change_user',
         'destroy': 'auth.delete_user',
         'manage_groups': 'auth.change_group',
         'manage_permissions': 'auth.change_permission',

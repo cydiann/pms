@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # List of default applications (add your app names here)
-default_apps=("auth.Group" "authentication" "organization" "requests")
+default_apps=("auth.Group" "authentication" "organization" "requisition")
 
 # Function to create fixtures for an application
 create_fixture() {
@@ -38,7 +38,7 @@ from authentication.models import User
 from organization.models import Worksite, Division
 from django.contrib.auth.models import Group, Permission
 from django.contrib.auth.hashers import make_password
-from requests.permissions import setup_default_request_groups
+from requisition.permissions import setup_default_request_groups
 
 # Create admin user
 admin, created = User.objects.get_or_create(

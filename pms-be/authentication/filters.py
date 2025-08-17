@@ -5,7 +5,7 @@ from .models import User
 
 class UserFilter(django_filters.FilterSet):
     worksite = django_filters.NumberFilter(field_name='worksite__id')
-    worksite_name = django_filters.CharFilter(field_name='worksite__name', lookup_expr='icontains')
+    worksite_city = django_filters.CharFilter(field_name='worksite__city', lookup_expr='icontains')
     supervisor = django_filters.NumberFilter(field_name='supervisor__id')
     supervisor_username = django_filters.CharFilter(field_name='supervisor__username', lookup_expr='icontains')
     
@@ -31,7 +31,6 @@ class UserFilter(django_filters.FilterSet):
             'username': ['exact', 'icontains'],
             'first_name': ['exact', 'icontains'],
             'last_name': ['exact', 'icontains'],
-            'email': ['exact', 'icontains'],
             'is_active': ['exact'],
             'is_staff': ['exact'],
             'is_superuser': ['exact'],

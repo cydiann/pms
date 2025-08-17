@@ -1,6 +1,7 @@
 from django.db import models
 import uuid
 from datetime import datetime
+from django.utils import timezone
 
 
 class Request(models.Model):
@@ -99,6 +100,22 @@ class Request(models.Model):
         
         old_status = self.status
         self.status = new_status
+        
+        # Set current_approver when transitioning to pending status
+        if new_status == 'pending':
+            if old_status == 'draft':
+                # First submission - set to immediate supervisor
+                self.current_approver = self.created_by.supervisor
+            elif old_status == 'revision_requested':
+                # Resubmission after revision - keep current flow
+                chain = self.get_approval_chain()
+                if self.current_approver and self.current_approver in chain:
+                    # Stay with current approver if they requested revision
+                    pass
+                else:
+                    # Reset to beginning of chain
+                    self.current_approver = chain[0] if chain else None
+        
         self.save()
         
         # Log the transition
@@ -137,7 +154,7 @@ class Request(models.Model):
         """Auto-generate request number if not provided"""
         if not self.request_number:
             # Generate format: REQ-YYYY-XXXXXX (year + 6 random chars)
-            year = datetime.now().year
+            year = timezone.now().year
             random_part = str(uuid.uuid4()).replace('-', '').upper()[:6]
             self.request_number = f"REQ-{year}-{random_part}"
             

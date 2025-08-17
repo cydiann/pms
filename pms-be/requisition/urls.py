@@ -3,8 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import RequestViewSet, ApprovalHistoryViewSet, AuditLogViewSet
 
 router = DefaultRouter()
+router.register(r'approval-history', ApprovalHistoryViewSet, basename='approvalhistory')
 router.register(r'', RequestViewSet, basename='request')
-router.register(r'approval-history', ApprovalHistoryViewSet)
 router.register(r'admin/audit-logs', AuditLogViewSet)
 
 urlpatterns = [

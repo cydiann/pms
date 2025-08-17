@@ -36,27 +36,27 @@ class RequestPermissionMixin:
 # Permission classes for specific actions
 class CanViewAllRequests(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.has_perm('requests.view_all_requests')
+        return request.user.has_perm('requisition.view_all_requests')
 
 
 class CanApproveRequests(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.has_perm('requests.approve_request')
+        return request.user.has_perm('requisition.approve_request')
 
 
 class CanViewPurchasingQueue(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.has_perm('requests.view_purchasing_queue')
+        return request.user.has_perm('requisition.view_purchasing_queue')
 
 
 class CanMarkOrdered(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.has_perm('requests.mark_ordered')
+        return request.user.has_perm('requisition.mark_ordered')
 
 
 class CanCompleteRequest(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.has_perm('requests.complete_request')
+        return request.user.has_perm('requisition.complete_request')
 
 
 class RequestObjectPermission(permissions.BasePermission):
@@ -79,11 +79,11 @@ class RequestObjectPermission(permissions.BasePermission):
         # Supervisors can approve requests from their direct reports
         if hasattr(obj, 'created_by') and obj.created_by.supervisor == user:
             if view.action in ['approve', 'reject', 'request_revision']:
-                return user.has_perm('requests.approve_request')
+                return user.has_perm('requisition.approve_request')
                 
         # Purchasing team can handle approved requests
         if obj.status == 'approved' and view.action in ['mark_ordered', 'mark_delivered', 'complete']:
-            return user.has_perm('requests.view_purchasing_queue')
+            return user.has_perm('requisition.view_purchasing_queue')
             
         return False
 
@@ -100,7 +100,7 @@ class SupervisorRequestPermission(permissions.BasePermission):
         # Check if user is in the approval chain
         approval_chain = obj.get_approval_chain()
         if user in approval_chain:
-            return user.has_perm('requests.approve_request')
+            return user.has_perm('requisition.approve_request')
             
         return False
 
@@ -120,22 +120,22 @@ class RequestActionPermissions(permissions.BasePermission):
         
         # Define permission requirements for each action
         action_permissions = {
-            'list': 'requests.view_request',  # Can list own requests
-            'retrieve': 'requests.view_request',
-            'create': 'requests.add_request',
-            'update': 'requests.change_request',
-            'partial_update': 'requests.change_request',
-            'destroy': 'requests.delete_request',
-            'submit': 'requests.add_request',  # Same as create
-            'approve': 'requests.approve_request',
-            'reject': 'requests.reject_request',
-            'request_revision': 'requests.request_revision',
-            'mark_ordered': 'requests.mark_ordered',
-            'mark_delivered': 'requests.mark_delivered',
-            'complete': 'requests.complete_request',
-            'history': 'requests.view_request',
-            'admin_stats': 'requests.view_all_requests',
-            'purchasing_queue': 'requests.view_purchasing_queue',
+            'list': 'requisition.view_request',  # Can list own requests
+            'retrieve': 'requisition.view_request',
+            'create': 'requisition.add_request',
+            'update': 'requisition.change_request',
+            'partial_update': 'requisition.change_request',
+            'destroy': 'requisition.delete_request',
+            'submit': 'requisition.add_request',  # Same as create
+            'approve': 'requisition.approve_request',
+            'reject': 'requisition.reject_request',
+            'request_revision': 'requisition.request_revision',
+            'mark_ordered': 'requisition.mark_ordered',
+            'mark_delivered': 'requisition.mark_delivered',
+            'complete': 'requisition.complete_request',
+            'history': 'requisition.view_request',
+            'admin_stats': 'requisition.view_all_requests',
+            'purchasing_queue': 'requisition.view_purchasing_queue',
         }
         
         required_permission = action_permissions.get(action)
@@ -162,10 +162,10 @@ def setup_default_request_groups():
     employee_group, created = Group.objects.get_or_create(name='Employee')
     if created or not employee_group.permissions.exists():
         employee_permissions = [
-            'requests.add_request',
-            'requests.view_request', 
-            'requests.change_request',
-            'requests.manage_own_requests',
+            'requisition.add_request',
+            'requisition.view_request', 
+            'requisition.change_request',
+            'requisition.manage_own_requests',
         ]
         for perm_codename in employee_permissions:
             try:
@@ -178,12 +178,12 @@ def setup_default_request_groups():
     supervisor_group, created = Group.objects.get_or_create(name='Supervisor')
     if created or not supervisor_group.permissions.filter(codename='approve_request').exists():
         supervisor_permissions = [
-            'requests.add_request',
-            'requests.view_request',
-            'requests.approve_request',
-            'requests.reject_request', 
-            'requests.request_revision',
-            'requests.view_team_requests',
+            'requisition.add_request',
+            'requisition.view_request',
+            'requisition.approve_request',
+            'requisition.reject_request', 
+            'requisition.request_revision',
+            'requisition.view_team_requests',
         ]
         for perm_codename in supervisor_permissions:
             try:
@@ -196,12 +196,12 @@ def setup_default_request_groups():
     purchasing_group, created = Group.objects.get_or_create(name='Purchasing Team')
     if created or not purchasing_group.permissions.filter(codename='view_purchasing_queue').exists():
         purchasing_permissions = [
-            'requests.view_purchasing_queue',
-            'requests.mark_ordered',
-            'requests.mark_delivered', 
-            'requests.complete_request',
-            'requests.reject_request',
-            'requests.request_revision',
+            'requisition.view_purchasing_queue',
+            'requisition.mark_ordered',
+            'requisition.mark_delivered', 
+            'requisition.complete_request',
+            'requisition.reject_request',
+            'requisition.request_revision',
         ]
         for perm_codename in purchasing_permissions:
             try:

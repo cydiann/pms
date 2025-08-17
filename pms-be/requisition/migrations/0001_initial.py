@@ -60,7 +60,7 @@ class Migration(migrations.Migration):
                 ('review_notes', models.TextField(blank=True, help_text='Notes from upper management for revision')),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
-                ('request', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='approval_history', to='requests.request')),
+                ('request', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='approval_history', to='requisition.request')),
             ],
             options={
                 'ordering': ['-created_at'],
@@ -75,7 +75,7 @@ class Migration(migrations.Migration):
                 ('upper_management_notes', models.TextField(blank=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('revised_at', models.DateTimeField(blank=True, null=True)),
-                ('request', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='revisions', to='requests.request')),
+                ('request', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='revisions', to='requisition.request')),
                 ('requested_by', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='requested_revisions', to=settings.AUTH_USER_MODEL)),
                 ('revised_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='made_revisions', to=settings.AUTH_USER_MODEL)),
             ],

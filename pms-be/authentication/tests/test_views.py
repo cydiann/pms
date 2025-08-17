@@ -61,13 +61,20 @@ class UserViewSetTest(APITestCase):
         self.assertEqual(len(response.data['results']), 2)  # admin + regular user
     
     def test_list_users_as_regular_user(self):
-        """Test regular user can only see themselves"""
+        """Test regular user cannot list all users (should get 403)"""
         self.client.force_authenticate(user=self.regular_user)
         response = self.client.get(self.users_url)
         
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    
+    def test_regular_user_can_access_me_endpoint(self):
+        """Test regular user can access their own profile via /me endpoint"""
+        self.client.force_authenticate(user=self.regular_user)
+        response = self.client.get(f'{self.users_url}me/')
+        
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 1)
-        self.assertEqual(response.data['results'][0]['id'], self.regular_user.id)
+        self.assertEqual(response.data['id'], self.regular_user.id)
+        self.assertEqual(response.data['username'], self.regular_user.username)
     
     def test_create_user_as_admin(self):
         """Test admin can create users"""

@@ -3,11 +3,12 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Count, Q
 from datetime import datetime, timedelta
+from django.utils import timezone
 from collections import defaultdict
 
 from authentication.models import User
 from organization.models import Worksite, Division
-from requests.models import Request
+from requisition.models import Request
 from .serializers import SystemStatsSerializer, WorksiteStatsSerializer, DivisionStatsSerializer
 
 
@@ -90,7 +91,7 @@ class CoreViewSet(viewsets.ViewSet):
         # Optimized: Monthly trends using database aggregation
         from django.db.models.functions import TruncMonth
         
-        six_months_ago = datetime.now() - timedelta(days=180)
+        six_months_ago = timezone.now() - timedelta(days=180)
         monthly_data = (
             Request.objects
             .filter(created_at__gte=six_months_ago)
@@ -151,8 +152,8 @@ class CoreViewSet(viewsets.ViewSet):
         
         # Optimized: Single query with aggregation for worksite statistics
         worksite_stats = Worksite.objects.annotate(
-            total_users=Count('user', filter=Q(user__deleted_at__isnull=True)),
-            active_users=Count('user', filter=Q(user__deleted_at__isnull=True, user__is_active=True)),
+            total_users=Count('user', filter=Q(user__deleted_at__isnull=True), distinct=True),
+            active_users=Count('user', filter=Q(user__deleted_at__isnull=True, user__is_active=True), distinct=True),
             total_requests=Count('user__created_requests')
         ).values('id', 'city', 'country', 'total_users', 'active_users', 'total_requests')
         
@@ -192,8 +193,8 @@ class CoreViewSet(viewsets.ViewSet):
         
         # Optimized: Division statistics with aggregation
         division_stats = Division.objects.annotate(
-            total_users=Count('user', filter=Q(user__deleted_at__isnull=True)),
-            active_users=Count('user', filter=Q(user__deleted_at__isnull=True, user__is_active=True)),
+            total_users=Count('user', filter=Q(user__deleted_at__isnull=True), distinct=True),
+            active_users=Count('user', filter=Q(user__deleted_at__isnull=True, user__is_active=True), distinct=True),
             total_requests=Count('user__created_requests')
         ).values('id', 'name', 'total_users', 'active_users', 'total_requests')
         

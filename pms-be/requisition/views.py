@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
 from datetime import datetime
+from django.utils import timezone
 import uuid
 
 from .models import Request, ApprovalHistory, AuditLog
@@ -41,17 +42,26 @@ class RequestViewSet(viewsets.ModelViewSet):
             return RequestUpdateSerializer
         return RequestSerializer
     
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+        # Use CreateSerializer for input validation
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
         # Auto-generate request number
         request_number = self.generate_request_number()
-        serializer.save(
-            created_by=self.request.user, 
+        instance = serializer.save(
+            created_by=request.user, 
             request_number=request_number
         )
+        
+        # Use full RequestSerializer for response
+        response_serializer = RequestSerializer(instance)
+        headers = self.get_success_headers(response_serializer.data)
+        return Response(response_serializer.data, status=201, headers=headers)
     
     def generate_request_number(self):
         # Generate unique request number: REQ-YYYY-XXXXXX
-        year = datetime.now().year
+        year = timezone.now().year
         unique_id = str(uuid.uuid4())[:6].upper()
         return f"REQ-{year}-{unique_id}"
     
@@ -155,7 +165,7 @@ class RequestViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             try:
                 request_obj.transition_to('pending', request.user, request.data.get('notes', ''))
-                request_obj.submitted_at = datetime.now()
+                request_obj.submitted_at = timezone.now()
                 request_obj.save()
             except ValueError as e:
                 return Response(
@@ -306,7 +316,7 @@ class RequestViewSet(viewsets.ModelViewSet):
         request_obj = self.get_object()
         history = ApprovalHistory.objects.filter(
             request=request_obj
-        ).order_by('-approved_at')
+        ).order_by('-created_at')
         
         serializer = ApprovalHistorySerializer(history, many=True)
         return Response(serializer.data)
