@@ -1,28 +1,167 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { RouteProp, useRoute } from '@react-navigation/native';
+import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { MainStackParamList } from '../../navigation/MainStack';
+import requestService from '../../services/requestService';
+import { Request } from '../../types/requests';
 
 type RequestDetailScreenRouteProp = RouteProp<MainStackParamList, 'RequestDetail'>;
 
 const RequestDetailScreen: React.FC = () => {
   const { t } = useTranslation();
   const route = useRoute<RequestDetailScreenRouteProp>();
+  const navigation = useNavigation();
   const { requestId } = route.params;
+  
+  const [request, setRequest] = useState<Request | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    loadRequest();
+  }, [requestId]);
+
+  const loadRequest = async () => {
+    try {
+      setLoading(true);
+      const requestData = await requestService.getRequest(requestId);
+      setRequest(requestData);
+    } catch (error: any) {
+      Alert.alert(t('messages.error'), error.message || 'Failed to load request');
+      navigation.goBack();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitRequest = async () => {
+    if (!request) return;
+
+    Alert.alert(
+      t('requests.submitRequest'),
+      t('requests.submitRequestConfirm'),
+      [
+        { text: t('actions.cancel'), style: 'cancel' },
+        {
+          text: t('requests.submitButton'),
+          onPress: async () => {
+            try {
+              setSubmitting(true);
+              await requestService.submitRequest(request.id);
+              Alert.alert(
+                t('messages.success'),
+                t('requests.requestSubmitted'),
+                [
+                  {
+                    text: t('actions.ok'),
+                    onPress: () => navigation.goBack(),
+                  },
+                ]
+              );
+            } catch (error: any) {
+              Alert.alert(t('messages.error'), error.message || 'Failed to submit request');
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007bff" />
+        <Text style={styles.loadingText}>{t('requests.loading')}</Text>
+      </View>
+    );
+  }
+
+  if (!request) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>{t('requests.requestNotFound')}</Text>
+      </View>
+    );
+  }
+
+  const canSubmit = request.status === 'draft';
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
-        {t('requests.detailTitle')}
-      </Text>
-      <Text style={styles.subtitle}>
-        Request ID: {requestId}
-      </Text>
-      <Text style={styles.placeholder}>
-        Request details will be displayed here...
-      </Text>
-    </View>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>{request.item}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: requestService.getStatusColor(request.status) }]}>
+          <Text style={styles.statusText}>{requestService.getStatusDisplay(request.status)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.content}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('requests.requestDetails')}</Text>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>{t('requests.requestNumber')}:</Text>
+            <Text style={styles.value}>{request.request_number}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>{t('requests.item')}:</Text>
+            <Text style={styles.value}>{request.item}</Text>
+          </View>
+          
+          {request.description && (
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>{t('requests.description')}:</Text>
+              <Text style={styles.value}>{request.description}</Text>
+            </View>
+          )}
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>{t('requests.quantity')}:</Text>
+            <Text style={styles.value}>{request.quantity} {request.unit}</Text>
+          </View>
+          
+          {request.category && (
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>{t('requests.category')}:</Text>
+              <Text style={styles.value}>{request.category}</Text>
+            </View>
+          )}
+          
+          {request.delivery_address && (
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>{t('requests.deliveryAddress')}:</Text>
+              <Text style={styles.value}>{request.delivery_address}</Text>
+            </View>
+          )}
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>{t('requests.reason')}:</Text>
+            <Text style={styles.value}>{request.reason}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.label}>{t('requests.createdAt')}:</Text>
+            <Text style={styles.value}>{new Date(request.created_at).toLocaleDateString()}</Text>
+          </View>
+        </View>
+
+        {canSubmit && (
+          <TouchableOpacity
+            style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+            onPress={handleSubmitRequest}
+            disabled={submitting}
+          >
+            <Text style={styles.submitButtonText}>
+              {submitting ? t('requests.submitting') : t('requests.submitForApproval')}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </ScrollView>
   );
 };
 
@@ -30,23 +169,108 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
-    padding: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6c757d',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#dc3545',
+    textAlign: 'center',
+    margin: 20,
+  },
+  header: {
+    backgroundColor: '#fff',
+    padding: 20,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#2c3e50',
-    marginBottom: 8,
+    flex: 1,
+    marginRight: 12,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#6c757d',
-    marginBottom: 20,
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  placeholder: {
-    fontSize: 16,
+  statusText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  section: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f3f4',
+  },
+  label: {
+    fontSize: 14,
     color: '#6c757d',
-    fontStyle: 'italic',
+    fontWeight: '500',
+    flex: 1,
+  },
+  value: {
+    fontSize: 14,
+    color: '#2c3e50',
+    flex: 2,
+    textAlign: 'right',
+  },
+  submitButton: {
+    backgroundColor: '#28a745',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 40,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#6c757d',
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 

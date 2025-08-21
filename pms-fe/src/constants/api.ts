@@ -16,6 +16,7 @@ export const API_ENDPOINTS = {
     USER_MANAGE_GROUPS: (id: number) => `/auth/users/${id}/manage_groups/`,
     USER_MANAGE_PERMISSIONS: (id: number) => `/auth/users/${id}/manage_permissions/`,
     USERS_BY_GROUP: '/auth/users/by_group/',
+    AVAILABLE_PERMISSIONS: '/auth/users/available_permissions/',
     GROUPS: '/auth/groups/',
     GROUP_DETAIL: (id: number) => `/auth/groups/${id}/`,
     GROUP_MANAGE_PERMISSIONS: (id: number) => `/auth/groups/${id}/manage_permissions/`,
@@ -34,5 +35,11 @@ export const API_ENDPOINTS = {
   ORGANIZATION: {
     WORKSITES: '/org/worksites/',
     DIVISIONS: '/org/divisions/',
+  },
+  CORE: {
+    SYSTEM_STATS: '/core/system_stats/',
+    WORKSITE_BREAKDOWN: '/core/worksite_breakdown/',
+    DIVISION_BREAKDOWN: '/core/division_breakdown/',
+    QUICK_OVERVIEW: '/core/quick_overview/',
   },
 };

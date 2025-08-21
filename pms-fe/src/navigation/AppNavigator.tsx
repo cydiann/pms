@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { useAuth } from '../store/AuthContext';
+import { TabProvider } from '../store/TabContext';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SimpleTabNavigator from './SimpleTabNavigator';
 
@@ -16,7 +17,11 @@ const AppNavigator: React.FC = () => {
     );
   }
 
-  return authState.isAuthenticated ? <SimpleTabNavigator /> : <LoginScreen />;
+  return authState.isAuthenticated ? (
+    <TabProvider>
+      <SimpleTabNavigator />
+    </TabProvider>
+  ) : <LoginScreen />;
 };
 
 const styles = StyleSheet.create({

@@ -2,15 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
+import { useTab } from '../../store/TabContext';
 import requestService from '../../services/requestService';
 import { RequestStats } from '../../types/requests';
+import CreateRequestModal from '../../components/modals/CreateRequestModal';
 
 const EmployeeDashboardScreen: React.FC = () => {
   const { t } = useTranslation();
   const { authState } = useAuth();
+  const { setActiveTab } = useTab();
   const [stats, setStats] = useState<RequestStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
 
   const loadDashboardData = async () => {
     try {
@@ -76,7 +80,10 @@ const EmployeeDashboardScreen: React.FC = () => {
       <View style={styles.quickActions}>
         <Text style={styles.sectionTitle}>{t('dashboard.quickActions')}</Text>
         
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => setCreateModalVisible(true)}
+        >
           <Text style={styles.actionButtonText}>
             📝 {t('dashboard.createRequest')}
           </Text>
@@ -85,7 +92,12 @@ const EmployeeDashboardScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => {
+            setActiveTab('myRequests');
+          }}
+        >
           <Text style={styles.actionButtonText}>
             📋 {t('dashboard.viewMyRequests')}
           </Text>
@@ -113,6 +125,12 @@ const EmployeeDashboardScreen: React.FC = () => {
           ))}
         </View>
       )}
+      
+      <CreateRequestModal
+        visible={createModalVisible}
+        onClose={() => setCreateModalVisible(false)}
+        onRequestCreated={loadDashboardData}
+      />
     </ScrollView>
   );
 };

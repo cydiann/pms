@@ -6,6 +6,8 @@ export interface WorkSite {
   country: string;
   chief?: number; // chief user ID
   chief_name?: string; // from serializer: chief.get_full_name
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
 }
 
 // Division Interface - matches Django Division model + DivisionSerializer

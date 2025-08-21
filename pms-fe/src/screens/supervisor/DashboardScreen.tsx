@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
+import { useTab } from '../../store/TabContext';
 import requestService from '../../services/requestService';
 import { RequestStats, Request } from '../../types/requests';
 
 const SupervisorDashboardScreen: React.FC = () => {
   const { t } = useTranslation();
   const { authState } = useAuth();
+  const { setActiveTab } = useTab();
   const [stats, setStats] = useState<RequestStats | null>(null);
   const [pendingRequests, setPendingRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,12 +21,10 @@ const SupervisorDashboardScreen: React.FC = () => {
       const supervisorStats = await requestService.getSubordinateStats();
       setStats(supervisorStats);
 
-      // Load pending approval requests
-      const pendingResponse = await requestService.getSubordinateRequests({
-        status: 'pending',
-        page_size: 5
-      });
-      setPendingRequests(pendingResponse.results);
+      // Load pending approval requests (requests that need this supervisor's approval)
+      const pendingResponse = await requestService.getPendingApprovals();
+      // Take only first 5 for dashboard display
+      setPendingRequests(pendingResponse.slice(0, 5));
     } catch (error) {
       console.error('Error loading supervisor dashboard:', error);
     } finally {
@@ -114,7 +114,10 @@ const SupervisorDashboardScreen: React.FC = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('dashboard.quickActions')}</Text>
         
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => setActiveTab('teamRequests')}
+        >
           <Text style={styles.actionButtonText}>
             📋 {t('dashboard.reviewRequests')}
           </Text>
@@ -123,7 +126,10 @@ const SupervisorDashboardScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => setActiveTab('myTeam')}
+        >
           <Text style={styles.actionButtonText}>
             👥 {t('dashboard.manageTeam')}
           </Text>

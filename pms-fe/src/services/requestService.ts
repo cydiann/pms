@@ -100,7 +100,7 @@ class RequestService {
 
   // Get dashboard statistics
   async getDashboardStats(): Promise<RequestStats> {
-    return await apiClient.get<RequestStats>(`${API_ENDPOINTS.REQUESTS.LIST}stats/`);
+    return await apiClient.get<RequestStats>(`${API_ENDPOINTS.REQUESTS.LIST}dashboard_stats/`);
   }
 
   // Get subordinate dashboard stats (for supervisors)
@@ -108,9 +108,29 @@ class RequestService {
     return await apiClient.get<RequestStats>(`${API_ENDPOINTS.REQUESTS.LIST}subordinate_stats/`);
   }
 
-  // Get admin dashboard stats
+  // Get pending approvals for current user (supervisor)
+  async getPendingApprovals(): Promise<Request[]> {
+    return await apiClient.get<Request[]>(`${API_ENDPOINTS.REQUESTS.LIST}pending_approvals/`);
+  }
+
+  // Get admin dashboard stats (using new core endpoint)
   async getAdminStats(): Promise<AdminStats> {
-    return await apiClient.get<AdminStats>(`${API_ENDPOINTS.REQUESTS.LIST}admin/stats/`);
+    return await apiClient.get<AdminStats>(API_ENDPOINTS.CORE.SYSTEM_STATS);
+  }
+
+  // Get quick overview stats
+  async getQuickOverview() {
+    return await apiClient.get(API_ENDPOINTS.CORE.QUICK_OVERVIEW);
+  }
+
+  // Get worksite breakdown
+  async getWorksiteBreakdown() {
+    return await apiClient.get(API_ENDPOINTS.CORE.WORKSITE_BREAKDOWN);
+  }
+
+  // Get division breakdown  
+  async getDivisionBreakdown() {
+    return await apiClient.get(API_ENDPOINTS.CORE.DIVISION_BREAKDOWN);
   }
 
   // Utility methods for request status and transitions

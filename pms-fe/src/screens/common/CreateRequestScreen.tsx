@@ -18,33 +18,70 @@ const CreateRequestScreen: React.FC = () => {
   });
 
   const handleInputChange = (field: keyof CreateRequestDto, value: string) => {
+    // Special handling for quantity field - only allow valid numbers
+    if (field === 'quantity') {
+      // Allow empty string, numbers, and decimal point
+      const numericRegex = /^[0-9]*\.?[0-9]*$/;
+      if (value === '' || numericRegex.test(value)) {
+        setFormData(prev => ({
+          ...prev,
+          [field]: value
+        }));
+      }
+      // Ignore invalid input (don't update state)
+      return;
+    }
+    
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const handleSubmit = async () => {
-    // Validate required fields
+  const validateForm = () => {
     if (!formData.item.trim()) {
-      Alert.alert('Error', 'Item name is required');
-      return;
+      Alert.alert(t('messages.error'), t('requests.validation.itemRequired'));
+      return false;
     }
+    
     if (!formData.quantity.trim()) {
-      Alert.alert('Error', 'Quantity is required');
-      return;
+      Alert.alert(t('messages.error'), t('requests.validation.quantityRequired'));
+      return false;
     }
+    
+    const quantityNumber = parseFloat(formData.quantity);
+    if (isNaN(quantityNumber)) {
+      Alert.alert(t('messages.error'), t('requests.validation.quantityInvalid'));
+      return false;
+    }
+    
+    if (quantityNumber <= 0) {
+      Alert.alert(t('messages.error'), t('requests.validation.quantityMustBePositive'));
+      return false;
+    }
+    
+    if (quantityNumber > 999999) {
+      Alert.alert(t('messages.error'), t('requests.validation.quantityTooLarge'));
+      return false;
+    }
+    
     if (!formData.reason.trim()) {
-      Alert.alert('Error', 'Reason is required');
-      return;
+      Alert.alert(t('messages.error'), t('requests.validation.reasonRequired'));
+      return false;
     }
+
+    return true;
+  };
+
+  const saveDraft = async () => {
+    if (!validateForm()) return;
 
     setLoading(true);
     try {
       const newRequest = await requestService.createRequest(formData);
       Alert.alert(
         'Success',
-        `Request ${newRequest.request_number} has been created successfully!`,
+        `Draft request ${newRequest.request_number} has been saved!`,
         [
           {
             text: 'OK',
@@ -64,18 +101,57 @@ const CreateRequestScreen: React.FC = () => {
         ]
       );
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create request');
+      Alert.alert('Error', error.message || 'Failed to save draft');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    setLoading(true);
+    try {
+      // Create draft request first
+      const newRequest = await requestService.createRequest(formData);
+      
+      // Then submit it for approval
+      await requestService.submitRequest(newRequest.id);
+      
+      Alert.alert(
+        'Success',
+        `Request ${newRequest.request_number} has been submitted for approval!`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Reset form
+              setFormData({
+                item: '',
+                description: '',
+                quantity: '',
+                unit: RequestUnit.PIECES,
+                category: '',
+                delivery_address: '',
+                reason: '',
+              });
+            },
+          },
+        ]
+      );
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to submit request');
     } finally {
       setLoading(false);
     }
   };
 
   const unitOptions = [
-    { value: RequestUnit.PIECES, label: 'Pieces' },
-    { value: RequestUnit.KG, label: 'Kilograms' },
-    { value: RequestUnit.METER, label: 'Meters' },
-    { value: RequestUnit.M2, label: 'Square Meters' },
-    { value: RequestUnit.LITER, label: 'Liters' },
+    { value: RequestUnit.PIECES, label: t('requests.units.pieces') },
+    { value: RequestUnit.KG, label: t('requests.units.kg') },
+    { value: RequestUnit.METER, label: t('requests.units.meter') },
+    { value: RequestUnit.M2, label: t('requests.units.m2') },
+    { value: RequestUnit.LITER, label: t('requests.units.liter') },
   ];
 
   return (
@@ -86,34 +162,34 @@ const CreateRequestScreen: React.FC = () => {
       <ScrollView style={styles.scrollContainer}>
         <View style={styles.header}>
           <Text style={styles.title}>
-            Create New Request
+            {t('requests.createTitle')}
           </Text>
           <Text style={styles.subtitle}>
-            Fill in the details for your procurement request
+            {t('requests.createSubtitle')}
           </Text>
         </View>
 
         <View style={styles.formContainer}>
           {/* Item Name */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Item Name *</Text>
+            <Text style={styles.label}>{t('requests.item')} *</Text>
             <TextInput
               style={styles.input}
               value={formData.item}
               onChangeText={(value) => handleInputChange('item', value)}
-              placeholder="What do you need to purchase?"
+              placeholder={t('requests.itemPlaceholder')}
               placeholderTextColor="#6c757d"
             />
           </View>
 
           {/* Description */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Description</Text>
+            <Text style={styles.label}>{t('requests.description')}</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={formData.description}
               onChangeText={(value) => handleInputChange('description', value)}
-              placeholder="Provide additional details..."
+              placeholder={t('requests.descriptionPlaceholder')}
               placeholderTextColor="#6c757d"
               multiline
               numberOfLines={3}
@@ -123,7 +199,7 @@ const CreateRequestScreen: React.FC = () => {
           {/* Quantity and Unit */}
           <View style={styles.row}>
             <View style={[styles.inputGroup, styles.flex1]}>
-              <Text style={styles.label}>Quantity *</Text>
+              <Text style={styles.label}>{t('requests.quantity')} *</Text>
               <TextInput
                 style={styles.input}
                 value={formData.quantity}
@@ -134,7 +210,7 @@ const CreateRequestScreen: React.FC = () => {
               />
             </View>
             <View style={[styles.inputGroup, styles.flex1, styles.marginLeft]}>
-              <Text style={styles.label}>Unit</Text>
+              <Text style={styles.label}>{t('requests.unit')}</Text>
               <View style={styles.unitSelector}>
                 {unitOptions.map((option) => (
                   <TouchableOpacity
@@ -159,24 +235,24 @@ const CreateRequestScreen: React.FC = () => {
 
           {/* Category */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Category</Text>
+            <Text style={styles.label}>{t('requests.category')}</Text>
             <TextInput
               style={styles.input}
               value={formData.category}
               onChangeText={(value) => handleInputChange('category', value)}
-              placeholder="e.g., Office Supplies, Equipment, Materials"
+              placeholder={t('requests.categoryPlaceholder')}
               placeholderTextColor="#6c757d"
             />
           </View>
 
           {/* Delivery Address */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Delivery Address</Text>
+            <Text style={styles.label}>{t('requests.deliveryAddress')}</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={formData.delivery_address}
               onChangeText={(value) => handleInputChange('delivery_address', value)}
-              placeholder="Where should this be delivered?"
+              placeholder={t('requests.deliveryAddressPlaceholder')}
               placeholderTextColor="#6c757d"
               multiline
               numberOfLines={2}
@@ -185,28 +261,40 @@ const CreateRequestScreen: React.FC = () => {
 
           {/* Reason */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Reason/Justification *</Text>
+            <Text style={styles.label}>{t('requests.reason')} *</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={formData.reason}
               onChangeText={(value) => handleInputChange('reason', value)}
-              placeholder="Why do you need this item?"
+              placeholder={t('requests.reasonPlaceholder')}
               placeholderTextColor="#6c757d"
               multiline
               numberOfLines={3}
             />
           </View>
 
-          {/* Submit Button */}
-          <TouchableOpacity 
-            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={loading}
-          >
-            <Text style={styles.submitButtonText}>
-              {loading ? 'Creating Request...' : 'Create Request'}
-            </Text>
-          </TouchableOpacity>
+          {/* Action Buttons */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity 
+              style={[styles.draftButton, loading && styles.buttonDisabled]}
+              onPress={saveDraft}
+              disabled={loading}
+            >
+              <Text style={styles.draftButtonText}>
+                {loading ? t('requests.saving') : t('requests.saveDraft')}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.submitButton, loading && styles.buttonDisabled]}
+              onPress={handleSubmit}
+              disabled={loading}
+            >
+              <Text style={styles.submitButtonText}>
+                {loading ? t('requests.submitting') : t('requests.submitButton')}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -309,20 +397,38 @@ const styles = StyleSheet.create({
   unitOptionTextActive: {
     color: '#fff',
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 40,
+    gap: 12,
+  },
+  draftButton: {
+    backgroundColor: '#6c757d',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    flex: 1,
+  },
   submitButton: {
     backgroundColor: '#007bff',
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 40,
+    flex: 1,
   },
-  submitButtonDisabled: {
-    backgroundColor: '#6c757d',
+  buttonDisabled: {
+    backgroundColor: '#adb5bd',
+  },
+  draftButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   submitButtonText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });

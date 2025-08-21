@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
+import { useTab } from '../../store/TabContext';
 import requestService from '../../services/requestService';
 import { AdminStats, Request } from '../../types/requests';
 
 const AdminDashboardScreen: React.FC = () => {
   const { t } = useTranslation();
   const { authState } = useAuth();
+  const { setActiveTab } = useTab();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [recentRequests, setRecentRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,7 +142,10 @@ const AdminDashboardScreen: React.FC = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('dashboard.quickActions')}</Text>
         
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => setActiveTab('allRequests')}
+        >
           <Text style={styles.actionButtonText}>
             📋 {t('dashboard.manageRequests')}
           </Text>
@@ -149,7 +154,10 @@ const AdminDashboardScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => setActiveTab('userManagement')}
+        >
           <Text style={styles.actionButtonText}>
             👥 {t('dashboard.manageUsers')}
           </Text>
@@ -158,12 +166,15 @@ const AdminDashboardScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => setActiveTab('worksiteManagement')}
+        >
           <Text style={styles.actionButtonText}>
-            📊 {t('dashboard.viewReports')}
+            🏢 {t('navigation.worksites')}
           </Text>
           <Text style={styles.actionButtonSubtext}>
-            {t('dashboard.systemAnalytics')}
+            {t('worksiteManagement.title')}
           </Text>
         </TouchableOpacity>
       </View>

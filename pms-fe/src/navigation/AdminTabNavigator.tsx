@@ -1,9 +1,11 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTranslation } from 'react-i18next';
+import { Text } from 'react-native';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AllRequestsScreen from '../screens/admin/AllRequestsScreen';
 import UserManagementScreen from '../screens/admin/UserManagementScreen';
+import WorksiteManagementScreen from '../screens/admin/WorksiteManagementScreen';
 import AllUsersScreen from '../screens/admin/AllUsersScreen';
 import ProfileScreen from '../screens/common/ProfileScreen';
 
@@ -11,6 +13,7 @@ export type AdminTabParamList = {
   Dashboard: undefined;
   AllRequests: undefined;
   UserManagement: undefined;
+  WorksiteManagement: undefined;
   Reports: undefined;
   Profile: undefined;
 };
@@ -48,7 +51,9 @@ const AdminTabNavigator: React.FC = () => {
         options={{
           title: t('navigation.dashboard'),
           tabBarLabel: t('navigation.dashboard'),
-          // TODO: Add proper icons when react-native-vector-icons is configured
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 20 }}>🏠</Text>
+          ),
         }}
       />
       <Tab.Screen
@@ -57,7 +62,9 @@ const AdminTabNavigator: React.FC = () => {
         options={{
           title: t('navigation.allRequests'),
           tabBarLabel: t('navigation.requests'),
-          // TODO: Add proper icons
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 20 }}>📋</Text>
+          ),
         }}
       />
       <Tab.Screen
@@ -66,7 +73,20 @@ const AdminTabNavigator: React.FC = () => {
         options={{
           title: t('navigation.userManagement'),
           tabBarLabel: t('navigation.users'),
-          // TODO: Add proper icons
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 20 }}>👥</Text>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="WorksiteManagement"
+        component={WorksiteManagementScreen}
+        options={{
+          title: t('worksiteManagement.title'),
+          tabBarLabel: t('navigation.worksites'),
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 20 }}>🏢</Text>
+          ),
         }}
       />
       <Tab.Screen
@@ -75,7 +95,9 @@ const AdminTabNavigator: React.FC = () => {
         options={{
           title: t('navigation.reports'),
           tabBarLabel: t('navigation.reports'),
-          // TODO: Add proper icons
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 20 }}>📊</Text>
+          ),
         }}
       />
       <Tab.Screen
@@ -84,7 +106,9 @@ const AdminTabNavigator: React.FC = () => {
         options={{
           title: t('navigation.profile'),
           tabBarLabel: t('navigation.profile'),
-          // TODO: Add proper icons
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 20 }}>👤</Text>
+          ),
         }}
       />
     </Tab.Navigator>

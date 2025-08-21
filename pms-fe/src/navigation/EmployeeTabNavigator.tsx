@@ -3,13 +3,11 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTranslation } from 'react-i18next';
 import EmployeeDashboardScreen from '../screens/employee/DashboardScreen';
 import MyRequestsScreen from '../screens/employee/MyRequestsScreen';
-import CreateRequestScreen from '../screens/common/CreateRequestScreen';
 import ProfileScreen from '../screens/common/ProfileScreen';
 
 export type EmployeeTabParamList = {
   Dashboard: undefined;
   MyRequests: undefined;
-  CreateRequest: undefined;
   Profile: undefined;
 };
 
@@ -54,16 +52,7 @@ const EmployeeTabNavigator: React.FC = () => {
         component={MyRequestsScreen}
         options={{
           title: t('navigation.myRequests'),
-          tabBarLabel: t('navigation.myRequests'),
-          // TODO: Add proper icons
-        }}
-      />
-      <Tab.Screen
-        name="CreateRequest"
-        component={CreateRequestScreen}
-        options={{
-          title: t('navigation.createRequest'),
-          tabBarLabel: t('navigation.create'),
+          tabBarLabel: t('navigation.requests'),
           // TODO: Add proper icons
         }}
       />

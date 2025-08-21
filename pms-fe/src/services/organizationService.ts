@@ -1,5 +1,6 @@
 import apiClient from './apiClient';
 import { API_ENDPOINTS } from '../constants/api';
+import { PaginatedResponse } from '../types/api';
 import {
   WorkSite,
   Division,
@@ -12,7 +13,11 @@ import {
 class OrganizationService {
   // Get all worksites
   async getWorksites(): Promise<WorkSite[]> {
-    return await apiClient.get<WorkSite[]>(API_ENDPOINTS.ORGANIZATION.WORKSITES);
+    console.log('OrganizationService: Getting worksites from:', API_ENDPOINTS.ORGANIZATION.WORKSITES);
+    const result = await apiClient.get<PaginatedResponse<WorkSite>>(API_ENDPOINTS.ORGANIZATION.WORKSITES);
+    console.log('OrganizationService: Worksites response:', result);
+    console.log('OrganizationService: Worksites count:', result.results?.length || 0);
+    return result.results || [];
   }
 
   // Get single worksite details
@@ -22,12 +27,57 @@ class OrganizationService {
 
   // Get all divisions
   async getDivisions(): Promise<Division[]> {
-    return await apiClient.get<Division[]>(API_ENDPOINTS.ORGANIZATION.DIVISIONS);
+    console.log('OrganizationService: Getting divisions from:', API_ENDPOINTS.ORGANIZATION.DIVISIONS);
+    const result = await apiClient.get<PaginatedResponse<Division>>(API_ENDPOINTS.ORGANIZATION.DIVISIONS);
+    console.log('OrganizationService: Divisions response:', result);
+    console.log('OrganizationService: Divisions count:', result.results?.length || 0);
+    return result.results || [];
   }
 
   // Get single division details
   async getDivision(id: number): Promise<Division> {
     return await apiClient.get<Division>(`${API_ENDPOINTS.ORGANIZATION.DIVISIONS}${id}/`);
+  }
+
+  // Create new worksite
+  async createWorksite(data: { address: string; city: string; country?: string; chief?: number }): Promise<WorkSite> {
+    console.log('OrganizationService: Creating worksite with data:', data);
+    try {
+      const result = await apiClient.post<WorkSite>(API_ENDPOINTS.ORGANIZATION.WORKSITES, {
+        ...data,
+        country: data.country || 'Turkey' // Default country
+      });
+      console.log('OrganizationService: Worksite created successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('OrganizationService: Failed to create worksite:', error);
+      throw error;
+    }
+  }
+
+  // Update worksite
+  async updateWorksite(id: number, data: Partial<{ address: string; city: string; country: string; chief?: number }>): Promise<WorkSite> {
+    console.log('OrganizationService: Updating worksite', id, 'with data:', data);
+    try {
+      const result = await apiClient.put<WorkSite>(`${API_ENDPOINTS.ORGANIZATION.WORKSITES}${id}/`, data);
+      console.log('OrganizationService: Worksite updated successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('OrganizationService: Failed to update worksite:', error);
+      throw error;
+    }
+  }
+
+  // Delete worksite
+  async deleteWorksite(id: number): Promise<void> {
+    console.log('OrganizationService: Deleting worksite:', id);
+    try {
+      await apiClient.delete<void>(`${API_ENDPOINTS.ORGANIZATION.WORKSITES}${id}/`);
+      console.log('OrganizationService: Worksite deleted successfully');
+    } catch (error) {
+      console.error('OrganizationService: Failed to delete worksite:', error);
+      throw error;
+    }
   }
 
   // Get worksites with user count (computed)

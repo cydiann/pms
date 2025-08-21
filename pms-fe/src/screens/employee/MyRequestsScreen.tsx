@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Act
 import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
 import { Request } from '../../types/requests';
+import RequestDetailModal from '../../components/modals/RequestDetailModal';
+import CreateRequestModal from '../../components/modals/CreateRequestModal';
 
 const MyRequestsScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -10,6 +12,9 @@ const MyRequestsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
 
   const loadRequests = async () => {
     try {
@@ -38,8 +43,42 @@ const MyRequestsScreen: React.FC = () => {
     return requestService.getStatusColor(status);
   };
 
+  const handleRequestPress = (request: Request) => {
+    console.log('Opening request:', request.id);
+    setSelectedRequest(request);
+    setModalVisible(true);
+  };
+
+  const showRequestDetails = (request: Request) => {
+    const details = `
+Request: ${request.item}
+Number: ${request.request_number}
+Status: ${request.status}
+Quantity: ${request.quantity} ${request.unit}
+Reason: ${request.reason}
+Created: ${new Date(request.created_at).toLocaleDateString()}
+    `.trim();
+    
+    Alert.alert('Request Details', details);
+  };
+
+  const submitRequest = async (request: Request) => {
+    try {
+      await requestService.submitRequest(request.id);
+      Alert.alert('Success', 'Request submitted for approval!', [
+        { text: 'OK', onPress: () => loadRequests() }
+      ]);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to submit request');
+    }
+  };
+
   const renderRequestItem = ({ item }: { item: Request }) => (
-    <TouchableOpacity style={styles.requestItem}>
+    <TouchableOpacity 
+      style={styles.requestItem}
+      onPress={() => handleRequestPress(item)}
+      activeOpacity={0.7}
+    >
       <View style={styles.requestHeader}>
         <Text style={styles.requestNumber}>{item.request_number}</Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
@@ -81,6 +120,12 @@ const MyRequestsScreen: React.FC = () => {
       <Text style={styles.emptyStateMessage}>
         {t('requests.noRequestsMessage')}
       </Text>
+      <TouchableOpacity
+        style={styles.createButton}
+        onPress={() => setCreateModalVisible(true)}
+      >
+        <Text style={styles.createButtonText}>Create Request</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -120,6 +165,29 @@ const MyRequestsScreen: React.FC = () => {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+      />
+      
+      {/* Floating Action Button - only show when there are requests */}
+      {requests.length > 0 && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setCreateModalVisible(true)}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
+      )}
+      
+      <RequestDetailModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        request={selectedRequest}
+        onRequestUpdated={loadRequests}
+      />
+      
+      <CreateRequestModal
+        visible={createModalVisible}
+        onClose={() => setCreateModalVisible(false)}
+        onRequestCreated={loadRequests}
       />
     </View>
   );
@@ -234,6 +302,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fd7e14',
     fontWeight: '600',
+  },
+  createButton: {
+    backgroundColor: '#007bff',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  createButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#007bff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  fabText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
   },
 });
 

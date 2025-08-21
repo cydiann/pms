@@ -1,19 +1,22 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../store/AuthContext';
+import { useTab } from '../store/TabContext';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
 // Import screens
 import EmployeeDashboardScreen from '../screens/employee/DashboardScreen';
 import SupervisorDashboardScreen from '../screens/supervisor/DashboardScreen';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import MyRequestsScreen from '../screens/employee/MyRequestsScreen';
-import CreateRequestScreen from '../screens/common/CreateRequestScreen';
 import ProfileScreen from '../screens/common/ProfileScreen';
 import TeamRequestsScreen from '../screens/supervisor/TeamRequestsScreen';
 import MyTeamScreen from '../screens/supervisor/MyTeamScreen';
 import AllRequestsScreen from '../screens/admin/AllRequestsScreen';
-import AllUsersScreen from '../screens/admin/AllUsersScreen';
+import UserManagementScreen from '../screens/admin/UserManagementScreen';
+import WorksiteManagementScreen from '../screens/admin/WorksiteManagementScreen';
+import GroupManagementScreen from '../screens/admin/GroupManagementScreen';
 
 interface TabItem {
   key: string;
@@ -25,6 +28,7 @@ interface TabItem {
 const SimpleTabNavigator: React.FC = () => {
   const { t } = useTranslation();
   const { authState } = useAuth();
+  const { activeTab, setActiveTab } = useTab();
   const user = authState.user;
 
   // Determine user role
@@ -59,12 +63,6 @@ const SimpleTabNavigator: React.FC = () => {
       roles: ['employee', 'supervisor', 'admin'],
     },
     {
-      key: 'createRequest',
-      label: t('navigation.create'),
-      component: CreateRequestScreen,
-      roles: ['employee', 'supervisor'],
-    },
-    {
       key: 'teamRequests',
       label: t('navigation.team'),
       component: TeamRequestsScreen,
@@ -85,7 +83,19 @@ const SimpleTabNavigator: React.FC = () => {
     {
       key: 'userManagement',
       label: t('navigation.users'),
-      component: AllUsersScreen,
+      component: UserManagementScreen,
+      roles: ['admin'],
+    },
+    {
+      key: 'worksiteManagement',
+      label: t('navigation.worksites'),
+      component: WorksiteManagementScreen,
+      roles: ['admin'],
+    },
+    {
+      key: 'groupManagement',
+      label: t('navigation.groups'),
+      component: GroupManagementScreen,
       roles: ['admin'],
     },
     {
@@ -99,39 +109,52 @@ const SimpleTabNavigator: React.FC = () => {
   // Filter tabs based on user role
   const availableTabs = allTabs.filter(tab => tab.roles.includes(userRole));
 
-  const [activeTab, setActiveTab] = useState(availableTabs[0]?.key || 'dashboard');
-
   // Get the active component
   const ActiveComponent = availableTabs.find(tab => tab.key === activeTab)?.component || EmployeeDashboardScreen;
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header with Title and Language Switcher */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>
+          {availableTabs.find(tab => tab.key === activeTab)?.label || t('navigation.dashboard')}
+        </Text>
+        <LanguageSwitcher />
+      </View>
+
+      {/* Top Navigation Tabs */}
+      <View style={styles.topTabBar}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabScrollView}
+          contentContainerStyle={styles.tabScrollContent}
+        >
+          {availableTabs.map(tab => (
+            <TouchableOpacity
+              key={tab.key}
+              style={[
+                styles.topTabItem,
+                activeTab === tab.key && styles.activeTopTabItem,
+              ]}
+              onPress={() => setActiveTab(tab.key)}
+            >
+              <Text
+                style={[
+                  styles.topTabLabel,
+                  activeTab === tab.key && styles.activeTopTabLabel,
+                ]}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Main content area */}
       <View style={styles.content}>
         <ActiveComponent />
-      </View>
-
-      {/* Bottom tab bar */}
-      <View style={styles.tabBar}>
-        {availableTabs.map(tab => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[
-              styles.tabItem,
-              activeTab === tab.key && styles.activeTabItem,
-            ]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Text
-              style={[
-                styles.tabLabel,
-                activeTab === tab.key && styles.activeTabLabel,
-              ]}
-            >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
       </View>
     </SafeAreaView>
   );
@@ -142,41 +165,64 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  content: {
-    flex: 1,
-  },
-  tabBar: {
+  header: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderTopColor: '#e9ecef',
-    borderTopWidth: 1,
-    paddingTop: 8,
-    paddingBottom: 8,
-    height: 60,
-    elevation: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#007bff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  tabItem: {
-    flex: 1,
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  topTabBar: {
+    backgroundColor: '#0056b3',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  tabScrollView: {
+    flexGrow: 0,
+  },
+  tabScrollContent: {
+    paddingHorizontal: 8,
+  },
+  topTabItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 4,
+    borderRadius: 6,
+    minWidth: 80,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
+    backgroundColor: 'transparent',
   },
-  activeTabItem: {
-    // Active tab styling handled by text color
+  activeTopTabItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
-  tabLabel: {
-    fontSize: 12,
-    color: '#6c757d',
+  topTabLabel: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
     fontWeight: '500',
     textAlign: 'center',
   },
-  activeTabLabel: {
-    color: '#007bff',
+  activeTopTabLabel: {
+    color: '#fff',
     fontWeight: '600',
+  },
+  content: {
+    flex: 1,
   },
 });
 

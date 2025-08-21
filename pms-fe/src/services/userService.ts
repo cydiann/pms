@@ -52,9 +52,31 @@ interface UsersByGroupResponse {
 class UserService {
   // Get all users (admin only, or filtered for supervisors)
   async getUsers(params?: UserQueryParams): Promise<PaginatedResponse<UserListItem>> {
-    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    console.log('UserService: getUsers called with params:', params);
+    
+    // Filter out undefined values
+    const cleanParams: any = {};
+    if (params) {
+      Object.keys(params).forEach(key => {
+        const value = (params as any)[key];
+        if (value !== undefined && value !== null && value !== '') {
+          cleanParams[key] = value;
+        }
+      });
+    }
+    
+    const queryString = Object.keys(cleanParams).length > 0 ? new URLSearchParams(cleanParams).toString() : '';
     const url = `${API_ENDPOINTS.AUTH.USERS}${queryString ? `?${queryString}` : ''}`;
-    return await apiClient.get<PaginatedResponse<UserListItem>>(url);
+    console.log('UserService: Making request to URL:', url);
+    
+    try {
+      const result = await apiClient.get<PaginatedResponse<UserListItem>>(url);
+      console.log('UserService: getUsers response:', result);
+      return result;
+    } catch (error) {
+      console.error('UserService: getUsers error:', error);
+      throw error;
+    }
   }
 
   // Get single user details
@@ -64,7 +86,18 @@ class UserService {
 
   // Get current user profile
   async getCurrentUser(): Promise<ExtendedUser> {
-    return await apiClient.get<ExtendedUser>(API_ENDPOINTS.AUTH.USER_ME);
+    console.log('UserService: getCurrentUser called');
+    const url = API_ENDPOINTS.AUTH.USER_ME;
+    console.log('UserService: Making request to URL:', url);
+    
+    try {
+      const result = await apiClient.get<ExtendedUser>(url);
+      console.log('UserService: getCurrentUser response:', result);
+      return result;
+    } catch (error) {
+      console.error('UserService: getCurrentUser error:', error);
+      throw error;
+    }
   }
 
   // Get current user's permissions
@@ -188,6 +221,17 @@ class UserService {
     return await apiClient.get<Permission[]>(API_ENDPOINTS.AUTH.PERMISSIONS);
   }
 
+  // Get all available permissions (includes app_label and content_type)
+  async getAvailablePermissions(): Promise<Array<{
+    id: number;
+    name: string;
+    codename: string;
+    content_type?: string;
+    app_label?: string;
+  }>> {
+    return await apiClient.get(API_ENDPOINTS.AUTH.AVAILABLE_PERMISSIONS);
+  }
+
   // Get permissions grouped by content type
   async getPermissionsByContentType(): Promise<Record<string, Permission[]>> {
     return await apiClient.get<Record<string, Permission[]>>(API_ENDPOINTS.AUTH.PERMISSIONS_BY_CONTENT_TYPE);
@@ -218,34 +262,92 @@ class UserService {
     return true; // This would be determined by checking if user.id appears as supervisor for other users
   }
 
-  getUserRoleDisplay(user: ExtendedUser): string {
-    if (user.is_superuser) return 'Administrator';
-    if (user.groups && user.groups.length > 0) {
-      return user.groups.map(g => g.name).join(', ');
+  getUserRoleDisplay(user: ExtendedUser | UserListItem, language: string = 'en'): string {
+    if (user.is_superuser) return this.translateGroupName('Administrator', language);
+    if ('groups' in user && user.groups && user.groups.length > 0) {
+      return user.groups.map(g => this.translateGroupName(g.name, language)).join(', ');
     }
-    return 'Employee';
+    return this.translateGroupName('Employee', language);
   }
 
-  getUserStatusColor(user: ExtendedUser): string {
+  getUserStatusColor(user: ExtendedUser | UserListItem): string {
     if (!user.is_active) return '#dc3545'; // red
     if (user.is_superuser) return '#6f42c1'; // purple
     return '#28a745'; // green
   }
 
-  formatUserPermissions(permissions: string[]): string[] {
+  formatUserPermissions(permissions: string[], translateFn?: (key: string, options?: any) => string): string[] {
     return permissions.map(perm => {
       // Convert 'app.action_model' to readable format
       const parts = perm.split('.');
       if (parts.length === 2) {
         const [app, codename] = parts;
+        
+        // Try to get translation if function is provided
+        if (translateFn) {
+          const translationKey = `permissions.${codename}`;
+          const translation = translateFn(translationKey);
+          // Only use translation if it's not the same as the key (meaning it was found)
+          if (translation !== translationKey) {
+            return translation;
+          }
+        }
+        
+        // Fallback to formatted version
         return codename.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       }
       return perm;
     });
   }
 
+  // Translate group names based on current language
+  translateGroupName(groupName: string, language: string = 'en'): string {
+    const translations: Record<string, Record<string, string>> = {
+      'Administrator': {
+        'en': 'Administrator',
+        'tr': 'Sistem Yöneticisi'
+      },
+      'Supervisor': {
+        'en': 'Supervisor', 
+        'tr': 'Süpervizör'
+      },
+      'Employee': {
+        'en': 'Employee',
+        'tr': 'Çalışan'
+      },
+      'Manager': {
+        'en': 'Manager',
+        'tr': 'Müdür'
+      },
+      'Team Lead': {
+        'en': 'Team Lead',
+        'tr': 'Takım Lideri'
+      },
+      'HR': {
+        'en': 'HR',
+        'tr': 'İnsan Kaynakları'
+      },
+      'Finance': {
+        'en': 'Finance',
+        'tr': 'Finans'
+      },
+      'Procurement': {
+        'en': 'Procurement',
+        'tr': 'Satın Alma'
+      }
+    };
+
+    const groupTranslations = translations[groupName];
+    if (groupTranslations && groupTranslations[language]) {
+      return groupTranslations[language];
+    }
+    
+    // Return original name if no translation found
+    return groupName;
+  }
+
   // Utility to safely get worksite name
-  getWorksiteName(user: ExtendedUser): string {
+  getWorksiteName(user: ExtendedUser | UserListItem): string {
     if (!user.worksite_name) return 'No Worksite';
     
     // Handle Django method wrapper bug

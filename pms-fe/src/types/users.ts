@@ -22,6 +22,7 @@ export interface ExtendedUser {
   // Groups and permissions
   groups: Array<{ id: number; name: string }>; // from serializer
   permissions: string[]; // from serializer: get_all_permissions()
+  user_permissions: Array<{ id: number; name: string; codename: string }>; // individual user permissions
   
   // Timestamps
   created_at: string;

@@ -2,13 +2,13 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../store/AuthContext';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
 // Import screens
 import EmployeeDashboardScreen from '../screens/employee/DashboardScreen';
 import SupervisorDashboardScreen from '../screens/supervisor/DashboardScreen';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import MyRequestsScreen from '../screens/employee/MyRequestsScreen';
-import CreateRequestScreen from '../screens/common/CreateRequestScreen';
 import ProfileScreen from '../screens/common/ProfileScreen';
 import TeamRequestsScreen from '../screens/supervisor/TeamRequestsScreen';
 import MyTeamScreen from '../screens/supervisor/MyTeamScreen';
@@ -18,7 +18,6 @@ import UserManagementScreen from '../screens/admin/UserManagementScreen';
 export type MainTabParamList = {
   Dashboard: undefined;
   MyRequests: undefined;
-  CreateRequest: undefined;
   TeamRequests: undefined;
   MyTeam: undefined;
   AllRequests: undefined;
@@ -32,6 +31,8 @@ const MainTabNavigator: React.FC = () => {
   const { t } = useTranslation();
   const { authState } = useAuth();
   const user = authState.user;
+  
+  console.log('MainTabNavigator rendering, user:', user?.username);
 
   // Determine which dashboard screen to use
   const getDashboardScreen = () => {
@@ -65,6 +66,7 @@ const MainTabNavigator: React.FC = () => {
         headerTitleStyle: {
           fontWeight: 'bold',
         },
+        headerRight: () => <LanguageSwitcher />,
       }}
     >
       {/* Dashboard - Always available */}
@@ -87,17 +89,6 @@ const MainTabNavigator: React.FC = () => {
         }}
       />
 
-      {/* Create Request - Available for employees and supervisors */}
-      {(!user?.is_superuser && !user?.is_admin) && (
-        <Tab.Screen
-          name="CreateRequest"
-          component={CreateRequestScreen}
-          options={{
-            title: t('navigation.createRequest'),
-            tabBarLabel: t('navigation.create'),
-          }}
-        />
-      )}
 
       {/* Team Requests - Only for supervisors */}
       {user?.is_supervisor && (
