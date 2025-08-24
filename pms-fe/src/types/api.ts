@@ -48,6 +48,28 @@ export interface UserQueryParams extends ListQueryParams {
   groups?: number;
 }
 
+// Document specific query parameters
+export interface DocumentQueryParams extends ListQueryParams {
+  request?: number;
+  document_type?: 'quote' | 'purchase_order' | 'dispatch_note' | 'receipt' | 'invoice' | 'other';
+  status?: 'pending' | 'uploaded' | 'failed' | 'deleted';
+  uploaded_by?: number;
+}
+
+// Organization query parameters
+export interface OrganizationQueryParams extends ListQueryParams {
+  country?: string;
+  has_chief?: boolean;
+}
+
+// Approval history query parameters
+export interface ApprovalHistoryQueryParams extends ListQueryParams {
+  request?: number;
+  user?: number;
+  action?: 'approved' | 'rejected' | 'revision_requested';
+  level?: number;
+}
+
 // Common response status types
 export type ApiStatus = 'success' | 'error' | 'loading';
 

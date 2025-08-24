@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
 import { Request } from '../../types/requests';
+import RequestDetailModal from '../../components/modals/RequestDetailModal';
 
 const AllRequestsScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -12,6 +13,8 @@ const AllRequestsScreen: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
 
   const loadRequests = async () => {
     try {
@@ -63,8 +66,8 @@ const AllRequestsScreen: React.FC = () => {
   };
 
   const handleRequestPress = (request: Request) => {
-    // TODO: Navigate to request details
-    console.log('Request pressed:', request.request_number);
+    setSelectedRequest(request);
+    setModalVisible(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -201,6 +204,18 @@ const AllRequestsScreen: React.FC = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       />
+      
+      {selectedRequest && (
+        <RequestDetailModal
+          visible={modalVisible}
+          request={selectedRequest}
+          onClose={() => {
+            setModalVisible(false);
+            setSelectedRequest(null);
+          }}
+          onRequestUpdated={loadRequests}
+        />
+      )}
     </View>
   );
 };

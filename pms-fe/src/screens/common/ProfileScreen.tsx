@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
 import userService from '../../services/userService';
+import { showError, showSuccess } from '../../utils/platformUtils';
 
 const ProfileScreen: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -30,12 +31,12 @@ const ProfileScreen: React.FC = () => {
 
   const enableAllNotifications = () => {
     setShowNotificationSettings(false);
-    Alert.alert(t('messages.success'), t('profile.notificationsEnabled'));
+    showSuccess(t('messages.success'), t('profile.notificationsEnabled'));
   };
 
   const disableAllNotifications = () => {
     setShowNotificationSettings(false);
-    Alert.alert(t('messages.success'), t('profile.notificationsDisabled'));
+    showSuccess(t('messages.success'), t('profile.notificationsDisabled'));
   };
 
   const cancelNotificationSettings = () => {
@@ -45,31 +46,28 @@ const ProfileScreen: React.FC = () => {
   const submitPasswordChange = () => {
     // Validate passwords
     if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
-      Alert.alert(t('messages.error'), t('profile.fillAllFields'));
+      showError(t('messages.error'), t('profile.fillAllFields'));
       return;
     }
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      Alert.alert(t('messages.error'), t('profile.passwordsDoNotMatch'));
+      showError(t('messages.error'), t('profile.passwordsDoNotMatch'));
       return;
     }
 
     if (passwordForm.newPassword.length < 6) {
-      Alert.alert(t('messages.error'), t('forms.passwordTooShort'));
+      showError(t('messages.error'), t('forms.passwordTooShort'));
       return;
     }
 
     // TODO: Implement actual password change API call
-    Alert.alert(
+    showSuccess(
       t('messages.success'), 
       t('profile.passwordChangeSuccess'),
-      [{
-        text: t('actions.ok'),
-        onPress: () => {
-          setShowChangePassword(false);
-          setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        }
-      }]
+      () => {
+        setShowChangePassword(false);
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }
     );
   };
 

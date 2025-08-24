@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   TextInput,
   Switch,
-  Alert,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
 import { ExtendedUser, UpdateUserDto } from '../../types/users';
+import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
 
 interface UserDetailModalProps {
   visible: boolean;
@@ -65,7 +65,8 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
   useEffect(() => {
     console.log('UserDetailModal: Effect triggered - visible:', visible, 'userId:', userId);
-    if (visible && userId) {
+    if (visible && userId && (!user || user.id !== userId)) {
+      // Only reload if we're opening the modal or switching to a different user
       // Reset modal state when switching users
       setEditing(false);
       setManagingPermissions(false);
@@ -132,12 +133,31 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
       console.error('UserDetailModal: Failed to load user:', error);
       console.error('UserDetailModal: Error details:', JSON.stringify(error, null, 2));
       
-      Alert.alert(
+      showError(
         t('messages.error'),
         `${error.message || t('userManagement.loadUsersError')}\n\nCheck console for details.`
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Silent refresh for updating combined permissions without showing loading spinner
+  const loadUserDataSilently = async () => {
+    if (!userId || !user) return;
+    
+    try {
+      const userData = await userService.getUser(userId);
+      setUser(prevUser => {
+        if (!prevUser) return userData;
+        return {
+          ...prevUser,
+          permissions: userData.permissions, // Update combined permissions
+          user_permissions: userData.user_permissions, // Ensure consistency
+        };
+      });
+    } catch (error) {
+      console.error('Silent user data refresh failed:', error);
     }
   };
 
@@ -149,10 +169,11 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
       const updatedUser = await userService.updateUser(user.id, formData);
       setUser(updatedUser);
       setEditing(false);
+      // Notify parent for major changes (user info, status, etc.) that affect the user list
       onUserUpdated?.();
-      Alert.alert(t('messages.success'), t('userManagement.userUpdated'));
+      showSuccess(t('messages.success'), t('userManagement.userUpdated'));
     } catch (error: any) {
-      Alert.alert(
+      showError(
         t('messages.error'),
         error.message || t('userManagement.updateUserError')
       );
@@ -164,29 +185,26 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
   const handleDelete = () => {
     if (!user) return;
 
-    Alert.alert(
+    showConfirm(
       t('userManagement.deleteUser'),
       t('userManagement.deleteUserConfirm', { name: user.full_name }),
-      [
-        { text: t('actions.cancel'), style: 'cancel' },
-        {
-          text: t('actions.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await userService.deleteUser(user.id);
-              onUserUpdated?.();
-              onClose();
-              Alert.alert(t('messages.success'), t('userManagement.userDeleted'));
-            } catch (error: any) {
-              Alert.alert(
-                t('messages.error'),
-                error.message || t('userManagement.deleteUserError')
-              );
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          await userService.deleteUser(user.id);
+          onUserUpdated?.();
+          onClose();
+          showSuccess(t('messages.success'), t('userManagement.userDeleted'));
+        } catch (error: any) {
+          showError(
+            t('messages.error'),
+            error.message || t('userManagement.deleteUserError')
+          );
+        }
+      },
+      undefined,
+      t('actions.delete'),
+      t('actions.cancel'),
+      true
     );
   };
 
@@ -195,16 +213,42 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
     try {
       const action = hasPermission ? 'remove' : 'add';
-      await userService.manageUserPermissions(user.id, {
+      const response = await userService.manageUserPermissions(user.id, {
         action,
         permission_ids: [permissionId]
       });
       
-      // Reload user data to get updated permissions
-      await loadUser();
-      Alert.alert(t('messages.success'), t('userManagement.permissionsUpdated'));
+      // Update user state with returned data and refresh combined permissions
+      setUser(prevUser => {
+        if (!prevUser) return prevUser;
+        return {
+          ...prevUser,
+          user_permissions: response.user_permissions || [],
+          // Also update combined permissions if backend provides them
+          permissions: response.permissions || prevUser.permissions
+        };
+      });
+      
+      // If backend doesn't provide combined permissions, we need to refresh them
+      if (!response.permissions) {
+        // Silently refresh user data to get updated combined permissions
+        loadUserDataSilently();
+      }
+      
+      console.log('UserDetailModal: Permission toggled successfully, updated user permissions:', response.user_permissions);
+      
+      // More specific success message
+      const permissionName = availablePermissions.find(p => p.id === permissionId)?.name || 'Permission';
+      const actionText = hasPermission ? 'removed from' : 'added to';
+      showSuccess(
+        'Permission Updated', 
+        `${permissionName} ${actionText} ${user.full_name}`
+      );
     } catch (error: any) {
-      Alert.alert(t('messages.error'), error.message || t('userManagement.permissionUpdateError'));
+      console.error('Permission toggle error:', error);
+      showError(t('messages.error'), error.message || t('userManagement.permissionUpdateError'));
+      // Only reload on error to restore correct state
+      await loadUser();
     }
   };
 
@@ -304,12 +348,39 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
               <View style={styles.permissionsList}>
                 {availablePermissions
                   .filter(perm => perm.app_label === 'requisition' || perm.app_label === 'auth')
+                  .sort((a, b) => {
+                    // First, sort by whether user has the permission (user's permissions first)
+                    const hasA = user.user_permissions?.some(up => up.id === a.id) || false;
+                    const hasB = user.user_permissions?.some(up => up.id === b.id) || false;
+                    
+                    if (hasA && !hasB) return -1; // A has permission, B doesn't - A comes first
+                    if (!hasA && hasB) return 1;  // B has permission, A doesn't - B comes first
+                    
+                    // If both have same permission status, sort alphabetically by display name
+                    const translationKeyA = `permissions.${a.codename}`;
+                    const translatedNameA = t(translationKeyA);
+                    const displayNameA = translatedNameA !== translationKeyA ? translatedNameA : a.name;
+                    
+                    const translationKeyB = `permissions.${b.codename}`;
+                    const translatedNameB = t(translationKeyB);
+                    const displayNameB = translatedNameB !== translationKeyB ? translatedNameB : b.name;
+                    
+                    return displayNameA.localeCompare(displayNameB);
+                  })
                   .map(permission => {
                     const hasPermission = user.user_permissions?.some(up => up.id === permission.id) || false;
+                    
+                    // Try to get translation, fallback to formatted name
+                    const translationKey = `permissions.${permission.codename}`;
+                    const translatedName = t(translationKey);
+                    const displayName = translatedName !== translationKey 
+                      ? translatedName 
+                      : permission.name;
+                    
                     return (
                       <View key={permission.id} style={styles.permissionRow}>
                         <View style={styles.permissionInfo}>
-                          <Text style={styles.permissionName}>{permission.name}</Text>
+                          <Text style={styles.permissionName}>{displayName}</Text>
                           <Text style={styles.permissionCode}>{permission.codename}</Text>
                         </View>
                         <Switch

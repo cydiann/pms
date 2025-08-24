@@ -1,0 +1,887 @@
+{
+	"info": {
+		"_postman_id": "pms-api-collection-v3",
+		"name": "PMS - Procurement Management System API (v3.0)",
+		"description": "Complete API collection for PMS Django backend - All current endpoints tested and verified",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{jwt_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "request_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "document_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "🔐 Authentication",
+			"item": [
+				{
+					"name": "Login (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('jwt_token', response.access);",
+									"    pm.collectionVariables.set('refresh_token', response.refresh);",
+									"    pm.test('Login successful', function () {",
+									"        pm.response.to.have.status(200);",
+									"        pm.expect(response).to.have.property('access');",
+									"        pm.expect(response).to.have.property('refresh');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"admin\",\n    \"password\": \"admin123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login", ""]
+						}
+					}
+				},
+				{
+					"name": "Login (Engineer)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('jwt_token', response.access);",
+									"    pm.collectionVariables.set('refresh_token', response.refresh);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"engineer\",\n    \"password\": \"engineer123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login", ""]
+						}
+					}
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('jwt_token', response.access);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refresh\": \"{{refresh_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/refresh/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "refresh", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "👥 User Management",
+			"item": [
+				{
+					"name": "List All Users",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/auth/users/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "users", ""]
+						}
+					}
+				},
+				{
+					"name": "Get Current User Profile",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/auth/users/me/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "users", "me", ""]
+						}
+					}
+				},
+				{
+					"name": "Get User Permissions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/auth/users/my-permissions/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "users", "my-permissions", ""]
+						}
+					}
+				},
+				{
+					"name": "Get Available Permissions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/auth/users/available-permissions/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "users", "available-permissions", ""]
+						}
+					}
+				},
+				{
+					"name": "Create New User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('user_id', response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"testuser\",\n    \"first_name\": \"Test\",\n    \"last_name\": \"User\",\n    \"password\": \"testuser123\",\n    \"worksite\": 1,\n    \"supervisor\": null\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/users/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "users", ""]
+						}
+					}
+				},
+				{
+					"name": "Manage User Permissions",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"action\": \"add\",\n    \"permission_ids\": [1, 2, 3]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/users/{{user_id}}/manage-permissions/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "users", "{{user_id}}", "manage-permissions", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🏢 Organization",
+			"item": [
+				{
+					"name": "List Worksites",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/org/worksites/",
+							"host": ["{{base_url}}"],
+							"path": ["org", "worksites", ""]
+						}
+					}
+				},
+				{
+					"name": "List Divisions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/org/divisions/",
+							"host": ["{{base_url}}"],
+							"path": ["org", "divisions", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "📋 Request Management",
+			"item": [
+				{
+					"name": "List All Requests",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", ""]
+						}
+					}
+				},
+				{
+					"name": "My Requests",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/my-requests/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "my-requests", ""]
+						}
+					}
+				},
+				{
+					"name": "Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/pending-approvals/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "pending-approvals", ""]
+						}
+					}
+				},
+				{
+					"name": "Purchasing Queue",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/purchasing-queue/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "purchasing-queue", ""]
+						}
+					}
+				},
+				{
+					"name": "Create New Request",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('request_id', response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"item\": \"Safety Helmets\",\n    \"description\": \"High-quality safety helmets for construction workers\",\n    \"quantity\": \"50.00\",\n    \"unit\": \"pieces\",\n    \"category\": \"Safety Equipment\",\n    \"reason\": \"Need replacement helmets for new project\",\n    \"delivery_address\": \"Main Construction Site\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/requests/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", ""]
+						}
+					}
+				},
+				{
+					"name": "Get Request Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/{{request_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "{{request_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Submit Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"notes\": \"Ready for approval\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/requests/{{request_id}}/submit/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "{{request_id}}", "submit", ""]
+						}
+					}
+				},
+				{
+					"name": "Approve Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"notes\": \"Approved by supervisor\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/requests/{{request_id}}/approve/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "{{request_id}}", "approve", ""]
+						}
+					}
+				},
+				{
+					"name": "Reject Request",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"notes\": \"Budget not approved for this quarter\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/requests/{{request_id}}/reject/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "{{request_id}}", "reject", ""]
+						}
+					}
+				},
+				{
+					"name": "Request Revision",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"notes\": \"Please provide more specific brand requirements\",\n    \"revision_reason\": \"Need more details\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/requests/{{request_id}}/request-revision/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "{{request_id}}", "request-revision", ""]
+						}
+					}
+				},
+				{
+					"name": "Mark as Purchased",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"notes\": \"Order placed with supplier ABC\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/requests/{{request_id}}/mark-purchased/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "{{request_id}}", "mark-purchased", ""]
+						}
+					}
+				},
+				{
+					"name": "Mark as Delivered",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"notes\": \"Items delivered to worksite\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/requests/{{request_id}}/mark-delivered/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "{{request_id}}", "mark-delivered", ""]
+						}
+					}
+				},
+				{
+					"name": "Get Request History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/{{request_id}}/history/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "{{request_id}}", "history", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "📄 Document Management",
+			"item": [
+				{
+					"name": "Test MinIO Connection",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/documents/test-minio/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "documents", "test-minio", ""]
+						}
+					}
+				},
+				{
+					"name": "List All Documents",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/documents/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "documents", ""]
+						}
+					}
+				},
+				{
+					"name": "Get Documents by Request",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/documents/by-request/?request_id={{request_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "documents", "by-request", ""],
+							"query": [
+								{
+									"key": "request_id",
+									"value": "{{request_id}}"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Document & Get Upload URL",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('document_id', response.id);",
+									"    console.log('Upload URL:', response.upload_url);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"request\": {{request_id}},\n    \"document_type\": \"quote\",\n    \"file_name\": \"test-document.pdf\",\n    \"file_size\": 1024,\n    \"file_type\": \"application/pdf\",\n    \"description\": \"Test document upload\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/requests/documents/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "documents", ""]
+						}
+					}
+				},
+				{
+					"name": "Confirm Upload",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"document_id\": \"{{document_id}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/requests/documents/confirm-upload/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "documents", "confirm-upload", ""]
+						}
+					}
+				},
+				{
+					"name": "Get Download URL",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/documents/{{document_id}}/download/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "documents", "{{document_id}}", "download", ""]
+						}
+					}
+				},
+				{
+					"name": "Delete Document",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/documents/{{document_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "documents", "{{document_id}}", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "📊 Analytics & Statistics",
+			"item": [
+				{
+					"name": "System Statistics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/core/system-stats/",
+							"host": ["{{base_url}}"],
+							"path": ["core", "system-stats", ""]
+						}
+					}
+				},
+				{
+					"name": "Quick Overview",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/core/quick-overview/",
+							"host": ["{{base_url}}"],
+							"path": ["core", "quick-overview", ""]
+						}
+					}
+				},
+				{
+					"name": "Worksite Breakdown",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/core/worksite-breakdown/",
+							"host": ["{{base_url}}"],
+							"path": ["core", "worksite-breakdown", ""]
+						}
+					}
+				},
+				{
+					"name": "Division Breakdown",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/core/division-breakdown/",
+							"host": ["{{base_url}}"],
+							"path": ["core", "division-breakdown", ""]
+						}
+					}
+				},
+				{
+					"name": "Request Statistics (AuditLog)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/audit-logs/stats/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "audit-logs", "stats", ""]
+						}
+					}
+				},
+				{
+					"name": "Approval History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/approval-history/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "approval-history", ""]
+						}
+					}
+				},
+				{
+					"name": "Audit Logs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/audit-logs/",
+							"host": ["{{base_url}}"],
+							"path": ["requests", "audit-logs", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🔍 Search & Filters",
+			"item": [
+				{
+					"name": "Search Requests",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/?search=helmet&status=pending&ordering=-created_at",
+							"host": ["{{base_url}}"],
+							"path": ["requests", ""],
+							"query": [
+								{
+									"key": "search",
+									"value": "helmet",
+									"description": "Search in item, description, category, reason"
+								},
+								{
+									"key": "status",
+									"value": "pending",
+									"description": "draft, pending, approved, rejected, purchasing, ordered, delivered, completed"
+								},
+								{
+									"key": "ordering",
+									"value": "-created_at",
+									"description": "created_at, -created_at, status, item, category"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Filter by Category",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/?category=Safety Equipment",
+							"host": ["{{base_url}}"],
+							"path": ["requests", ""],
+							"query": [
+								{
+									"key": "category",
+									"value": "Safety Equipment"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Filter by Created By",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/?created_by=2",
+							"host": ["{{base_url}}"],
+							"path": ["requests", ""],
+							"query": [
+								{
+									"key": "created_by",
+									"value": "2",
+									"description": "User ID"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Pagination Example",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/requests/?page=1&page_size=10",
+							"host": ["{{base_url}}"],
+							"path": ["requests", ""],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "page_size",
+									"value": "10"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🛠️ Admin & Health",
+			"item": [
+				{
+					"name": "API Root",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": ["{{base_url}}"],
+							"path": [""]
+						}
+					}
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": ["{{base_url}}"],
+							"path": [""]
+						}
+					}
+				}
+			]
+		}
+	]
+}

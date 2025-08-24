@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { MainStackParamList } from '../../navigation/MainStack';
 import requestService from '../../services/requestService';
 import { Request } from '../../types/requests';
+import { showError, showConfirm, showSuccess } from '../../utils/platformUtils';
 
 type RequestDetailScreenRouteProp = RouteProp<MainStackParamList, 'RequestDetail'>;
 
@@ -28,8 +29,7 @@ const RequestDetailScreen: React.FC = () => {
       const requestData = await requestService.getRequest(requestId);
       setRequest(requestData);
     } catch (error: any) {
-      Alert.alert(t('messages.error'), error.message || 'Failed to load request');
-      navigation.goBack();
+      showError(t('messages.error'), error.message || 'Failed to load request', () => navigation.goBack());
     } finally {
       setLoading(false);
     }
@@ -38,35 +38,27 @@ const RequestDetailScreen: React.FC = () => {
   const handleSubmitRequest = async () => {
     if (!request) return;
 
-    Alert.alert(
+    showConfirm(
       t('requests.submitRequest'),
       t('requests.submitRequestConfirm'),
-      [
-        { text: t('actions.cancel'), style: 'cancel' },
-        {
-          text: t('requests.submitButton'),
-          onPress: async () => {
-            try {
-              setSubmitting(true);
-              await requestService.submitRequest(request.id);
-              Alert.alert(
-                t('messages.success'),
-                t('requests.requestSubmitted'),
-                [
-                  {
-                    text: t('actions.ok'),
-                    onPress: () => navigation.goBack(),
-                  },
-                ]
-              );
-            } catch (error: any) {
-              Alert.alert(t('messages.error'), error.message || 'Failed to submit request');
-            } finally {
-              setSubmitting(false);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          setSubmitting(true);
+          await requestService.submitRequest(request.id);
+          showSuccess(
+            t('messages.success'),
+            t('requests.requestSubmitted'),
+            () => navigation.goBack()
+          );
+        } catch (error: any) {
+          showError(t('messages.error'), error.message || 'Failed to submit request');
+        } finally {
+          setSubmitting(false);
+        }
+      },
+      undefined,
+      t('requests.submitButton'),
+      t('actions.cancel')
     );
   };
 

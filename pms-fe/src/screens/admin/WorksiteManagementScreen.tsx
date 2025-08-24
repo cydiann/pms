@@ -6,7 +6,6 @@ import {
   FlatList, 
   TouchableOpacity, 
   ActivityIndicator, 
-  Alert, 
   TextInput,
   RefreshControl 
 } from 'react-native';
@@ -17,6 +16,7 @@ import { WorkSite } from '../../types/organization';
 import { ExtendedUser } from '../../types/users';
 import AddWorksiteModal from '../../components/modals/AddWorksiteModal';
 import WorksiteDetailModal from '../../components/modals/WorksiteDetailModal';
+import { showError } from '../../utils/platformUtils';
 
 const WorksiteManagementScreen: React.FC = () => {
   console.log('WorksiteManagementScreen: Component rendered');
@@ -71,7 +71,7 @@ const WorksiteManagementScreen: React.FC = () => {
       setWorksites(filteredWorksites);
     } catch (error: any) {
       console.error('WorksiteManagementScreen: Failed to load worksites:', error);
-      Alert.alert(
+      showError(
         t('messages.error'),
         error.message || 'Failed to load worksites'
       );

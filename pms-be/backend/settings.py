@@ -176,3 +176,15 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://127.0.0.1:3000').split(',')
 
 CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=DEBUG, cast=bool)
+
+# MinIO Configuration
+MINIO_ENDPOINT = config('MINIO_ENDPOINT', default='minio:9000')  # Internal endpoint for server-to-server communication
+MINIO_PUBLIC_ENDPOINT = config('MINIO_PUBLIC_ENDPOINT', default='localhost:9000')  # Public endpoint for browser access
+MINIO_ACCESS_KEY = config('MINIO_ACCESS_KEY', default='minioadmin')
+MINIO_SECRET_KEY = config('MINIO_SECRET_KEY', default='minioadmin123')
+MINIO_USE_SSL = config('MINIO_USE_SSL', default=False, cast=bool)
+MINIO_BUCKET_NAME = config('MINIO_BUCKET_NAME', default='pms-files')
+MINIO_PRESIGNED_URL_EXPIRY = config('MINIO_PRESIGNED_URL_EXPIRY', default=300, cast=int)
+
+# File Upload Settings
+MAX_UPLOAD_SIZE = config('MAX_UPLOAD_SIZE', default=10485760, cast=int)  # 10MB default

@@ -6,7 +6,6 @@ import {
   Modal,
   TouchableOpacity,
   TextInput,
-  Alert,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
@@ -15,6 +14,7 @@ import organizationService from '../../services/organizationService';
 import userService from '../../services/userService';
 import { WorkSite } from '../../types/organization';
 import { ExtendedUser } from '../../types/users';
+import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
 
 interface WorksiteDetailModalProps {
   visible: boolean;
@@ -105,7 +105,7 @@ const WorksiteDetailModal: React.FC<WorksiteDetailModalProps> = ({
       });
     } catch (error: any) {
       console.error('WorksiteDetailModal: Failed to load worksite:', error);
-      Alert.alert(
+      showError(
         t('messages.error'),
         error.message || 'Failed to load worksite details'
       );
@@ -172,9 +172,9 @@ const WorksiteDetailModal: React.FC<WorksiteDetailModalProps> = ({
       setWorksite(updatedWorksite);
       setEditing(false);
       onWorksiteUpdated?.();
-      Alert.alert(t('messages.success'), t('worksiteManagement.worksiteUpdated'));
+      showSuccess(t('messages.success'), t('worksiteManagement.worksiteUpdated'));
     } catch (error: any) {
-      Alert.alert(
+      showError(
         t('messages.error'),
         error.message || t('worksiteManagement.updateWorksiteError')
       );
@@ -186,29 +186,26 @@ const WorksiteDetailModal: React.FC<WorksiteDetailModalProps> = ({
   const handleDelete = () => {
     if (!worksite) return;
 
-    Alert.alert(
+    showConfirm(
       t('worksiteManagement.deleteWorksite'),
       t('worksiteManagement.deleteWorksiteConfirm', { name: `${worksite.city}, ${worksite.country}` }),
-      [
-        { text: t('actions.cancel'), style: 'cancel' },
-        {
-          text: t('actions.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await organizationService.deleteWorksite(worksite.id);
-              onWorksiteUpdated?.();
-              onClose();
-              Alert.alert(t('messages.success'), t('worksiteManagement.worksiteDeleted'));
-            } catch (error: any) {
-              Alert.alert(
-                t('messages.error'),
-                error.message || t('worksiteManagement.deleteWorksiteError')
-              );
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          await organizationService.deleteWorksite(worksite.id);
+          onWorksiteUpdated?.();
+          onClose();
+          showSuccess(t('messages.success'), t('worksiteManagement.worksiteDeleted'));
+        } catch (error: any) {
+          showError(
+            t('messages.error'),
+            error.message || t('worksiteManagement.deleteWorksiteError')
+          );
+        }
+      },
+      undefined,
+      t('actions.delete'),
+      t('actions.cancel'),
+      true
     );
   };
 

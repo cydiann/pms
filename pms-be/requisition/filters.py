@@ -8,6 +8,8 @@ class RequestFilter(django_filters.FilterSet):
     category = django_filters.CharFilter(lookup_expr='icontains')
     created_by = django_filters.NumberFilter(field_name='created_by__id')
     created_by_username = django_filters.CharFilter(field_name='created_by__username', lookup_expr='icontains')
+    created_by_user_first_name = django_filters.CharFilter(field_name='created_by__first_name', lookup_expr='icontains')
+    created_by_user_last_name = django_filters.CharFilter(field_name='created_by__last_name', lookup_expr='icontains')
     worksite = django_filters.NumberFilter(field_name='created_by__worksite__id')
     division = django_filters.NumberFilter(field_name='created_by__division__id')
     
@@ -44,6 +46,8 @@ class ApprovalHistoryFilter(django_filters.FilterSet):
     request_id = django_filters.NumberFilter(field_name='request__id')
     user = django_filters.NumberFilter(field_name='user__id')
     user_username = django_filters.CharFilter(field_name='user__username', lookup_expr='icontains')
+    user_first_name = django_filters.CharFilter(field_name='user__first_name', lookup_expr='icontains')
+    user_last_name = django_filters.CharFilter(field_name='user__last_name', lookup_expr='icontains')
     action = django_filters.ChoiceFilter(choices=ApprovalHistory.ACTION_CHOICES)
     level = django_filters.NumberFilter()
     
@@ -63,6 +67,8 @@ class AuditLogFilter(django_filters.FilterSet):
     request_id = django_filters.NumberFilter(field_name='request__id')
     user = django_filters.NumberFilter(field_name='user__id')
     user_username = django_filters.CharFilter(field_name='user__username', lookup_expr='icontains')
+    user_first_name = django_filters.CharFilter(field_name='user__first_name', lookup_expr='icontains')
+    user_last_name = django_filters.CharFilter(field_name='user__last_name', lookup_expr='icontains')
     action = django_filters.CharFilter(lookup_expr='icontains')
     
     timestamp_after = django_filters.DateTimeFilter(field_name='timestamp', lookup_expr='gte')

@@ -10,6 +10,7 @@ class UserSerializer(serializers.ModelSerializer):
     division_name = serializers.CharField(source='division.name', read_only=True)
     groups = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
+    user_permissions = serializers.SerializerMethodField()
     username = serializers.CharField(required=False, allow_blank=True)
     
     class Meta:
@@ -18,9 +19,9 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'first_name', 'last_name', 'full_name', 'phone_number',
             'groups', 'worksite', 'worksite_name', 'division', 'division_name',
             'supervisor', 'supervisor_name', 'is_staff', 'is_active', 'is_superuser',
-            'permissions', 'created_at', 'deleted_at'
+            'permissions', 'user_permissions', 'created_at', 'deleted_at'
         ]
-        read_only_fields = ['created_at', 'deleted_at', 'permissions', 'full_name']
+        read_only_fields = ['created_at', 'deleted_at', 'permissions', 'user_permissions', 'full_name']
         
     def validate(self, attrs):
         """Validate that either username is provided or both first_name and last_name"""
@@ -58,8 +59,16 @@ class UserSerializer(serializers.ModelSerializer):
     def get_permissions(self, obj):
         # Only return permissions in detail view or for current user
         request = self.context.get('request')
-        if request and (request.user == obj or request.user.is_staff):
+        if request and (request.user == obj or request.user.is_superuser):
             return list(obj.get_all_permissions())
+        return []
+    
+    def get_user_permissions(self, obj):
+        # Return individual user permissions (not from groups)
+        request = self.context.get('request')
+        if request and (request.user == obj or request.user.is_superuser):
+            return [{'id': p.id, 'name': p.name, 'codename': p.codename} 
+                    for p in obj.user_permissions.all()]
         return []
 
 

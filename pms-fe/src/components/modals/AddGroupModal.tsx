@@ -6,7 +6,6 @@ import {
   Modal,
   TouchableOpacity,
   TextInput,
-  Alert,
   ScrollView,
   ActivityIndicator,
   Switch,
@@ -14,6 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
 import { ExtendedUser } from '../../types/users';
+import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
 
 interface AddGroupModalProps {
   visible: boolean;
@@ -92,7 +92,7 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
       
     } catch (error: any) {
       console.error('AddGroupModal: Failed to load permissions:', error);
-      Alert.alert(
+      showError(
         t('messages.error'),
         'Failed to load permissions. Please try again.'
       );
@@ -148,7 +148,7 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
         });
       }
 
-      Alert.alert(
+      showSuccess(
         t('groupManagement.success.title'),
         t('groupManagement.success.message', { name: newGroup.name })
       );

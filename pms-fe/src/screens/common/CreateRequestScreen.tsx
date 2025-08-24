@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
 import { CreateRequestDto, RequestUnit } from '../../types/requests';
+import { showError, showSuccess } from '../../utils/platformUtils';
 
 const CreateRequestScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -40,33 +41,33 @@ const CreateRequestScreen: React.FC = () => {
 
   const validateForm = () => {
     if (!formData.item.trim()) {
-      Alert.alert(t('messages.error'), t('requests.validation.itemRequired'));
+      showError(t('messages.error'), t('requests.validation.itemRequired'));
       return false;
     }
     
     if (!formData.quantity.trim()) {
-      Alert.alert(t('messages.error'), t('requests.validation.quantityRequired'));
+      showError(t('messages.error'), t('requests.validation.quantityRequired'));
       return false;
     }
     
     const quantityNumber = parseFloat(formData.quantity);
     if (isNaN(quantityNumber)) {
-      Alert.alert(t('messages.error'), t('requests.validation.quantityInvalid'));
+      showError(t('messages.error'), t('requests.validation.quantityInvalid'));
       return false;
     }
     
     if (quantityNumber <= 0) {
-      Alert.alert(t('messages.error'), t('requests.validation.quantityMustBePositive'));
+      showError(t('messages.error'), t('requests.validation.quantityMustBePositive'));
       return false;
     }
     
     if (quantityNumber > 999999) {
-      Alert.alert(t('messages.error'), t('requests.validation.quantityTooLarge'));
+      showError(t('messages.error'), t('requests.validation.quantityTooLarge'));
       return false;
     }
     
     if (!formData.reason.trim()) {
-      Alert.alert(t('messages.error'), t('requests.validation.reasonRequired'));
+      showError(t('messages.error'), t('requests.validation.reasonRequired'));
       return false;
     }
 
@@ -79,29 +80,24 @@ const CreateRequestScreen: React.FC = () => {
     setLoading(true);
     try {
       const newRequest = await requestService.createRequest(formData);
-      Alert.alert(
+      showSuccess(
         'Success',
         `Draft request ${newRequest.request_number} has been saved!`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Reset form
-              setFormData({
-                item: '',
-                description: '',
-                quantity: '',
-                unit: RequestUnit.PIECES,
-                category: '',
-                delivery_address: '',
-                reason: '',
-              });
-            },
-          },
-        ]
+        () => {
+          // Reset form
+          setFormData({
+            item: '',
+            description: '',
+            quantity: '',
+            unit: RequestUnit.PIECES,
+            category: '',
+            delivery_address: '',
+            reason: '',
+          });
+        }
       );
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save draft');
+      showError('Error', error.message || 'Failed to save draft');
     } finally {
       setLoading(false);
     }
@@ -118,29 +114,24 @@ const CreateRequestScreen: React.FC = () => {
       // Then submit it for approval
       await requestService.submitRequest(newRequest.id);
       
-      Alert.alert(
+      showSuccess(
         'Success',
         `Request ${newRequest.request_number} has been submitted for approval!`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Reset form
-              setFormData({
-                item: '',
-                description: '',
-                quantity: '',
-                unit: RequestUnit.PIECES,
-                category: '',
-                delivery_address: '',
-                reason: '',
-              });
-            },
-          },
-        ]
+        () => {
+          // Reset form
+          setFormData({
+            item: '',
+            description: '',
+            quantity: '',
+            unit: RequestUnit.PIECES,
+            category: '',
+            delivery_address: '',
+            reason: '',
+          });
+        }
       );
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to submit request');
+      showError('Error', error.message || 'Failed to submit request');
     } finally {
       setLoading(false);
     }

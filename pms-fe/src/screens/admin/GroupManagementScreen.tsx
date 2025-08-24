@@ -6,7 +6,6 @@ import {
   FlatList, 
   TouchableOpacity, 
   ActivityIndicator, 
-  Alert, 
   TextInput,
   RefreshControl 
 } from 'react-native';
@@ -15,6 +14,7 @@ import userService from '../../services/userService';
 import { ExtendedUser } from '../../types/users';
 import AddGroupModal from '../../components/modals/AddGroupModal';
 import GroupDetailModal from '../../components/modals/GroupDetailModal';
+import { showError } from '../../utils/platformUtils';
 
 interface UserGroup {
   id: number;
@@ -83,7 +83,7 @@ const GroupManagementScreen: React.FC = () => {
       setGroups(filteredGroups);
     } catch (error: any) {
       console.error('GroupManagementScreen: Failed to load groups:', error);
-      Alert.alert(
+      showError(
         t('messages.error'),
         error.message || 'Failed to load groups'
       );

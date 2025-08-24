@@ -31,6 +31,7 @@ class UserViewSet(viewsets.ModelViewSet):
         'manage_groups': 'auth.change_group',
         'manage_permissions': 'auth.change_permission',
         'view_as': 'auth.view_user',
+        'available_permissions': 'auth.view_permission',
         # 'me' and 'my_permissions' don't need special permissions - all authenticated users can access
     }
     
@@ -46,12 +47,12 @@ class UserViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         return super().get_permissions()
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='me', url_name='me')
     def me(self, request):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='my-permissions', url_name='my-permissions')
     def my_permissions(self, request):
         """Get current user's permissions"""
         user = request.user
@@ -63,7 +64,7 @@ class UserViewSet(viewsets.ModelViewSet):
             'permissions': list(user_permissions)
         })
     
-    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAdminUser], url_path='view-as', url_name='view-as')
     def view_as(self, request, pk=None):
         target_user = self.get_object()
         serializer = self.get_serializer(target_user)
@@ -75,7 +76,7 @@ class UserViewSet(viewsets.ModelViewSet):
             'is_superuser': target_user.is_superuser
         })
     
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser], url_path='manage-groups', url_name='manage-groups')
     def manage_groups(self, request, pk=None):
         """Add/remove user from groups"""
         user = self.get_object()
@@ -103,7 +104,7 @@ class UserViewSet(viewsets.ModelViewSet):
             'groups': [{'id': g.id, 'name': g.name} for g in user.groups.all()]
         })
     
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser], url_path='manage-permissions', url_name='manage-permissions')
     def manage_permissions(self, request, pk=None):
         """Add/remove individual permissions for user"""
         user = self.get_object()
@@ -131,7 +132,7 @@ class UserViewSet(viewsets.ModelViewSet):
                                for p in user.user_permissions.all()]
         })
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='by-group', url_name='by-group')
     def by_group(self, request):
         """List users filtered by group"""
         group_id = request.query_params.get('group_id')
@@ -162,6 +163,19 @@ class UserViewSet(viewsets.ModelViewSet):
             'user_count': users.count(),
             'users': serializer.data
         })
+    
+    @action(detail=False, methods=['get'], url_path='available_permissions', url_name='available-permissions')
+    def available_permissions(self, request):
+        """Get all available permissions with content type and app label info"""
+        permissions_qs = Permission.objects.all().select_related('content_type')
+        
+        return Response([{
+            'id': perm.id,
+            'name': perm.name,
+            'codename': perm.codename,
+            'content_type': perm.content_type.model,
+            'app_label': perm.content_type.app_label
+        } for perm in permissions_qs])
 
 
 class GroupViewSet(viewsets.ModelViewSet):
@@ -189,7 +203,7 @@ class GroupViewSet(viewsets.ModelViewSet):
                           for p in group.permissions.all()]
         })
     
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='manage-permissions', url_name='manage-permissions')
     def manage_permissions(self, request, pk=None):
         """Add/remove permissions from group"""
         group = self.get_object()
@@ -231,7 +245,7 @@ class PermissionViewSet(viewsets.ReadOnlyModelViewSet):
             'content_type': perm.content_type.model
         } for perm in permissions])
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='by-content-type', url_name='by-content-type')
     def by_content_type(self, request):
         """Group permissions by content type"""
         permissions = Permission.objects.all().select_related('content_type')

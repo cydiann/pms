@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
 import { CreateRequestDto, RequestUnit } from '../../types/requests';
+import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
 
 interface CreateRequestModalProps {
   visible: boolean;
@@ -51,23 +51,23 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
 
   const validateForm = () => {
     if (!formData.item.trim()) {
-      Alert.alert('Error', 'Item name is required');
+      showError('Error', 'Item name is required');
       return false;
     }
     
     if (!formData.quantity.trim()) {
-      Alert.alert('Error', 'Quantity is required');
+      showError('Error', 'Quantity is required');
       return false;
     }
     
     const quantityNumber = parseFloat(formData.quantity);
     if (isNaN(quantityNumber) || quantityNumber <= 0) {
-      Alert.alert('Error', 'Please enter a valid quantity');
+      showError('Error', 'Please enter a valid quantity');
       return false;
     }
     
     if (!formData.reason.trim()) {
-      Alert.alert('Error', 'Reason is required');
+      showError('Error', 'Reason is required');
       return false;
     }
 
@@ -94,11 +94,11 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
       
       // Show success message after modal is closed
       setTimeout(() => {
-        Alert.alert('Success', `Request "${formData.item}" has been created and submitted for approval!`);
+        showSuccess('Success', `Request "${formData.item}" has been created and submitted for approval!`);
       }, 300);
     } catch (error: any) {
       console.error('Create/submit error:', error);
-      Alert.alert('Error', error.message || 'Failed to create and submit request');
+      showError('Error', error.message || 'Failed to create and submit request');
     } finally {
       setLoading(false);
     }
@@ -117,10 +117,10 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
       
       // Show success message after modal is closed  
       setTimeout(() => {
-        Alert.alert('Success', `Draft request "${formData.item}" has been saved!`);
+        showSuccess('Success', `Draft request "${formData.item}" has been saved!`);
       }, 300);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save draft');
+      showError('Error', error.message || 'Failed to save draft');
     } finally {
       setLoading(false);
     }

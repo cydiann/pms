@@ -2,6 +2,7 @@ from django.db import models
 import uuid
 from datetime import datetime
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 
 
 class Request(models.Model):
@@ -214,6 +215,128 @@ class RequestRevision(models.Model):
     
     def __str__(self):
         return f"{self.request.request_number} - Revision #{self.revision_number}"
+
+
+class ProcurementDocument(models.Model):
+    """Track documents uploaded during procurement lifecycle (quotes, dispatch notes, receipts)"""
+    
+    DOCUMENT_TYPE_CHOICES = [
+        ('quote', 'Quotation'),
+        ('purchase_order', 'Purchase Order'),
+        ('dispatch_note', 'Dispatch Note'),
+        ('receipt', 'Delivery Receipt'),
+        ('invoice', 'Invoice'),
+        ('other', 'Other Supporting Document'),
+    ]
+    
+    UPLOAD_STATUS_CHOICES = [
+        ('pending', 'Pending Upload'),
+        ('uploaded', 'Uploaded'),
+        ('failed', 'Upload Failed'),
+        ('deleted', 'Deleted'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    request = models.ForeignKey(
+        Request,
+        on_delete=models.CASCADE,
+        related_name='documents'
+    )
+    uploaded_by = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='uploaded_documents'
+    )
+    
+    document_type = models.CharField(
+        max_length=20,
+        choices=DOCUMENT_TYPE_CHOICES,
+        help_text="Type of procurement document"
+    )
+    file_name = models.CharField(max_length=255)
+    file_size = models.BigIntegerField(help_text="File size in bytes")
+    file_type = models.CharField(max_length=100, help_text="MIME type")
+    object_name = models.CharField(
+        max_length=500,
+        unique=True,
+        help_text="MinIO object name/path"
+    )
+    
+    status = models.CharField(
+        max_length=20,
+        choices=UPLOAD_STATUS_CHOICES,
+        default='pending'
+    )
+    
+    uploaded_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    description = models.TextField(blank=True, help_text="Document description or notes")
+    
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Additional metadata (vendor info, PO number, etc.)"
+    )
+    
+    class Meta:
+        db_table = 'procurement_documents'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['request', 'document_type']),
+            models.Index(fields=['object_name']),
+        ]
+        
+    def __str__(self):
+        return f"{self.get_document_type_display()} - {self.request.request_number}"
+    
+    def mark_uploaded(self):
+        """Mark document as successfully uploaded"""
+        self.status = 'uploaded'
+        self.uploaded_at = timezone.now()
+        self.save(update_fields=['status', 'uploaded_at', 'updated_at'])
+    
+    def mark_failed(self):
+        """Mark document upload as failed"""
+        self.status = 'failed'
+        self.save(update_fields=['status', 'updated_at'])
+    
+    def mark_deleted(self):
+        """Mark document as deleted (soft delete)"""
+        self.status = 'deleted'
+        self.save(update_fields=['status', 'updated_at'])
+    
+    def can_upload_document(self, user):
+        """Check if user has permission to upload this document type"""
+        from authentication.models import User
+        request_status = self.request.status
+        
+        # Admin can always upload
+        if user.is_superuser:
+            return True
+        
+        # Dispatch notes can be uploaded after ordering
+        if self.document_type == 'dispatch_note':
+            return request_status == 'ordered' and (
+                user.role and user.role.can_purchase
+            )
+        
+        # Receipts can be uploaded after delivery
+        if self.document_type == 'receipt':
+            return request_status == 'delivered' and (
+                user.role and user.role.can_purchase
+            )
+        
+        # Quotes can be uploaded during purchasing phase
+        if self.document_type == 'quote':
+            return request_status in ['approved', 'purchasing'] and (
+                user.role and user.role.can_purchase
+            )
+        
+        # Other documents based on general permissions
+        return user.role and user.role.can_purchase
 
 
 class AuditLog(models.Model):

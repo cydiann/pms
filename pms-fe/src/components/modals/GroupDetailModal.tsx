@@ -6,7 +6,6 @@ import {
   Modal,
   TouchableOpacity,
   TextInput,
-  Alert,
   ScrollView,
   ActivityIndicator,
   Switch,
@@ -14,6 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
 import { ExtendedUser } from '../../types/users';
+import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
 
 interface GroupDetailModalProps {
   visible: boolean;
@@ -96,7 +96,7 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
       setSelectedPermissions(new Set(groupData.permissions.map(p => p.id)));
     } catch (error: any) {
       console.error('GroupDetailModal: Failed to load group:', error);
-      Alert.alert(
+      showError(
         t('messages.error'),
         error.message || 'Failed to load group details'
       );
@@ -160,12 +160,12 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
 
       setEditing(false);
       onGroupUpdated?.();
-      Alert.alert(t('messages.success'), t('groupManagement.groupUpdated'));
+      showSuccess(t('messages.success'), t('groupManagement.groupUpdated'));
       
       // Reload group data to get updated info
       await loadGroup();
     } catch (error: any) {
-      Alert.alert(
+      showError(
         t('messages.error'),
         error.message || t('groupManagement.updateGroupError')
       );
@@ -177,29 +177,26 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
   const handleDelete = () => {
     if (!group) return;
 
-    Alert.alert(
+    showConfirm(
       t('groupManagement.deleteGroup'),
       t('groupManagement.deleteGroupConfirm', { name: group.name }),
-      [
-        { text: t('actions.cancel'), style: 'cancel' },
-        {
-          text: t('actions.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await userService.deleteGroup(group.id);
-              onGroupUpdated?.();
-              onClose();
-              Alert.alert(t('messages.success'), t('groupManagement.groupDeleted'));
-            } catch (error: any) {
-              Alert.alert(
-                t('messages.error'),
-                error.message || t('groupManagement.deleteGroupError')
-              );
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          await userService.deleteGroup(group.id);
+          onGroupUpdated?.();
+          onClose();
+          showSuccess(t('messages.success'), t('groupManagement.groupDeleted'));
+        } catch (error: any) {
+          showError(
+            t('messages.error'),
+            error.message || t('groupManagement.deleteGroupError')
+          );
+        }
+      },
+      undefined,
+      t('actions.delete'),
+      t('actions.cancel'),
+      true
     );
   };
 

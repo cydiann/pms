@@ -25,7 +25,7 @@ class WorksiteViewSet(viewsets.ModelViewSet):
             permission_classes = [permissions.IsAdminUser]
         return [permission() for permission in permission_classes]
     
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['get'], url_path='users', url_name='users')
     def users(self, request, pk=None):
         """Get users in this worksite"""
         worksite = self.get_object()
@@ -39,7 +39,7 @@ class WorksiteViewSet(viewsets.ModelViewSet):
             'users': serializer.data
         })
     
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['get'], url_path='stats', url_name='stats')
     def stats(self, request, pk=None):
         """Get worksite statistics"""
         worksite = self.get_object()
@@ -81,7 +81,7 @@ class DivisionViewSet(viewsets.ModelViewSet):
             permission_classes = [permissions.IsAdminUser]
         return [permission() for permission in permission_classes]
     
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['get'], url_path='users', url_name='users')
     def users(self, request, pk=None):
         """Get users in this division"""
         division = self.get_object()
@@ -95,7 +95,7 @@ class DivisionViewSet(viewsets.ModelViewSet):
             'users': serializer.data
         })
     
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['get'], url_path='stats', url_name='stats')
     def stats(self, request, pk=None):
         """Get division statistics"""
         division = self.get_object()

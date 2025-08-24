@@ -168,8 +168,8 @@ class ObjectLevelPermission(permissions.BasePermission):
         if hasattr(obj, 'supervisor') and obj.supervisor == request.user:
             return True
             
-        # Staff can access everything
-        return request.user.is_staff
+        # Superuser can access everything
+        return request.user.is_superuser
 
 
 class SupervisorPermission(permissions.BasePermission):
@@ -178,7 +178,7 @@ class SupervisorPermission(permissions.BasePermission):
     """
     
     def has_object_permission(self, request, view, obj):
-        if request.user.is_staff:
+        if request.user.is_superuser:
             return True
             
         # Check if user is supervisor of the object owner

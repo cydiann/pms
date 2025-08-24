@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   Switch,
-  Alert,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
@@ -17,6 +16,7 @@ import organizationService from '../../services/organizationService';
 import { CreateUserDto, ExtendedUser } from '../../types/users';
 import { WorkSite } from '../../types/organization';
 import AddWorksiteModal from './AddWorksiteModal';
+import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
 
 interface AddUserModalProps {
   visible: boolean;
@@ -153,7 +153,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
       
     } catch (error: any) {
       console.error('AddUserModal: Failed to load initial data:', error);
-      Alert.alert(
+      showError(
         t('messages.error'),
         'Failed to load form options. Please try again.'
       );
@@ -252,13 +252,13 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
 
       // Show success message with generated password if applicable
       if (formData.generatePassword && submitData.password) {
-        Alert.alert(
+        showAlert(
           t('addUser.success.title'),
           `${t('addUser.success.message')}\n\n${t('addUser.success.generatedPassword')}: ${submitData.password}\n\n${t('addUser.success.passwordWarning')}`,
           [{ text: t('actions.ok'), onPress: () => {} }]
         );
       } else {
-        Alert.alert(t('addUser.success.title'), t('addUser.success.message'));
+        showSuccess(t('addUser.success.title'), t('addUser.success.message'));
       }
 
       // Reset form and close modal

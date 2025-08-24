@@ -17,22 +17,33 @@ import { PaginatedResponse, RequestQueryParams } from '../types/api';
 class RequestService {
   // Get user's requests with optional filters
   async getMyRequests(params?: RequestQueryParams): Promise<PaginatedResponse<Request>> {
-    const queryString = params ? new URLSearchParams(params as any).toString() : '';
-    const url = `${API_ENDPOINTS.REQUESTS.LIST}${queryString ? `?${queryString}` : ''}`;
+    const cleanParams = this.cleanParams(params);
+    const queryString = cleanParams ? new URLSearchParams(cleanParams).toString() : '';
+    const url = `${API_ENDPOINTS.REQUESTS.MY_REQUESTS}${queryString ? `?${queryString}` : ''}`;
     return await apiClient.get<PaginatedResponse<Request>>(url);
   }
 
   // Get all requests (admin only)
   async getAllRequests(params?: RequestQueryParams): Promise<PaginatedResponse<Request>> {
-    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    const cleanParams = this.cleanParams(params);
+    const queryString = cleanParams ? new URLSearchParams(cleanParams).toString() : '';
     const url = `${API_ENDPOINTS.REQUESTS.LIST}${queryString ? `?${queryString}` : ''}`;
     return await apiClient.get<PaginatedResponse<Request>>(url);
+  }
+
+  // Search requests with comprehensive filters
+  async searchRequests(searchTerm: string, filters?: Omit<RequestQueryParams, 'search'>): Promise<PaginatedResponse<Request>> {
+    const params: RequestQueryParams = {
+      search: searchTerm,
+      ...filters
+    };
+    return await this.getAllRequests(params);
   }
 
   // Get requests from subordinates (for supervisors)
   async getSubordinateRequests(params?: RequestQueryParams): Promise<PaginatedResponse<Request>> {
     const queryString = params ? new URLSearchParams(params as any).toString() : '';
-    const url = `${API_ENDPOINTS.REQUESTS.LIST}subordinates/${queryString ? `?${queryString}` : ''}`;
+    const url = `${API_ENDPOINTS.REQUESTS.MY_REQUESTS}${queryString ? `?${queryString}` : ''}`;
     return await apiClient.get<PaginatedResponse<Request>>(url);
   }
 
@@ -53,7 +64,7 @@ class RequestService {
 
   // Submit draft request (draft -> pending)
   async submitRequest(id: number): Promise<Request> {
-    return await apiClient.post<Request>(`${API_ENDPOINTS.REQUESTS.DETAIL(id)}submit/`);
+    return await apiClient.post<Request>(API_ENDPOINTS.REQUESTS.SUBMIT(id));
   }
 
   // Approve request
@@ -78,19 +89,19 @@ class RequestService {
 
   // Purchasing team actions
   async assignToPurchasing(id: number): Promise<Request> {
-    return await apiClient.post<Request>(`${API_ENDPOINTS.REQUESTS.DETAIL(id)}assign_purchasing/`);
+    return await apiClient.post<Request>(`${API_ENDPOINTS.REQUESTS.DETAIL(id)}assign-purchasing/`);
   }
 
   async markAsOrdered(id: number, notes?: string): Promise<Request> {
-    return await apiClient.post<Request>(`${API_ENDPOINTS.REQUESTS.DETAIL(id)}mark_ordered/`, { notes });
+    return await apiClient.post<Request>(API_ENDPOINTS.REQUESTS.MARK_PURCHASED(id), { notes });
   }
 
   async markAsDelivered(id: number, notes?: string): Promise<Request> {
-    return await apiClient.post<Request>(`${API_ENDPOINTS.REQUESTS.DETAIL(id)}mark_delivered/`, { notes });
+    return await apiClient.post<Request>(API_ENDPOINTS.REQUESTS.MARK_DELIVERED(id), { notes });
   }
 
   async markAsCompleted(id: number): Promise<Request> {
-    return await apiClient.post<Request>(`${API_ENDPOINTS.REQUESTS.DETAIL(id)}mark_completed/`);
+    return await apiClient.post<Request>(`${API_ENDPOINTS.REQUESTS.DETAIL(id)}mark-completed/`);
   }
 
   // Delete request (only drafts)
@@ -100,17 +111,17 @@ class RequestService {
 
   // Get dashboard statistics
   async getDashboardStats(): Promise<RequestStats> {
-    return await apiClient.get<RequestStats>(`${API_ENDPOINTS.REQUESTS.LIST}dashboard_stats/`);
+    return await apiClient.get<RequestStats>(`${API_ENDPOINTS.REQUESTS.LIST}stats/`);
   }
 
   // Get subordinate dashboard stats (for supervisors)
   async getSubordinateStats(): Promise<RequestStats> {
-    return await apiClient.get<RequestStats>(`${API_ENDPOINTS.REQUESTS.LIST}subordinate_stats/`);
+    return await apiClient.get<RequestStats>(`${API_ENDPOINTS.REQUESTS.LIST}subordinate-stats/`);
   }
 
   // Get pending approvals for current user (supervisor)
   async getPendingApprovals(): Promise<Request[]> {
-    return await apiClient.get<Request[]>(`${API_ENDPOINTS.REQUESTS.LIST}pending_approvals/`);
+    return await apiClient.get<Request[]>(API_ENDPOINTS.REQUESTS.PENDING_APPROVALS);
   }
 
   // Get admin dashboard stats (using new core endpoint)
@@ -177,6 +188,20 @@ class RequestService {
 
   canUserDelete(request: Request, currentUserId: number): boolean {
     return request.status === 'draft' && request.created_by === currentUserId;
+  }
+
+  // Utility method to clean parameters for API calls
+  private cleanParams(params?: RequestQueryParams): Record<string, string> | null {
+    if (!params) return null;
+    
+    const cleanParams: Record<string, string> = {};
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        cleanParams[key] = String(value);
+      }
+    });
+    
+    return Object.keys(cleanParams).length > 0 ? cleanParams : null;
   }
 }
 

@@ -5,7 +5,6 @@ import {
   TextInput,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   ScrollView,
   Platform,
@@ -15,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
 import LoadingButton from '../../components/common/LoadingButton';
 import { LoginRequest } from '../../types/auth';
+import { showSimpleAlert } from '../../utils/platformUtils';
 
 interface LoginFormData {
   username: string;
@@ -56,10 +56,9 @@ const LoginScreen: React.FC = () => {
   };
 
   const handleForgotPassword = () => {
-    Alert.alert(
+    showSimpleAlert(
       t('auth.forgotPassword'),
-      'Password reset requests are handled by your supervisor. Please contact your immediate supervisor to request a password reset.',
-      [{ text: 'OK' }]
+      'Password reset requests are handled by your supervisor. Please contact your immediate supervisor to request a password reset.'
     );
   };
 

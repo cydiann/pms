@@ -15,7 +15,7 @@ from .serializers import SystemStatsSerializer, WorksiteStatsSerializer, Divisio
 class CoreViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAdminUser]
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='system-stats', url_name='system-stats')
     def system_stats(self, request):
         """Comprehensive system statistics for admin dashboard"""
         
@@ -25,7 +25,7 @@ class CoreViewSet(viewsets.ViewSet):
         user_stats = User.objects.filter(deleted_at__isnull=True).aggregate(
             total_users=Count('id'),
             active_users=Count('id', filter=Q(is_active=True)),
-            admin_users=Count('id', filter=Q(Q(is_staff=True) | Q(is_superuser=True)))
+            admin_users=Count('id', filter=Q(is_superuser=True))
         )
         
         total_users = user_stats['total_users']
@@ -146,7 +146,7 @@ class CoreViewSet(viewsets.ViewSet):
         serializer = SystemStatsSerializer(data)
         return Response(serializer.data)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='worksite-breakdown', url_name='worksite-breakdown')
     def worksite_breakdown(self, request):
         """Detailed breakdown of all worksites"""
         
@@ -187,7 +187,7 @@ class CoreViewSet(viewsets.ViewSet):
         serializer = WorksiteStatsSerializer(worksites_data, many=True)
         return Response(serializer.data)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='division-breakdown', url_name='division-breakdown')
     def division_breakdown(self, request):
         """Detailed breakdown of all divisions"""
         
@@ -229,7 +229,7 @@ class CoreViewSet(viewsets.ViewSet):
         serializer = DivisionStatsSerializer(divisions_data, many=True)
         return Response(serializer.data)
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='quick-overview', url_name='quick-overview')
     def quick_overview(self, request):
         """Quick overview stats for dashboard cards"""
         

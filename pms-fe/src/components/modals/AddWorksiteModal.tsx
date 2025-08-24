@@ -6,7 +6,6 @@ import {
   Modal,
   TouchableOpacity,
   TextInput,
-  Alert,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
@@ -15,6 +14,7 @@ import organizationService from '../../services/organizationService';
 import userService from '../../services/userService';
 import { WorkSite } from '../../types/organization';
 import { ExtendedUser } from '../../types/users';
+import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
 
 interface AddWorksiteModalProps {
   visible: boolean;
@@ -155,13 +155,13 @@ const AddWorksiteModal: React.FC<AddWorksiteModalProps> = ({
     
     if (!currentUser) {
       console.log('AddWorksiteModal: No current user available');
-      Alert.alert('Error', 'User information not loaded. Please try again.');
+      showError('Error', 'User information not loaded. Please try again.');
       return;
     }
 
     if (!currentUser.is_superuser) {
       console.log('AddWorksiteModal: User is not admin');
-      Alert.alert('Error', 'You do not have permission to create worksites.');
+      showError('Error', 'You do not have permission to create worksites.');
       return;
     }
 
@@ -187,7 +187,7 @@ const AddWorksiteModal: React.FC<AddWorksiteModalProps> = ({
       console.log('AddWorksiteModal: Worksite created successfully:', newWorksite);
 
       // Show success message
-      Alert.alert(
+      showSuccess(
         t('addWorksite.success.title'),
         t('addWorksite.success.message', { city: newWorksite.city })
       );

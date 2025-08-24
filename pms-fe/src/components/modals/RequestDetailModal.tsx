@@ -6,12 +6,14 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
 import { Request } from '../../types/requests';
+import FileUpload from '../common/FileUpload';
+import DocumentList from '../common/DocumentList';
+import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
 
 interface RequestDetailModalProps {
   visible: boolean;
@@ -28,6 +30,7 @@ const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
+  const [documentListKey, setDocumentListKey] = useState(0);
 
   const handleSubmitRequest = async () => {
     if (!request) {
@@ -51,11 +54,11 @@ const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
       
       // Show success message after modal is closed
       setTimeout(() => {
-        Alert.alert('Success', 'Request submitted for approval successfully!');
+        showSuccess('Success', 'Request submitted for approval successfully!');
       }, 300);
     } catch (error: any) {
       console.error('Submission error:', error);
-      Alert.alert('Error', error.message || 'Failed to submit request');
+      showError('Error', error.message || 'Failed to submit request');
     } finally {
       setSubmitting(false);
     }
@@ -131,6 +134,77 @@ const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
               <Text style={styles.label}>{t('requests.createdAt')}:</Text>
               <Text style={styles.value}>{new Date(request.created_at).toLocaleDateString()}</Text>
             </View>
+          </View>
+
+          {/* Documents Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Documents</Text>
+            
+            {/* File Upload Options - Show relevant buttons based on status */}
+            <View style={styles.uploadSection}>
+              {/* Always allow "other" document uploads for superuser */}
+              <FileUpload
+                requestId={request.id}
+                requestStatus={request.status}
+                documentType="other"
+                onUploadComplete={() => {
+                  // Trigger document list refresh
+                  setDocumentListKey(prev => prev + 1);
+                }}
+                style={styles.uploadButton}
+              />
+              
+              {/* Quote uploads for approved/purchasing requests */}
+              <FileUpload
+                requestId={request.id}
+                requestStatus={request.status}
+                documentType="quote"
+                onUploadComplete={() => {
+                  setDocumentListKey(prev => prev + 1);
+                }}
+                style={styles.uploadButton}
+              />
+              
+              {/* Purchase Order uploads for approved/purchasing requests */}
+              <FileUpload
+                requestId={request.id}
+                requestStatus={request.status}
+                documentType="purchase_order"
+                onUploadComplete={() => {
+                  setDocumentListKey(prev => prev + 1);
+                }}
+                style={styles.uploadButton}
+              />
+              
+              {/* Dispatch Note uploads for ordered requests */}
+              <FileUpload
+                requestId={request.id}
+                requestStatus={request.status}
+                documentType="dispatch_note"
+                onUploadComplete={() => {
+                  setDocumentListKey(prev => prev + 1);
+                }}
+                style={styles.uploadButton}
+              />
+              
+              {/* Receipt uploads for delivered requests */}
+              <FileUpload
+                requestId={request.id}
+                requestStatus={request.status}
+                documentType="receipt"
+                onUploadComplete={() => {
+                  setDocumentListKey(prev => prev + 1);
+                }}
+                style={styles.uploadButton}
+              />
+            </View>
+            
+            {/* Document List */}
+            <DocumentList
+              requestId={request.id}
+              style={styles.documentList}
+              refreshTrigger={documentListKey}
+            />
           </View>
 
           {canSubmit && (
@@ -260,6 +334,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 16,
+  },
+  uploadSection: {
+    marginBottom: 16,
+  },
+  uploadButton: {
+    marginBottom: 8,
+  },
+  documentList: {
+    // Additional styles if needed
   },
 });
 

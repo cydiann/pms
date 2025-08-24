@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
 import { UserListItem, ExtendedUser } from '../../types/users';
 import UserDetailModal from '../../components/modals/UserDetailModal';
 import AddUserModal from '../../components/modals/AddUserModal';
+import { showError } from '../../utils/platformUtils';
 
 const UserManagementScreen: React.FC = () => {
   console.log('UserManagementScreen: Component rendered');
@@ -56,7 +57,7 @@ const UserManagementScreen: React.FC = () => {
       console.error('UserManagementScreen: Failed to load users:', error);
       console.error('UserManagementScreen: Error details:', JSON.stringify(error, null, 2));
       
-      Alert.alert(
+      showError(
         t('messages.error'), 
         `${error.message || t('userManagement.loadUsersError')}\n\nCheck console for details.`
       );

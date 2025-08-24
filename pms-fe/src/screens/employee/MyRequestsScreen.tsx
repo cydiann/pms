@@ -5,6 +5,7 @@ import requestService from '../../services/requestService';
 import { Request } from '../../types/requests';
 import RequestDetailModal from '../../components/modals/RequestDetailModal';
 import CreateRequestModal from '../../components/modals/CreateRequestModal';
+import { showSimpleAlert, showSuccess, showError } from '../../utils/platformUtils';
 
 const MyRequestsScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -20,9 +21,10 @@ const MyRequestsScreen: React.FC = () => {
     try {
       setError(null);
       const response = await requestService.getMyRequests();
-      setRequests(response.results);
+      setRequests(response.results || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load requests');
+      setRequests([]);
       console.error('Error loading requests:', err);
     } finally {
       setLoading(false);
@@ -59,17 +61,15 @@ Reason: ${request.reason}
 Created: ${new Date(request.created_at).toLocaleDateString()}
     `.trim();
     
-    Alert.alert('Request Details', details);
+    showSimpleAlert('Request Details', details);
   };
 
   const submitRequest = async (request: Request) => {
     try {
       await requestService.submitRequest(request.id);
-      Alert.alert('Success', 'Request submitted for approval!', [
-        { text: 'OK', onPress: () => loadRequests() }
-      ]);
+      showSuccess('Success', 'Request submitted for approval!', () => loadRequests());
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to submit request');
+      showError('Error', error.message || 'Failed to submit request');
     }
   };
 
