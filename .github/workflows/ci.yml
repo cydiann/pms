@@ -1,0 +1,194 @@
+name: PMS CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  # Backend Django Tests
+  backend-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test_pms
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    defaults:
+      run:
+        working-directory: ./pms-be
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run Django migrations
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_pms
+        SECRET_KEY: test-secret-key-for-github-actions
+        DEBUG: True
+      run: |
+        python manage.py migrate
+        
+    - name: Run Django tests
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_pms
+        SECRET_KEY: test-secret-key-for-github-actions
+        DEBUG: True
+      run: |
+        chmod +x run_tests.sh
+        ./run_tests.sh models
+
+  # Frontend React Native Tests
+  frontend-tests:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./pms-fe
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: pms-fe/package-lock.json
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run ESLint
+      run: npm run lint
+      
+    - name: Run Jest tests
+      run: npm test -- --watchAll=false --coverage
+      
+    - name: Build web version
+      run: npm run build:web
+
+  # Docker Build Tests
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build Backend Docker image
+      run: |
+        cd pms-be
+        docker build -t pms-backend:test .
+        
+    - name: Build Frontend Docker image
+      run: |
+        cd pms-fe
+        docker build -t pms-frontend:test .
+        
+    - name: Test Docker Compose
+      run: |
+        # Create a test docker-compose.yml for CI
+        cat > docker-compose.test.yml << EOF
+        version: '3.8'
+        services:
+          backend:
+            build: ./pms-be
+            environment:
+              - DEBUG=True
+              - SECRET_KEY=test-secret
+          frontend:
+            build: ./pms-fe
+            depends_on:
+              - backend
+        EOF
+        docker-compose -f docker-compose.test.yml build
+
+  # Security Scan
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Code Quality Analysis
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # Deploy to Staging (only on master branch)
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, docker-build]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to staging
+      run: |
+        echo "🚀 Deploying to staging environment..."
+        # Add your deployment commands here
+        # This could involve:
+        # - Building and pushing Docker images to a registry
+        # - Deploying to AWS/Azure/GCP
+        # - Updating Kubernetes deployments
+        # - Running database migrations on staging
+        
+    - name: Run smoke tests
+      run: |
+        echo "🧪 Running smoke tests on staging..."
+        # Add smoke tests to verify deployment
