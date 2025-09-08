@@ -1,5 +1,5 @@
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from django.db.models import Count, Q
 from datetime import datetime, timedelta
@@ -253,3 +253,31 @@ class CoreViewSet(viewsets.ViewSet):
             'total_worksites': Worksite.objects.count(),
             'total_divisions': Division.objects.count(),
         })
+
+
+@api_view(['GET'])
+@permission_classes([])  # No authentication required for health check
+def health_check(request):
+    """Health check endpoint for Railway and monitoring"""
+    try:
+        # Test database connection
+        from django.db import connection
+        cursor = connection.cursor()
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+        
+        # Test basic user model access
+        User.objects.count()
+        
+        return Response({
+            'status': 'healthy',
+            'database': 'connected',
+            'timestamp': timezone.now().isoformat()
+        }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': timezone.now().isoformat()
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
