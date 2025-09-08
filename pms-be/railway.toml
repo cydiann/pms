@@ -1,0 +1,19 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/api/health/"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[env]
+# Railway will automatically provide DATABASE_URL for PostgreSQL
+# These environment variables should be set in Railway dashboard
+DJANGO_SETTINGS_MODULE = "backend.settings"
+ALLOWED_HOSTS = "${{RAILWAY_PUBLIC_DOMAIN}},localhost,127.0.0.1"
+DEBUG = "False"
+SECRET_KEY = "${{SECRET_KEY}}"
+DATABASE_URL = "${{DATABASE_URL}}"
+CORS_ALLOWED_ORIGINS = "https://${{RAILWAY_STATIC_URL}}"
