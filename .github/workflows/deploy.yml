@@ -24,7 +24,7 @@ jobs:
       run: |
         cd pms-be
         railway link --project ${{ secrets.RAILWAY_BACKEND_PROJECT_ID }}
-        railway up --detach
+        railway up --service ${{ secrets.RAILWAY_BACKEND_SERVICE_ID }} --detach
 
     - name: Deploy Frontend to Railway
       env:
@@ -32,7 +32,7 @@ jobs:
       run: |
         cd pms-fe
         railway link --project ${{ secrets.RAILWAY_FRONTEND_PROJECT_ID }}
-        railway up --detach
+        railway up --service ${{ secrets.RAILWAY_FRONTEND_SERVICE_ID }} --detach
 
     - name: Wait for deployments
       run: |
