@@ -1,0 +1,38 @@
+version: 2
+updates:
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/pms-be"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "cydiann"
+      - "ahmedtahas"
+    assignees:
+      - "cydiann"
+      - "ahmedtahas"
+
+  # JavaScript dependencies
+  - package-ecosystem: "npm"
+    directory: "/pms-fe"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "cydiann"
+      - "ahmedtahas"
+    assignees:
+      - "cydiann"
+      - "ahmedtahas"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/pms-be"
+    schedule:
+      interval: "weekly"
+      
+  - package-ecosystem: "docker"
+    directory: "/pms-fe"
+    schedule:
+      interval: "weekly"
