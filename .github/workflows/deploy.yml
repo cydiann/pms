@@ -23,7 +23,7 @@ jobs:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       run: |
         cd pms-be
-        railway link ${{ secrets.RAILWAY_BACKEND_PROJECT_ID }}
+        railway link --project ${{ secrets.RAILWAY_BACKEND_PROJECT_ID }}
         railway up --detach
 
     - name: Deploy Frontend to Railway
@@ -31,7 +31,7 @@ jobs:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       run: |
         cd pms-fe
-        railway link ${{ secrets.RAILWAY_FRONTEND_PROJECT_ID }}
+        railway link --project ${{ secrets.RAILWAY_FRONTEND_PROJECT_ID }}
         railway up --detach
 
     - name: Wait for deployments
