@@ -13,6 +13,12 @@ RUN npm ci --only=production=false
 # Copy source code
 COPY . .
 
+# Build the production web version
+RUN npm run build:web
+
+# Install serve for production static file serving
+RUN npm install -g serve
+
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S reactjs -u 1001
@@ -21,8 +27,8 @@ RUN adduser -S reactjs -u 1001
 RUN chown -R reactjs:nodejs /app
 USER reactjs
 
-# Expose port for development server
+# Expose port
 EXPOSE 3000
 
-# Default command for development
-CMD ["npm", "run", "web"]
+# Use serve to serve the built web app in production
+CMD ["serve", "-s", "dist", "-l", "3000"]
