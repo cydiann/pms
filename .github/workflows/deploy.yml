@@ -23,7 +23,6 @@ jobs:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       run: |
         cd pms-be
-        railway login --token $RAILWAY_TOKEN
         railway link ${{ secrets.RAILWAY_BACKEND_PROJECT_ID }}
         railway up --detach
 
@@ -32,7 +31,6 @@ jobs:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       run: |
         cd pms-fe
-        railway login --token $RAILWAY_TOKEN
         railway link ${{ secrets.RAILWAY_FRONTEND_PROJECT_ID }}
         railway up --detach
 
