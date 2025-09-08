@@ -28,5 +28,5 @@ RUN chmod +x /app/entrypoint.sh /app/run_tests.sh
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Run the application via entrypoint script
+ENTRYPOINT ["./entrypoint.sh"]

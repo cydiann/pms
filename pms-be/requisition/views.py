@@ -17,7 +17,7 @@ from .serializers import (
 )
 from .filters import RequestFilter, ApprovalHistoryFilter, AuditLogFilter
 from organization.models import Worksite, Division
-from .storage import storage
+from .storage import get_storage
 
 class RequestViewSet(viewsets.ModelViewSet):
     serializer_class = RequestSerializer
@@ -549,6 +549,12 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        storage = get_storage()
+        if not storage:
+            return Response({
+                'error': 'File storage is not available'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
         download_url = storage.get_presigned_download_url(document.object_name)
         
         return Response({
@@ -577,8 +583,9 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
         document.mark_deleted()
         
         # Optionally delete from MinIO
-        from requisition.storage import storage
-        storage.delete_object(document.object_name)
+        storage = get_storage()
+        if storage:
+            storage.delete_object(document.object_name)
         
         return Response(status=status.HTTP_204_NO_CONTENT)
     
@@ -628,6 +635,13 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
             )
         
         try:
+            storage = get_storage()
+            if not storage:
+                return Response({
+                    "status": "error",
+                    "message": "MinIO storage is not configured or available"
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
             # Test bucket existence
             bucket_exists = storage.client.bucket_exists(storage.bucket_name)
             
