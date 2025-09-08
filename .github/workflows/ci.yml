@@ -188,10 +188,12 @@ jobs:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       run: |
         echo "🚀 Deploying backend to Railway..."
-        cd pms-be
         railway login --token $RAILWAY_TOKEN
-        railway service connect pms-backend || railway service create pms-backend
-        railway up --detach
+        
+        # Deploy backend from its subdirectory
+        cd pms-be
+        railway link || railway service create pms-backend
+        railway up --detach --verbose
         echo "✅ Backend deployed successfully"
         
     - name: Deploy Frontend to Railway  
@@ -199,10 +201,12 @@ jobs:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       run: |
         echo "🚀 Deploying frontend to Railway..."
-        cd pms-fe
         railway login --token $RAILWAY_TOKEN
-        railway service connect pms-frontend || railway service create pms-frontend
-        railway up --detach
+        
+        # Deploy frontend from its subdirectory  
+        cd pms-fe
+        railway link || railway service create pms-frontend
+        railway up --detach --verbose
         echo "✅ Frontend deployed successfully"
         
     - name: Wait for deployments

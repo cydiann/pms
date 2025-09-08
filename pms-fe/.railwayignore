@@ -1,0 +1,12 @@
+node_modules
+.git
+.github
+pms-be
+dist
+build
+.cache
+.env
+.env.local
+.env.production
+coverage
+*.log

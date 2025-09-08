@@ -1,6 +1,7 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
+buildCommand = "docker build -t pms-backend ."
 
 [deploy]
 healthcheckPath = "/api/health/"
