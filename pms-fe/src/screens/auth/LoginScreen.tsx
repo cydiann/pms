@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,16 +21,15 @@ interface LoginFormData {
   password: string;
 }
 
-const LoginScreen: React.FC = () => {
+function LoginScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const { authState, login, clearError } = useAuth();
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const {
     control,
     handleSubmit,
     formState: { errors },
-    reset,
+    // reset, // Unused - removed
   } = useForm<LoginFormData>({
     defaultValues: {
       username: '',
@@ -38,7 +37,7 @@ const LoginScreen: React.FC = () => {
     },
   });
 
-  const onSubmit = async (data: LoginFormData) => {
+  const onSubmit = useCallback(async (data: LoginFormData): Promise<void> => {
     try {
       clearError();
       const credentials: LoginRequest = {
@@ -48,30 +47,30 @@ const LoginScreen: React.FC = () => {
       
       await login(credentials);
       // Navigation will be handled by App.tsx based on auth state
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Error is already handled by the auth context
       // Show additional user feedback if needed
       console.warn('Login error:', error);
     }
-  };
+  }, [login, clearError]);
 
-  const handleForgotPassword = () => {
+  const handleForgotPassword = useCallback((): void => {
     showSimpleAlert(
       t('auth.forgotPassword'),
       'Password reset requests are handled by your supervisor. Please contact your immediate supervisor to request a password reset.'
     );
-  };
+  }, [t]);
 
   // Dev helper function - remove in production
-  const quickLogin = async (username: string, password: string) => {
+  const quickLogin = useCallback(async (username: string, password: string): Promise<void> => {
     try {
       clearError();
       console.log(`Quick login as ${username}`);
       await login({ username, password });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Quick login failed:', error);
     }
-  };
+  }, [login, clearError]);
 
   return (
     <KeyboardAvoidingView 
@@ -355,4 +354,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LoginScreen;
+export default LoginScreen as () => React.JSX.Element;

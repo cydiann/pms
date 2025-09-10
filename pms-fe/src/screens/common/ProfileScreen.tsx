@@ -1,49 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
 import userService from '../../services/userService';
 import { showError, showSuccess } from '../../utils/platformUtils';
 
-const ProfileScreen: React.FC = () => {
+interface PasswordForm {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+function ProfileScreen(): React.JSX.Element {
   const { t, i18n } = useTranslation();
   const { authState, logout } = useAuth();
   const { user } = authState;
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({
+  const [passwordForm, setPasswordForm] = useState<PasswordForm>({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async (): Promise<void> => {
     await logout();
-  };
+  }, [logout]);
 
-  const handleChangePassword = () => {
+  const handleChangePassword = useCallback((): void => {
     setShowChangePassword(true);
-  };
+  }, []);
 
-  const handleNotifications = () => {
+  const handleNotifications = useCallback((): void => {
     setShowNotificationSettings(true);
-  };
+  }, []);
 
-  const enableAllNotifications = () => {
+  const enableAllNotifications = useCallback((): void => {
     setShowNotificationSettings(false);
     showSuccess(t('messages.success'), t('profile.notificationsEnabled'));
-  };
+  }, [t]);
 
-  const disableAllNotifications = () => {
+  const disableAllNotifications = useCallback((): void => {
     setShowNotificationSettings(false);
     showSuccess(t('messages.success'), t('profile.notificationsDisabled'));
-  };
+  }, [t]);
 
-  const cancelNotificationSettings = () => {
+  const cancelNotificationSettings = useCallback((): void => {
     setShowNotificationSettings(false);
-  };
+  }, []);
 
-  const submitPasswordChange = () => {
+  const submitPasswordChange = useCallback((): void => {
     // Validate passwords
     if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
       showError(t('messages.error'), t('profile.fillAllFields'));
@@ -69,12 +75,25 @@ const ProfileScreen: React.FC = () => {
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       }
     );
-  };
+  }, [passwordForm, t]);
 
-  const cancelPasswordChange = () => {
+  const cancelPasswordChange = useCallback((): void => {
     setShowChangePassword(false);
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  };
+  }, []);
+
+  // Memoized TextInput handlers
+  const handleCurrentPasswordChange = useCallback((text: string): void => {
+    setPasswordForm(prev => ({ ...prev, currentPassword: text }));
+  }, []);
+
+  const handleNewPasswordChange = useCallback((text: string): void => {
+    setPasswordForm(prev => ({ ...prev, newPassword: text }));
+  }, []);
+
+  const handleConfirmPasswordChange = useCallback((text: string): void => {
+    setPasswordForm(prev => ({ ...prev, confirmPassword: text }));
+  }, []);
 
   return (
     <ScrollView style={styles.container}>
@@ -190,7 +209,7 @@ const ProfileScreen: React.FC = () => {
               style={styles.modalInput}
               placeholder={t('profile.currentPassword')}
               value={passwordForm.currentPassword}
-              onChangeText={(text) => setPasswordForm(prev => ({ ...prev, currentPassword: text }))}
+              onChangeText={handleCurrentPasswordChange}
               secureTextEntry
               placeholderTextColor="#6c757d"
             />
@@ -199,7 +218,7 @@ const ProfileScreen: React.FC = () => {
               style={styles.modalInput}
               placeholder={t('profile.newPassword')}
               value={passwordForm.newPassword}
-              onChangeText={(text) => setPasswordForm(prev => ({ ...prev, newPassword: text }))}
+              onChangeText={handleNewPasswordChange}
               secureTextEntry
               placeholderTextColor="#6c757d"
             />
@@ -208,7 +227,7 @@ const ProfileScreen: React.FC = () => {
               style={styles.modalInput}
               placeholder={t('profile.confirmNewPassword')}
               value={passwordForm.confirmPassword}
-              onChangeText={(text) => setPasswordForm(prev => ({ ...prev, confirmPassword: text }))}
+              onChangeText={handleConfirmPasswordChange}
               secureTextEntry
               placeholderTextColor="#6c757d"
             />
@@ -488,4 +507,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ProfileScreen;
+export default ProfileScreen as () => React.JSX.Element;

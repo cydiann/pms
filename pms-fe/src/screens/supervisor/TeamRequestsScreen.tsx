@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { Request } from '../../types/requests';
 
-const TeamRequestsScreen: React.FC = () => {
+function TeamRequestsScreen(): React.JSX.Element {
   const { t } = useTranslation();
 
   // TODO: Replace with actual data from API
-  const teamRequests: any[] = [];
+  const teamRequests: Request[] = [];
 
-  const renderEmptyState = () => (
+  const renderEmptyState = useCallback((): React.JSX.Element => (
     <View style={styles.emptyState}>
       <Text style={styles.emptyStateTitle}>
         {t('supervisor.noTeamRequestsTitle')}
@@ -17,7 +18,7 @@ const TeamRequestsScreen: React.FC = () => {
         {t('supervisor.noTeamRequestsMessage')}
       </Text>
     </View>
-  );
+  ), [t]);
 
   return (
     <View style={styles.container}>
@@ -29,7 +30,7 @@ const TeamRequestsScreen: React.FC = () => {
       
       <FlatList
         data={teamRequests}
-        renderItem={({ item }) => (
+        renderItem={({ item: _item }) => (
           <View style={styles.requestItem}>
             {/* TODO: Implement team request item component */}
             <Text>Team request item will be rendered here</Text>
@@ -93,4 +94,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TeamRequestsScreen;
+export default TeamRequestsScreen as () => React.JSX.Element;

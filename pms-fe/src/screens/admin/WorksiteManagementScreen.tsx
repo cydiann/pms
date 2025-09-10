@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -18,9 +18,7 @@ import AddWorksiteModal from '../../components/modals/AddWorksiteModal';
 import WorksiteDetailModal from '../../components/modals/WorksiteDetailModal';
 import { showError } from '../../utils/platformUtils';
 
-const WorksiteManagementScreen: React.FC = () => {
-  console.log('WorksiteManagementScreen: Component rendered');
-  
+function WorksiteManagementScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const [worksites, setWorksites] = useState<WorkSite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,31 +28,29 @@ const WorksiteManagementScreen: React.FC = () => {
   const [worksiteDetailModalVisible, setWorksiteDetailModalVisible] = useState(false);
   const [addWorksiteModalVisible, setAddWorksiteModalVisible] = useState(false);
   const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
+  
+  // Search timeout ref for debouncing
+  const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    console.log('WorksiteManagementScreen: useEffect triggered - mounting component');
     loadWorksites();
     loadCurrentUser();
+  }, [loadWorksites, loadCurrentUser]);
+
+  const loadCurrentUser = useCallback(async (): Promise<void> => {
+    try {
+      const user = await userService.getCurrentUser();
+      setCurrentUser(user);
+    } catch (error: unknown) {
+      // Silent fail - component will show loading state if currentUser is null
+    }
   }, []);
 
-  const loadCurrentUser = async () => {
+  const loadWorksites = useCallback(async (): Promise<void> => {
     try {
-      console.log('WorksiteManagementScreen: Loading current user...');
-      const user = await userService.getCurrentUser();
-      console.log('WorksiteManagementScreen: Current user loaded successfully:', user);
-      setCurrentUser(user);
-    } catch (error) {
-      console.error('WorksiteManagementScreen: Failed to load current user:', error);
-    }
-  };
-
-  const loadWorksites = async () => {
-    try {
-      console.log('WorksiteManagementScreen: Loading worksites...');
       setLoading(true);
       
       const response = await organizationService.getWorksites();
-      console.log('WorksiteManagementScreen: Worksites loaded successfully:', response?.length || 0);
       
       // Filter worksites based on search query
       let filteredWorksites = response || [];
@@ -69,24 +65,21 @@ const WorksiteManagementScreen: React.FC = () => {
       }
       
       setWorksites(filteredWorksites);
-    } catch (error: any) {
-      console.error('WorksiteManagementScreen: Failed to load worksites:', error);
-      showError(
-        t('messages.error'),
-        error.message || 'Failed to load worksites'
-      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load worksites';
+      showError(t('messages.error'), errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, t]);
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async (): Promise<void> => {
     setRefreshing(true);
     await loadWorksites();
     setRefreshing(false);
-  };
+  }, [loadWorksites]);
 
-  const handleSearch = (text: string) => {
+  const handleSearch = useCallback((text: string): void => {
     setSearchQuery(text);
     // Debounce search - reload after user stops typing
     if (searchTimeoutRef.current) {
@@ -95,32 +88,26 @@ const WorksiteManagementScreen: React.FC = () => {
     searchTimeoutRef.current = setTimeout(() => {
       loadWorksites();
     }, 500);
-  };
+  }, [loadWorksites]);
 
-  const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleWorksitePress = (worksiteId: number) => {
-    console.log('WorksiteManagementScreen: Worksite pressed:', worksiteId);
+  const handleWorksitePress = useCallback((worksiteId: number): void => {
     setSelectedWorksiteId(worksiteId);
     setWorksiteDetailModalVisible(true);
-  };
+  }, []);
 
-  const handleAddWorksitePress = () => {
-    console.log('WorksiteManagementScreen: Add worksite button pressed');
+  const handleAddWorksitePress = useCallback((): void => {
     setAddWorksiteModalVisible(true);
-  };
+  }, []);
 
-  const handleWorksiteCreated = () => {
-    console.log('WorksiteManagementScreen: Worksite created, refreshing list...');
+  const handleWorksiteCreated = useCallback((): void => {
     loadWorksites();
-  };
+  }, [loadWorksites]);
 
-  const handleWorksiteUpdated = () => {
-    console.log('WorksiteManagementScreen: Worksite updated, refreshing list...');
+  const handleWorksiteUpdated = useCallback((): void => {
     loadWorksites();
-  };
+  }, [loadWorksites]);
 
-  const renderWorksiteItem = ({ item }: { item: WorkSite }) => (
+  const renderWorksiteItem = useCallback(({ item }: { item: WorkSite }): React.JSX.Element => (
     <TouchableOpacity 
       style={styles.worksiteItem}
       onPress={() => handleWorksitePress(item.id)}
@@ -144,9 +131,9 @@ const WorksiteManagementScreen: React.FC = () => {
         </Text>
       </View>
     </TouchableOpacity>
-  );
+  ), [handleWorksitePress, t]);
 
-  const renderEmptyState = () => (
+  const renderEmptyState = useCallback((): React.JSX.Element => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyTitle}>
         {searchQuery ? t('worksiteManagement.noWorksitesFound') : t('worksiteManagement.noWorksitesTitle')}
@@ -158,7 +145,7 @@ const WorksiteManagementScreen: React.FC = () => {
         }
       </Text>
     </View>
-  );
+  ), [searchQuery, t]);
 
   if (!currentUser) {
     return (
@@ -234,12 +221,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: 'row' as const,
     padding: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
-    alignItems: 'center',
+    alignItems: 'center' as const,
   },
   searchContainer: {
     flex: 1,
@@ -267,8 +254,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   loadingText: {
     marginTop: 16,
@@ -288,9 +275,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   worksiteHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     marginBottom: 8,
   },
   worksiteCity: {
@@ -314,8 +301,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   chiefInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     marginBottom: 8,
   },
   chiefLabel: {
@@ -339,8 +326,8 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     paddingHorizontal: 32,
   },
   emptyList: {
@@ -359,6 +346,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-});
+} as const);
 
-export default WorksiteManagementScreen;
+export default WorksiteManagementScreen as () => React.JSX.Element;

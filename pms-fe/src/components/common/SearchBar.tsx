@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { TextInput, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { TextInput, TouchableOpacity, View, StyleSheet, ViewStyle } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 interface SearchBarProps {
-  placeholder?: string;
-  onSearch: (searchTerm: string) => void;
-  onClear?: () => void;
-  initialValue?: string;
-  debounceMs?: number;
-  style?: any;
-  showSearchButton?: boolean;
+  readonly placeholder?: string;
+  readonly onSearch: (searchTerm: string) => void;
+  readonly onClear?: () => void;
+  readonly initialValue?: string;
+  readonly debounceMs?: number;
+  readonly style?: ViewStyle | ViewStyle[];
+  readonly showSearchButton?: boolean;
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({
+function SearchBar({
   placeholder = 'Search...',
   onSearch,
   onClear,
@@ -20,7 +20,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
   debounceMs = 500,
   style,
   showSearchButton = true,
-}) => {
+}: SearchBarProps): React.JSX.Element {
   const [searchText, setSearchText] = useState(initialValue);
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
@@ -103,14 +103,14 @@ const SearchBar: React.FC<SearchBarProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     marginBottom: 10,
   },
   searchContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
     paddingHorizontal: 12,
@@ -137,10 +137,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     minWidth: 50,
   },
-});
+} as const);
 
-export default SearchBar;
+export type { SearchBarProps };
+export default SearchBar as (props: SearchBarProps) => React.JSX.Element;

@@ -6,38 +6,41 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
+  ViewStyle,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTranslation } from 'react-i18next';
 import documentService from '../../services/documentService';
 import { ProcurementDocument, CreateDocumentDto } from '../../services/documentService';
-import { showError, showSuccess, showSimpleAlert } from '../../utils/platformUtils';
+import { showError, showSuccess } from '../../utils/platformUtils';
+
+type DocumentType = 'quote' | 'purchase_order' | 'dispatch_note' | 'receipt' | 'invoice' | 'other';
 
 interface FileUploadProps {
-  requestId: number;
-  requestStatus: string;
-  documentType?: 'quote' | 'purchase_order' | 'dispatch_note' | 'receipt' | 'invoice' | 'other';
-  onUploadComplete?: (document: ProcurementDocument) => void;
-  style?: any;
-  disabled?: boolean;
+  readonly requestId: number;
+  readonly requestStatus: string;
+  readonly documentType?: DocumentType;
+  readonly onUploadComplete?: (document: ProcurementDocument) => void;
+  readonly style?: ViewStyle | ViewStyle[];
+  readonly disabled?: boolean;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({
+function FileUpload({
   requestId,
   requestStatus,
   documentType = 'other',
   onUploadComplete,
   style,
   disabled = false,
-}) => {
-  const { t } = useTranslation();
+}: FileUploadProps): React.JSX.Element | null {
+const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [description, setDescription] = useState('');
   const [showDescriptionInput, setShowDescriptionInput] = useState(false);
 
-  const canUploadDocumentType = (type: string, status: string): boolean => {
+  const canUploadDocumentType = (type: DocumentType, status: string): boolean => {
     return documentService.canUploadDocumentType(type, status);
   };
 
@@ -56,7 +59,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (event: Event) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const target = event.target as HTMLInputElement;
     const file = target.files?.[0];
     
@@ -75,7 +78,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     if (!documentService.validateFileSize(file)) {
       showError(
         'File Too Large',
-        `File size must be less than ${documentService.formatFileSize(10485760)}`
+        `File size must be less than ${documentService.formatFileSize(FILE_SIZE_LIMIT)}`
       );
       return;
     }
@@ -133,7 +136,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     }
   };
 
-  const getButtonText = () => {
+  const getButtonText = (): string => {
     if (uploading) return 'Uploading...';
     return `Upload ${documentService.getDocumentTypeDisplay(documentType)}`;
   };
@@ -145,14 +148,19 @@ const FileUpload: React.FC<FileUploadProps> = ({
     return null;
   }
 
+  // Constants
+  const FILE_SIZE_LIMIT = 10485760 as const; // 10MB
+  const ACCEPTED_FILE_TYPES = '.pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.gif,.webp,.txt,.zip,.rar' as const;
+  const hiddenInputStyle = { display: 'none' as const };
+
   return (
     <View style={[styles.container, style]}>
       <input
         type="file"
         ref={fileInputRef}
-        style={{ display: 'none' }}
+        style={hiddenInputStyle}
         onChange={handleFileChange}
-        accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.gif,.webp,.txt,.zip,.rar"
+        accept={ACCEPTED_FILE_TYPES}
       />
       
       {!showDescriptionInput ? (
@@ -315,6 +323,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-});
+} as const);
 
-export default FileUpload;
+export type { DocumentType, FileUploadProps };
+export default FileUpload as (props: FileUploadProps) => React.JSX.Element | null;

@@ -1,11 +1,28 @@
 import React from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../store/AuthContext';
-import { TabProvider } from '../store/TabContext';
+import { TabProvider, useTab } from '../store/TabContext';
 import LoginScreen from '../screens/auth/LoginScreen';
-import SimpleTabNavigator from './SimpleTabNavigator';
+import MainTabNavigator from './MainTabNavigator';
 
-const AppNavigator: React.FC = () => {
+// Inner component that uses TabContext hooks
+function AuthenticatedApp(): React.JSX.Element {
+  const { t } = useTranslation();
+  const { authState } = useAuth();
+  const { activeTab, setActiveTab } = useTab();
+  
+  return (
+    <MainTabNavigator 
+      user={authState.user}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      t={t}
+    />
+  );
+}
+
+function AppNavigator(): React.JSX.Element {
   const { authState } = useAuth();
 
   // Show loading screen while checking authentication
@@ -19,7 +36,7 @@ const AppNavigator: React.FC = () => {
 
   return authState.isAuthenticated ? (
     <TabProvider>
-      <SimpleTabNavigator />
+      <AuthenticatedApp />
     </TabProvider>
   ) : <LoginScreen />;
 };
@@ -31,6 +48,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
   },
-});
+} as const);
 
-export default AppNavigator;
+export { AuthenticatedApp };
+export default AppNavigator as () => React.JSX.Element;

@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface TabContextType {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
+  readonly activeTab: string;
+  readonly setActiveTab: (tab: string) => void;
 }
 
 const TabContext = createContext<TabContextType | undefined>(undefined);
 
-export const useTab = (): TabContextType => {
+export function useTab(): TabContextType {
   const context = useContext(TabContext);
   if (!context) {
     throw new Error('useTab must be used within a TabProvider');
@@ -16,10 +16,10 @@ export const useTab = (): TabContextType => {
 };
 
 interface TabProviderProps {
-  children: ReactNode;
+  readonly children: ReactNode;
 }
 
-export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
+export function TabProvider({ children }: TabProviderProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
@@ -27,4 +27,6 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
       {children}
     </TabContext.Provider>
   );
-};
+}
+
+export type { TabContextType, TabProviderProps };

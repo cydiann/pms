@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,59 +12,62 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Picker } from '@react-native-picker/picker';
 import { RequestQueryParams, UserQueryParams, DocumentQueryParams } from '../../types/api';
 
+type FilterType = 'requests' | 'users' | 'documents';
+type FilterParams = RequestQueryParams | UserQueryParams | DocumentQueryParams;
+
 interface SearchFiltersProps {
-  visible: boolean;
-  onClose: () => void;
-  onApplyFilters: (filters: any) => void;
-  onClearFilters: () => void;
-  filterType: 'requests' | 'users' | 'documents';
-  currentFilters?: any;
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly onApplyFilters: (filters: FilterParams) => void;
+  readonly onClearFilters: () => void;
+  readonly filterType: FilterType;
+  readonly currentFilters?: FilterParams;
 }
 
-const SearchFilters: React.FC<SearchFiltersProps> = ({
+function SearchFilters({
   visible,
   onClose,
   onApplyFilters,
   onClearFilters,
   filterType,
   currentFilters = {},
-}) => {
-  const [filters, setFilters] = useState(currentFilters);
+}: SearchFiltersProps): React.JSX.Element {
+  const [filters, setFilters] = useState<Record<string, unknown>>(currentFilters || {});
 
-  const updateFilter = (key: string, value: any) => {
-    setFilters((prev: any) => ({
+  const updateFilter = useCallback((key: string, value: string | boolean | undefined): void => {
+    setFilters((prev) => ({
       ...prev,
       [key]: value,
     }));
-  };
+  }, []);
 
-  const handleApply = () => {
+  const handleApply = useCallback((): void => {
     // Remove empty values
-    const cleanFilters = Object.keys(filters).reduce((acc: any, key) => {
+    const cleanFilters = Object.keys(filters).reduce((acc: Record<string, unknown>, key) => {
       if (filters[key] !== '' && filters[key] !== null && filters[key] !== undefined) {
         acc[key] = filters[key];
       }
       return acc;
     }, {});
     
-    onApplyFilters(cleanFilters);
+    onApplyFilters(cleanFilters as FilterParams);
     onClose();
-  };
+  }, [filters, onApplyFilters, onClose]);
 
-  const handleClear = () => {
+  const handleClear = useCallback((): void => {
     setFilters({});
     onClearFilters();
     onClose();
-  };
+  }, [onClearFilters, onClose]);
 
-  const renderRequestFilters = () => (
+  const renderRequestFilters = (): React.JSX.Element => (
     <View>
       {/* Status Filter */}
       <View style={styles.filterGroup}>
         <Text style={styles.filterLabel}>Status</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={filters.status || ''}
+            selectedValue={(filters as any).status || ''}
             onValueChange={(value) => updateFilter('status', value)}
             style={styles.picker}
           >
@@ -88,7 +91,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         <Text style={styles.filterLabel}>Category</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={filters.category || ''}
+            selectedValue={(filters as any).category || ''}
             onValueChange={(value) => updateFilter('category', value)}
             style={styles.picker}
           >
@@ -110,7 +113,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         <TextInput
           style={styles.textInput}
           placeholder="YYYY-MM-DD"
-          value={filters.created_at_after || ''}
+          value={(filters as any).created_at_after || ''}
           onChangeText={(value) => updateFilter('created_at_after', value)}
         />
       </View>
@@ -120,7 +123,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         <TextInput
           style={styles.textInput}
           placeholder="YYYY-MM-DD"
-          value={filters.created_at_before || ''}
+          value={(filters as any).created_at_before || ''}
           onChangeText={(value) => updateFilter('created_at_before', value)}
         />
       </View>
@@ -130,7 +133,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         <Text style={styles.filterLabel}>Sort By</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={filters.ordering || ''}
+            selectedValue={(filters as any).ordering || ''}
             onValueChange={(value) => updateFilter('ordering', value)}
             style={styles.picker}
           >
@@ -146,14 +149,14 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
     </View>
   );
 
-  const renderUserFilters = () => (
+  const renderUserFilters = (): React.JSX.Element => (
     <View>
       {/* Active Status */}
       <View style={styles.filterGroup}>
         <Text style={styles.filterLabel}>Status</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={filters.is_active?.toString() || ''}
+            selectedValue={(filters as any).is_active?.toString() || ''}
             onValueChange={(value) => updateFilter('is_active', value === 'true' ? true : value === 'false' ? false : undefined)}
             style={styles.picker}
           >
@@ -169,7 +172,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         <Text style={styles.filterLabel}>User Type</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={filters.is_superuser?.toString() || ''}
+            selectedValue={(filters as any).is_superuser?.toString() || ''}
             onValueChange={(value) => updateFilter('is_superuser', value === 'true' ? true : value === 'false' ? false : undefined)}
             style={styles.picker}
           >
@@ -185,7 +188,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         <Text style={styles.filterLabel}>Sort By</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={filters.ordering || ''}
+            selectedValue={(filters as any).ordering || ''}
             onValueChange={(value) => updateFilter('ordering', value)}
             style={styles.picker}
           >
@@ -203,14 +206,14 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
     </View>
   );
 
-  const renderDocumentFilters = () => (
+  const renderDocumentFilters = (): React.JSX.Element => (
     <View>
       {/* Document Type */}
       <View style={styles.filterGroup}>
         <Text style={styles.filterLabel}>Document Type</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={filters.document_type || ''}
+            selectedValue={(filters as any).document_type || ''}
             onValueChange={(value) => updateFilter('document_type', value)}
             style={styles.picker}
           >
@@ -230,7 +233,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         <Text style={styles.filterLabel}>Status</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={filters.status || ''}
+            selectedValue={(filters as any).status || ''}
             onValueChange={(value) => updateFilter('status', value)}
             style={styles.picker}
           >
@@ -247,7 +250,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         <Text style={styles.filterLabel}>Sort By</Text>
         <View style={styles.pickerContainer}>
           <Picker
-            selectedValue={filters.ordering || ''}
+            selectedValue={(filters as any).ordering || ''}
             onValueChange={(value) => updateFilter('ordering', value)}
             style={styles.picker}
           >
@@ -264,7 +267,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
     </View>
   );
 
-  const renderFilters = () => {
+  const renderFilters = (): React.JSX.Element | null => {
     switch (filterType) {
       case 'requests':
         return renderRequestFilters();
@@ -319,20 +322,20 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#fff' as const,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e1e1e1',
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: '600' as const,
+    color: '#333' as const,
   },
   closeButton: {
     padding: 8,
@@ -346,12 +349,12 @@ const styles = StyleSheet.create({
   },
   filterLabel: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: '500' as const,
+    color: '#333' as const,
     marginBottom: 8,
   },
   pickerContainer: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f5f5f5' as const,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e1e1e1',
@@ -360,7 +363,7 @@ const styles = StyleSheet.create({
     height: 50,
   },
   textInput: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f5f5f5' as const,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e1e1e1',
@@ -370,7 +373,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   footer: {
-    flexDirection: 'row',
+    flexDirection: 'row' as const,
     padding: 16,
     borderTopWidth: 1,
     borderTopColor: '#e1e1e1',
@@ -380,27 +383,28 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: 'center' as const,
     marginHorizontal: 4,
   },
   clearButton: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f8f9fa' as const,
     borderWidth: 1,
     borderColor: '#e1e1e1',
   },
   clearButtonText: {
-    color: '#6c757d',
+    color: '#6c757d' as const,
     fontSize: 16,
     fontWeight: '500',
   },
   applyButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#007bff' as const,
   },
   applyButtonText: {
-    color: '#fff',
+    color: '#fff' as const,
     fontSize: 16,
     fontWeight: '600',
   },
-});
+} as const);
 
-export default SearchFilters;
+export type { SearchFiltersProps, FilterType, FilterParams };
+export default SearchFilters as (props: SearchFiltersProps) => React.JSX.Element;

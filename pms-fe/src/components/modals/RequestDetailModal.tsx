@@ -13,42 +13,36 @@ import requestService from '../../services/requestService';
 import { Request } from '../../types/requests';
 import FileUpload from '../common/FileUpload';
 import DocumentList from '../common/DocumentList';
-import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
+import { showError, showSuccess } from '../../utils/platformUtils';
 
 interface RequestDetailModalProps {
-  visible: boolean;
-  onClose: () => void;
-  request: Request | null;
-  onRequestUpdated?: () => void;
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly request: Request | null;
+  readonly onRequestUpdated?: () => void;
 }
 
-const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
+function RequestDetailModal({
   visible,
   onClose,
   request,
   onRequestUpdated,
-}) => {
+}: RequestDetailModalProps): React.JSX.Element {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   const [documentListKey, setDocumentListKey] = useState(0);
 
-  const handleSubmitRequest = async () => {
+  const handleSubmitRequest = async (): Promise<void> => {
     if (!request) {
-      console.log('No request available');
       return;
     }
 
-    console.log('Attempting to submit request:', request.id, request.status);
-
     try {
-      console.log('Starting submission...');
       setSubmitting(true);
       
-      const result = await requestService.submitRequest(request.id);
-      console.log('Submission result:', result);
+      await requestService.submitRequest(request.id);
       
       // Close modal immediately and refresh list
-      console.log('Calling onRequestUpdated and onClose');
       onRequestUpdated?.();
       onClose();
       
@@ -56,9 +50,10 @@ const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
       setTimeout(() => {
         showSuccess('Success', 'Request submitted for approval successfully!');
       }, 300);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Submission error:', error);
-      showError('Error', error.message || 'Failed to submit request');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit request';
+      showError('Error', errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -67,7 +62,6 @@ const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
   if (!request) return null;
 
   const canSubmit = request.status === 'draft';
-  console.log('Request detail modal - canSubmit:', canSubmit, 'status:', request.status);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
@@ -138,7 +132,7 @@ const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
 
           {/* Documents Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Documents</Text>
+            <Text style={styles.sectionTitle}>{t('requests.documents')}</Text>
             
             {/* File Upload Options - Show relevant buttons based on status */}
             <View style={styles.uploadSection}>
@@ -210,17 +204,14 @@ const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
           {canSubmit && (
             <TouchableOpacity
               style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
-              onPress={() => {
-                console.log('Submit button pressed!');
-                handleSubmitRequest();
-              }}
+              onPress={handleSubmitRequest}
               disabled={submitting}
             >
               {submitting ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
                 <Text style={styles.submitButtonText}>
-                  Submit for Approval
+                  {t('requests.submitForApproval')}
                 </Text>
               )}
             </TouchableOpacity>
@@ -235,15 +226,15 @@ const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f8f9fa' as const,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#fff' as const,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: '#e9ecef' as const,
   },
   closeButton: {
     width: 32,
@@ -260,10 +251,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    textAlign: 'center',
+    textAlign: 'center' as const,
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2c3e50',
+    fontWeight: 'bold' as const,
+    color: '#2c3e50' as const,
   },
   headerSpacer: {
     width: 32,
@@ -273,9 +264,9 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   statusContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     marginBottom: 20,
   },
   requestTitle: {
@@ -320,15 +311,15 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   submitButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: '#28a745' as const,
     paddingVertical: 16,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: 'center' as const,
     marginTop: 20,
     marginBottom: 40,
   },
   submitButtonDisabled: {
-    backgroundColor: '#6c757d',
+    backgroundColor: '#6c757d' as const,
   },
   submitButtonText: {
     color: '#fff',
@@ -350,6 +341,7 @@ const styles = StyleSheet.create({
   documentList: {
     // Additional styles if needed
   },
-});
+} as const);
 
+export type { RequestDetailModalProps };
 export default RequestDetailModal;

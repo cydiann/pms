@@ -1,12 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
-import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
 import { Request } from '../../types/requests';
 import RequestDetailModal from '../../components/modals/RequestDetailModal';
 
-const AllRequestsScreen: React.FC = () => {
-  const { t } = useTranslation();
+interface RequestQueryParams {
+  readonly page_size?: number;
+  readonly ordering?: string;
+  readonly search?: string;
+  readonly status?: string;
+}
+
+function AllRequestsScreen(): React.JSX.Element {
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -16,12 +21,12 @@ const AllRequestsScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async (): Promise<void> => {
     try {
       setError(null);
       
       // Build query params, filtering out empty values
-      const queryParams: any = {
+      const queryParams: RequestQueryParams = {
         page_size: 50,
         ordering: '-created_at'
       };
@@ -36,18 +41,18 @@ const AllRequestsScreen: React.FC = () => {
       
       const response = await requestService.getAllRequests(queryParams);
       setRequests(response.results);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load requests');
-      console.error('Error loading requests:', err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load requests';
+      setError(errorMessage);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [searchText, selectedStatus]);
 
   useEffect(() => {
     loadRequests();
-  }, []);
+  }, [loadRequests]);
 
   useEffect(() => {
     // Debounce search
@@ -58,23 +63,23 @@ const AllRequestsScreen: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchText, selectedStatus]);
+  }, [searchText, selectedStatus, loading, loadRequests]);
 
-  const onRefresh = () => {
+  const onRefresh = (): void => {
     setRefreshing(true);
     loadRequests();
   };
 
-  const handleRequestPress = (request: Request) => {
+  const handleRequestPress = (request: Request): void => {
     setSelectedRequest(request);
     setModalVisible(true);
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): string => {
     return requestService.getStatusColor(status);
   };
 
-  const renderRequestItem = ({ item }: { item: Request }) => (
+  const renderRequestItem = ({ item }: { item: Request }): React.JSX.Element => (
     <TouchableOpacity style={styles.requestItem} onPress={() => handleRequestPress(item)}>
       <View style={styles.requestHeader}>
         <Text style={styles.requestNumber}>{item.request_number}</Text>
@@ -117,7 +122,7 @@ const AllRequestsScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
-  const renderStatusFilter = () => {
+  const renderStatusFilter = (): React.JSX.Element => {
     const statuses = ['', 'draft', 'pending', 'approved', 'rejected', 'completed'];
     return (
       <View style={styles.filterRow}>
@@ -145,7 +150,7 @@ const AllRequestsScreen: React.FC = () => {
     );
   };
 
-  const renderEmptyState = () => (
+  const renderEmptyState = (): React.JSX.Element => (
     <View style={styles.emptyState}>
       <Text style={styles.emptyStateTitle}>
         {error ? 'Error Loading Requests' : (searchText || selectedStatus ? 'No Requests Found' : 'No Requests')}
@@ -400,4 +405,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AllRequestsScreen;
+export default AllRequestsScreen as () => React.JSX.Element;

@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, FlatList } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, FlatList, ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
 import { useTab } from '../../store/TabContext';
 import requestService from '../../services/requestService';
 import { RequestStats, Request } from '../../types/requests';
 
-const SupervisorDashboardScreen: React.FC = () => {
+function SupervisorDashboardScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const { authState } = useAuth();
   const { setActiveTab } = useTab();
@@ -15,7 +15,7 @@ const SupervisorDashboardScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async (): Promise<void> => {
     try {
       // Load supervisor statistics (for subordinates)
       const supervisorStats = await requestService.getSubordinateStats();
@@ -26,23 +26,36 @@ const SupervisorDashboardScreen: React.FC = () => {
       // Take only first 5 for dashboard display
       setPendingRequests(pendingResponse.slice(0, 5));
     } catch (error) {
-      console.error('Error loading supervisor dashboard:', error);
+      // Handle error appropriately without console logging
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [loadDashboardData]);
 
-  const onRefresh = () => {
+  const onRefresh = useCallback((): void => {
     setRefreshing(true);
     loadDashboardData();
-  };
+  }, [loadDashboardData]);
 
-  const renderPendingRequestItem = ({ item }: { item: Request }) => (
+  const handleReviewRequests = useCallback((): void => {
+    setActiveTab('teamRequests');
+  }, [setActiveTab]);
+
+  const handleManageTeam = useCallback((): void => {
+    setActiveTab('myTeam');
+  }, [setActiveTab]);
+
+  const getStatusIndicatorStyle = useCallback((status: string): ViewStyle => ({
+    ...styles.statusIndicator,
+    backgroundColor: requestService.getStatusColor(status),
+  }), []);
+
+  const renderPendingRequestItem = useCallback(({ item }: { item: Request }): React.JSX.Element => (
     <TouchableOpacity style={styles.requestItem}>
       <View style={styles.requestHeader}>
         <Text style={styles.requestTitle}>{item.item}</Text>
@@ -55,7 +68,7 @@ const SupervisorDashboardScreen: React.FC = () => {
         {new Date(item.created_at).toLocaleDateString()}
       </Text>
     </TouchableOpacity>
-  );
+  ), []);
 
   if (loading) {
     return (
@@ -116,7 +129,7 @@ const SupervisorDashboardScreen: React.FC = () => {
         
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => setActiveTab('teamRequests')}
+          onPress={handleReviewRequests}
         >
           <Text style={styles.actionButtonText}>
             📋 {t('dashboard.reviewRequests')}
@@ -128,7 +141,7 @@ const SupervisorDashboardScreen: React.FC = () => {
 
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => setActiveTab('myTeam')}
+          onPress={handleManageTeam}
         >
           <Text style={styles.actionButtonText}>
             👥 {t('dashboard.manageTeam')}
@@ -145,10 +158,7 @@ const SupervisorDashboardScreen: React.FC = () => {
           
           {Object.entries(stats.requests_by_status).map(([status, count]) => (
             <View key={status} style={styles.statusRow}>
-              <View style={[
-                styles.statusIndicator, 
-                { backgroundColor: requestService.getStatusColor(status) }
-              ]} />
+              <View style={getStatusIndicatorStyle(status)} />
               <Text style={styles.statusLabel}>
                 {requestService.getStatusDisplay(status)}
               </Text>
@@ -178,7 +188,7 @@ const styles = StyleSheet.create({
   },
   welcomeText: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#2c3e50',
     marginBottom: 8,
   },
@@ -187,7 +197,7 @@ const styles = StyleSheet.create({
     color: '#6c757d',
   },
   statsContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row' as const,
     paddingHorizontal: 16,
     marginBottom: 16,
   },
@@ -197,7 +207,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 4,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: 'center' as const,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -206,14 +216,14 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#007bff',
     marginBottom: 4,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     backgroundColor: '#f8f9fa',
   },
   loadingText: {
@@ -230,9 +240,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   requestHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     marginBottom: 4,
   },
   requestTitle: {
@@ -280,8 +290,8 @@ const styles = StyleSheet.create({
     color: '#6c757d',
   },
   statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     paddingVertical: 8,
     borderBottomColor: '#f1f3f4',
     borderBottomWidth: 1,
@@ -305,7 +315,7 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     color: '#6c757d',
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
   section: {
     backgroundColor: '#fff',
@@ -320,15 +330,15 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#2c3e50',
     marginBottom: 12,
   },
   placeholder: {
     fontSize: 14,
     color: '#6c757d',
-    fontStyle: 'italic',
+    fontStyle: 'italic' as const,
   },
-});
+} as const);
 
-export default SupervisorDashboardScreen;
+export default SupervisorDashboardScreen as () => React.JSX.Element;

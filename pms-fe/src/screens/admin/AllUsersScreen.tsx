@@ -1,45 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
-import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
 import { UserListItem } from '../../types/users';
 
-const AllUsersScreen: React.FC = () => {
-  const { t } = useTranslation();
+interface QueryParams {
+  readonly page_size: number;
+  readonly search?: string;
+}
+
+interface ApiError extends Error {
+  readonly message: string;
+  readonly status?: number;
+}
+
+function AllUsersScreen(): React.JSX.Element {
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async (): Promise<void> => {
     try {
       setError(null);
       
       // Build query params, filtering out empty values
-      const queryParams: any = {
+      const queryParams: QueryParams = {
         page_size: 50
       };
       
-      if (searchText && searchText.trim()) {
+      if (searchText?.trim()) {
         queryParams.search = searchText.trim();
-      }
-      
-      console.log('Loading users with params:', queryParams);
+      };
       const response = await userService.getUsers(queryParams);
       setUsers(response.results);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load users');
-      console.error('Error loading users:', err);
+    } catch (err) {
+      const apiError = err as ApiError;
+      setError(apiError.message || 'Failed to load users');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [searchText]);
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [loadUsers]);
 
   useEffect(() => {
     // Debounce search
@@ -50,19 +56,19 @@ const AllUsersScreen: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchText]);
+  }, [searchText, loadUsers, loading]);
 
-  const onRefresh = () => {
+  const onRefresh = useCallback((): void => {
     setRefreshing(true);
     loadUsers();
-  };
+  }, [loadUsers]);
 
-  const handleUserPress = (user: UserListItem) => {
-    // TODO: Navigate to user details or implement user management actions
-    console.log('User pressed:', user.full_name);
-  };
+  const handleUserPress = useCallback((_user: UserListItem): void => {
+    // Navigate to user details or implement user management actions
+    // Implementation pending
+  }, []);
 
-  const getWorksiteName = (user: UserListItem): string => {
+  const getWorksiteName = useCallback((user: UserListItem): string => {
     if (!user.worksite_name) return 'No Worksite';
     
     // Handle Django method wrapper bug
@@ -71,9 +77,9 @@ const AllUsersScreen: React.FC = () => {
     }
     
     return user.worksite_name;
-  };
+  }, []);
 
-  const renderUserItem = ({ item }: { item: UserListItem }) => (
+  const renderUserItem = useCallback(({ item }: { item: UserListItem }): React.JSX.Element => (
     <TouchableOpacity style={styles.userItem} onPress={() => handleUserPress(item)}>
       <View style={styles.userHeader}>
         <View style={styles.userInfo}>
@@ -81,8 +87,8 @@ const AllUsersScreen: React.FC = () => {
           <Text style={styles.userUsername}>@{item.username}</Text>
         </View>
         <View style={[
-          styles.statusBadge, 
-          { backgroundColor: item.is_active ? '#28a745' : '#dc3545' }
+          styles.statusBadge,
+          item.is_active ? styles.statusBadgeActive : styles.statusBadgeInactive
         ]}>
           <Text style={styles.statusText}>
             {item.is_active ? 'Active' : 'Inactive'}
@@ -112,9 +118,9 @@ const AllUsersScreen: React.FC = () => {
         </Text>
       </View>
     </TouchableOpacity>
-  );
+  ), [handleUserPress, getWorksiteName]);
 
-  const renderEmptyState = () => (
+  const renderEmptyState = useCallback((): React.JSX.Element => (
     <View style={styles.emptyState}>
       <Text style={styles.emptyStateTitle}>
         {error ? 'Error Loading Users' : (searchText ? 'No Users Found' : 'No Users')}
@@ -128,7 +134,7 @@ const AllUsersScreen: React.FC = () => {
         </TouchableOpacity>
       )}
     </View>
-  );
+  ), [error, searchText, loadUsers]);
 
   if (loading) {
     return (
@@ -178,8 +184,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     backgroundColor: '#f8f9fa',
   },
   loadingText: {
@@ -218,21 +224,21 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     padding: 32,
   },
   emptyStateTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#2c3e50',
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
   emptyStateMessage: {
     fontSize: 16,
     color: '#6c757d',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     lineHeight: 24,
   },
   userItem: {
@@ -247,9 +253,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   userHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     marginBottom: 8,
   },
   userInfo: {
@@ -257,7 +263,7 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#2c3e50',
     marginBottom: 2,
   },
@@ -269,6 +275,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+  },
+  statusBadgeActive: {
+    backgroundColor: '#28a745',
+  },
+  statusBadgeInactive: {
+    backgroundColor: '#dc3545',
   },
   statusText: {
     fontSize: 12,
@@ -290,9 +302,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   userFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
   },
   dateText: {
     fontSize: 12,
@@ -308,8 +320,8 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
-});
+} as const);
 
-export default AllUsersScreen;
+export default AllUsersScreen as () => React.JSX.Element;

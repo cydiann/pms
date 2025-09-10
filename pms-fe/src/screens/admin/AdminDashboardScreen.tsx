@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
@@ -6,7 +6,7 @@ import { useTab } from '../../store/TabContext';
 import requestService from '../../services/requestService';
 import { AdminStats, Request } from '../../types/requests';
 
-const AdminDashboardScreen: React.FC = () => {
+function AdminDashboardScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const { authState } = useAuth();
   const { setActiveTab } = useTab();
@@ -15,7 +15,7 @@ const AdminDashboardScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async (): Promise<void> => {
     try {
       // Load admin statistics for entire system
       const adminStats = await requestService.getAdminStats();
@@ -28,23 +28,24 @@ const AdminDashboardScreen: React.FC = () => {
       });
       setRecentRequests(recentResponse.results);
     } catch (error) {
+      // TODO: Add proper error handling/user feedback
       console.error('Error loading admin dashboard:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [loadDashboardData]);
 
-  const onRefresh = () => {
+  const onRefresh = useCallback((): void => {
     setRefreshing(true);
     loadDashboardData();
-  };
+  }, [loadDashboardData]);
 
-  const renderRecentRequestItem = ({ item }: { item: Request }) => (
+  const renderRecentRequestItem = useCallback(({ item }: { item: Request }): React.JSX.Element => (
     <TouchableOpacity style={styles.requestItem}>
       <View style={styles.requestHeader}>
         <Text style={styles.requestTitle}>{item.item}</Text>
@@ -60,7 +61,7 @@ const AdminDashboardScreen: React.FC = () => {
         {new Date(item.created_at).toLocaleDateString()}
       </Text>
     </TouchableOpacity>
-  );
+  ), []);
 
   if (loading) {
     return (
@@ -396,4 +397,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AdminDashboardScreen;
+export default AdminDashboardScreen as () => React.JSX.Element;

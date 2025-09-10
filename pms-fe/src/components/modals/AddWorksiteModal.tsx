@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,50 +14,51 @@ import organizationService from '../../services/organizationService';
 import userService from '../../services/userService';
 import { WorkSite } from '../../types/organization';
 import { ExtendedUser } from '../../types/users';
-import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
+import { showError, showSuccess } from '../../utils/platformUtils';
+
+type SupportedLanguage = 'en' | 'tr';
 
 interface AddWorksiteModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onWorksiteCreated?: (worksite: WorkSite) => void;
-  currentUser: ExtendedUser;
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly onWorksiteCreated?: (worksite: WorkSite) => void;
+  readonly currentUser: ExtendedUser;
 }
 
 interface FormData {
-  address: string;
-  city: string;
-  country: string;
-  chief: number | null;
+  readonly address: string;
+  readonly city: string;
+  readonly country: string;
+  readonly chief: number | null;
 }
 
 interface FormErrors {
-  address?: string;
-  city?: string;
-  country?: string;
-  general?: string;
+  readonly address?: string;
+  readonly city?: string;
+  readonly country?: string;
+  readonly general?: string;
 }
 
 // Common countries list with translations
 const COUNTRIES = [
-  { en: 'Turkey', tr: 'Türkiye' },
-  { en: 'Germany', tr: 'Almanya' },
-  { en: 'United States', tr: 'Amerika Birleşik Devletleri' },
-  { en: 'United Kingdom', tr: 'Birleşik Krallık' },
-  { en: 'France', tr: 'Fransa' },
-  { en: 'Italy', tr: 'İtalya' },
-  { en: 'Spain', tr: 'İspanya' },
-  { en: 'Netherlands', tr: 'Hollanda' },
-  { en: 'Belgium', tr: 'Belçika' },
-  { en: 'Switzerland', tr: 'İsviçre' },
-];
+  { en: 'Turkey' as const, tr: 'Türkiye' as const },
+  { en: 'Germany' as const, tr: 'Almanya' as const },
+  { en: 'United States' as const, tr: 'Amerika Birleşik Devletleri' as const },
+  { en: 'United Kingdom' as const, tr: 'Birleşik Krallık' as const },
+  { en: 'France' as const, tr: 'Fransa' as const },
+  { en: 'Italy' as const, tr: 'İtalya' as const },
+  { en: 'Spain' as const, tr: 'İspanya' as const },
+  { en: 'Netherlands' as const, tr: 'Hollanda' as const },
+  { en: 'Belgium' as const, tr: 'Belçika' as const },
+  { en: 'Switzerland' as const, tr: 'İsviçre' as const },
+] as const;
 
-const AddWorksiteModal: React.FC<AddWorksiteModalProps> = ({
+function AddWorksiteModal({
   visible,
   onClose,
   onWorksiteCreated,
   currentUser,
-}) => {
-  console.log('AddWorksiteModal: Rendered with visible:', visible);
+}: AddWorksiteModalProps): React.JSX.Element {
   
   const { t, i18n } = useTranslation();
   
@@ -80,13 +81,12 @@ const AddWorksiteModal: React.FC<AddWorksiteModalProps> = ({
   // Load initial data when modal opens
   useEffect(() => {
     if (visible) {
-      console.log('AddWorksiteModal: Modal opened, loading data...');
       loadPotentialChiefs();
       resetForm();
     }
-  }, [visible]);
+  }, [visible, loadPotentialChiefs, resetForm]);
 
-  const resetForm = () => {
+  const resetForm = useCallback((): void => {
     setFormData({
       address: '',
       city: '',
@@ -94,16 +94,14 @@ const AddWorksiteModal: React.FC<AddWorksiteModalProps> = ({
       chief: null,
     });
     setErrors({});
-  };
+  }, [i18n.language]);
 
-  const loadPotentialChiefs = async () => {
+  const loadPotentialChiefs = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
-      console.log('AddWorksiteModal: Loading potential chiefs...');
       
       // Get all users who could potentially be chiefs
       const usersData = await userService.getUsers({ page_size: 100 });
-      console.log('AddWorksiteModal: Loaded potential chiefs:', usersData.results.length);
       
       // Filter to get suitable candidates (exclude current user, prefer supervisors/admins)
       const chiefs = usersData.results.filter(user => 
@@ -112,16 +110,15 @@ const AddWorksiteModal: React.FC<AddWorksiteModalProps> = ({
       
       setPotentialChiefs(chiefs);
       
-    } catch (error: any) {
-      console.error('AddWorksiteModal: Failed to load potential chiefs:', error);
+    } catch (error: unknown) {
       // Continue without chiefs - not critical for worksite creation
       setPotentialChiefs([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser.id]);
 
-  const validateForm = (): boolean => {
+  const validateForm = useCallback((): boolean => {
     const newErrors: FormErrors = {};
 
     // Address validation
@@ -145,28 +142,21 @@ const AddWorksiteModal: React.FC<AddWorksiteModalProps> = ({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData, t]);
 
-  const handleSubmit = async () => {
-    console.log('AddWorksiteModal: Submit attempted');
-    console.log('AddWorksiteModal: Current user:', currentUser);
-    console.log('AddWorksiteModal: Is user admin?', currentUser?.is_superuser);
-    console.log('AddWorksiteModal: Form data:', formData);
+  const handleSubmit = useCallback(async (): Promise<void> => {
     
     if (!currentUser) {
-      console.log('AddWorksiteModal: No current user available');
       showError('Error', 'User information not loaded. Please try again.');
       return;
     }
 
     if (!currentUser.is_superuser) {
-      console.log('AddWorksiteModal: User is not admin');
       showError('Error', 'You do not have permission to create worksites.');
       return;
     }
 
     if (!validateForm()) {
-      console.log('AddWorksiteModal: Validation failed:', errors);
       return;
     }
 
@@ -181,10 +171,8 @@ const AddWorksiteModal: React.FC<AddWorksiteModalProps> = ({
         chief: formData.chief || undefined,
       };
 
-      console.log('AddWorksiteModal: Submitting worksite data:', submitData);
 
       const newWorksite = await organizationService.createWorksite(submitData);
-      console.log('AddWorksiteModal: Worksite created successfully:', newWorksite);
 
       // Show success message
       showSuccess(
@@ -198,22 +186,23 @@ const AddWorksiteModal: React.FC<AddWorksiteModalProps> = ({
       onClose();
 
     } catch (error: any) {
-      console.error('AddWorksiteModal: Failed to create worksite:', error);
+      
+      const apiError = error as { status?: number; data?: Record<string, string | string[]>; message?: string };
       
       // Handle specific validation errors from backend
-      if (error.status === 400 && error.data) {
+      if (apiError.status === 400 && apiError.data) {
         const backendErrors: FormErrors = {};
         
-        if (error.data.address) {
-          backendErrors.address = Array.isArray(error.data.address) 
-            ? error.data.address[0] 
-            : error.data.address;
+        if (apiError.data.address) {
+          backendErrors.address = Array.isArray(apiError.data.address) 
+            ? apiError.data.address[0] 
+            : apiError.data.address;
         }
         
-        if (error.data.city) {
-          backendErrors.city = Array.isArray(error.data.city) 
-            ? error.data.city[0] 
-            : error.data.city;
+        if (apiError.data.city) {
+          backendErrors.city = Array.isArray(apiError.data.city) 
+            ? apiError.data.city[0] 
+            : apiError.data.city;
         }
         
         if (Object.keys(backendErrors).length > 0) {
@@ -224,31 +213,31 @@ const AddWorksiteModal: React.FC<AddWorksiteModalProps> = ({
       
       // Generic error handling
       setErrors({ 
-        general: error.message || t('addWorksite.error.createFailed')
+        general: apiError.message || t('addWorksite.error.createFailed')
       });
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [currentUser, validateForm, formData, onWorksiteCreated, onClose, resetForm, t]);
 
-  const updateFormField = (field: keyof FormData, value: any) => {
+  const updateFormField = useCallback((field: keyof FormData, value: string | number | null): void => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear field-specific error when user starts typing
     if (errors[field as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
-  };
+  }, [errors]);
 
-  const getCountryName = (country: string): string => {
+  const getCountryName = useCallback((country: string): string => {
     const countryObj = COUNTRIES.find(c => c.en === country);
-    return countryObj ? countryObj[i18n.language as 'en' | 'tr'] || countryObj.en : country;
-  };
+    return countryObj ? countryObj[i18n.language as SupportedLanguage] || countryObj.en : country;
+  }, [i18n.language]);
 
-  const getSelectedChiefName = (): string => {
+  const getSelectedChiefName = useCallback((): string => {
     const chief = potentialChiefs.find(u => u.id === formData.chief);
     return chief ? chief.full_name : t('addWorksite.noChief');
-  };
+  }, [potentialChiefs, formData.chief, t]);
 
   if (loading) {
     return (
@@ -348,7 +337,7 @@ const AddWorksiteModal: React.FC<AddWorksiteModalProps> = ({
                           styles.dropdownOptionText,
                           formData.country === country.en && styles.selectedOptionText
                         ]}>
-                          {country[i18n.language as 'en' | 'tr'] || country.en}
+                          {country[i18n.language as SupportedLanguage] || country.en}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -410,9 +399,9 @@ const AddWorksiteModal: React.FC<AddWorksiteModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)' as const,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     padding: 20,
   },
   container: {
@@ -444,9 +433,9 @@ const styles = StyleSheet.create({
     color: '#6c757d',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     padding: 16,
     backgroundColor: '#fff',
     borderTopLeftRadius: 12,
@@ -463,7 +452,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#2c3e50',
   },
   saveButton: {
@@ -478,7 +467,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   content: {
     flex: 1,
@@ -504,7 +493,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#2c3e50',
     marginBottom: 16,
   },
@@ -513,7 +502,7 @@ const styles = StyleSheet.create({
   },
   formLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#2c3e50',
     marginBottom: 8,
   },
@@ -570,8 +559,9 @@ const styles = StyleSheet.create({
   },
   selectedOptionText: {
     color: '#1976d2',
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
-});
+} as const);
 
-export default AddWorksiteModal;
+export type { AddWorksiteModalProps, FormData, FormErrors, SupportedLanguage };
+export default AddWorksiteModal as (props: AddWorksiteModalProps) => React.JSX.Element;

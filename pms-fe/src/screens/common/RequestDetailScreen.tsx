@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
-import { MainStackParamList } from '../../navigation/MainStack';
 import requestService from '../../services/requestService';
 import { Request } from '../../types/requests';
 import { showError, showConfirm, showSuccess } from '../../utils/platformUtils';
 
-type RequestDetailScreenRouteProp = RouteProp<MainStackParamList, 'RequestDetail'>;
+type RequestDetailScreenParams = {
+  readonly RequestDetail: { readonly requestId: number };
+};
 
-const RequestDetailScreen: React.FC = () => {
+type RequestDetailScreenRouteProp = RouteProp<RequestDetailScreenParams, 'RequestDetail'>;
+
+function RequestDetailScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const route = useRoute<RequestDetailScreenRouteProp>();
   const navigation = useNavigation();
@@ -21,21 +24,22 @@ const RequestDetailScreen: React.FC = () => {
 
   useEffect(() => {
     loadRequest();
-  }, [requestId]);
+  }, [loadRequest]);
 
-  const loadRequest = async () => {
+  const loadRequest = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
       const requestData = await requestService.getRequest(requestId);
       setRequest(requestData);
-    } catch (error: any) {
-      showError(t('messages.error'), error.message || 'Failed to load request', () => navigation.goBack());
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load request';
+      showError(t('messages.error'), errorMessage, () => navigation.goBack());
     } finally {
       setLoading(false);
     }
-  };
+  }, [requestId, t, navigation]);
 
-  const handleSubmitRequest = async () => {
+  const handleSubmitRequest = useCallback(async (): Promise<void> => {
     if (!request) return;
 
     showConfirm(
@@ -50,8 +54,9 @@ const RequestDetailScreen: React.FC = () => {
             t('requests.requestSubmitted'),
             () => navigation.goBack()
           );
-        } catch (error: any) {
-          showError(t('messages.error'), error.message || 'Failed to submit request');
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to submit request';
+          showError(t('messages.error'), errorMessage);
         } finally {
           setSubmitting(false);
         }
@@ -60,7 +65,7 @@ const RequestDetailScreen: React.FC = () => {
       t('requests.submitButton'),
       t('actions.cancel')
     );
-  };
+  }, [request, t, navigation]);
 
   if (loading) {
     return (
@@ -164,8 +169,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     backgroundColor: '#f8f9fa',
   },
   loadingText: {
@@ -176,7 +181,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     color: '#dc3545',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     margin: 20,
   },
   header: {
@@ -188,9 +193,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
   },
   title: {
     fontSize: 20,
@@ -231,7 +236,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   detailRow: {
-    flexDirection: 'row',
+    flexDirection: 'row' as const,
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f3f4',
@@ -246,13 +251,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#2c3e50',
     flex: 2,
-    textAlign: 'right',
+    textAlign: 'right' as const,
   },
   submitButton: {
     backgroundColor: '#28a745',
     paddingVertical: 16,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: 'center' as const,
     marginTop: 20,
     marginBottom: 40,
   },
@@ -264,6 +269,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-});
+} as const);
 
-export default RequestDetailScreen;
+export default RequestDetailScreen as () => React.JSX.Element;
