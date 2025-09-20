@@ -30,7 +30,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-hp54&0n40b^djj%fqar2l
 DEBUG = config('DEBUG', default=True, cast=bool)
 
 # Dynamic allowed hosts from environment
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0,192.168.1.2,192.168.1.3').split(',')
 
 
 # Application definition
@@ -183,8 +183,9 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=config('JWT_REFRESH_TOKEN_LIFETIME_DAYS', default=7, cast=int)),
 }
 
-# CORS Settings (for React Native app)
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://127.0.0.1:3000').split(',')
+# CORS Settings (for React Native app and web development)
+# Port 3000: React web development server, Port 8000: API calls from mobile devices
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://127.0.0.1:3000,http://192.168.1.2:3000,http://192.168.1.2:8000').split(',')
 
 CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=DEBUG, cast=bool)
 
