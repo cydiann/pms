@@ -1,8 +1,46 @@
-// API Configuration
+import { Platform } from 'react-native';
+
+const getBaseUrl = () => {
+  console.log('ENV Variables:', {
+    REACT_APP_API_HOST: process.env.REACT_APP_API_HOST,
+    REACT_APP_API_HOST_NETWORK: process.env.REACT_APP_API_HOST_NETWORK,
+    REACT_APP_API_PORT: process.env.REACT_APP_API_PORT,
+    REACT_APP_API_PROTOCOL: process.env.REACT_APP_API_PROTOCOL,
+    NODE_ENV: process.env.NODE_ENV
+  });
+
+  if (process.env.REACT_APP_API_HOST) {
+    const protocol = process.env.REACT_APP_API_PROTOCOL || 'https';
+    const host = process.env.REACT_APP_API_HOST;
+    const port = process.env.REACT_APP_API_PORT;
+
+    if (port && ((protocol === 'https' && port !== '443') || (protocol === 'http' && port !== '80'))) {
+      return `${protocol}://${host}:${port}`;
+    }
+    return `${protocol}://${host}`;
+  }
+
+  const protocol = process.env.REACT_APP_API_PROTOCOL || 'http';
+  const port = process.env.REACT_APP_API_PORT || '8000';
+
+  if (Platform.OS === 'web') {
+    const host = process.env.REACT_APP_API_HOST_LOCAL || 'localhost';
+    return `${protocol}://${host}:${port}`;
+  } else {
+    // TODO: Make this configurable for different network environments
+    // For physical Android device, use your computer's network IP
+    // For iOS simulator, localhost works. For Android emulator use 10.0.2.2
+    const defaultHost = Platform.OS === 'android' ? '192.168.1.2' : 'localhost';
+    const host = process.env.REACT_APP_API_HOST_NETWORK || defaultHost;
+    return `${protocol}://${host}:${port}`;
+  }
+};
+
+const baseUrl = getBaseUrl();
+console.log('🌐 API_CONFIG.BASE_URL:', baseUrl);
+
 export const API_CONFIG = {
-  BASE_URL: process.env.NODE_ENV === 'production' 
-    ? 'https://pms-backend-production-20b3.up.railway.app'
-    : 'http://localhost:8000',
+  BASE_URL: baseUrl,
   TIMEOUT: 10000,
 };
 

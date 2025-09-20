@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { User } from '../types/auth';
 import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
@@ -38,11 +39,11 @@ interface MainTabNavigatorProps {
   readonly t: (key: string) => string;
 }
 
-function MainTabNavigator({ 
-  user, 
-  activeTab, 
-  setActiveTab, 
-  t 
+function MainTabNavigator({
+  user,
+  activeTab,
+  setActiveTab,
+  t
 }: MainTabNavigatorProps): React.JSX.Element {
 
   // Determine user role
@@ -52,7 +53,7 @@ function MainTabNavigator({
     // For now, we'll use groups to determine supervisor role
     const hasAdminGroup = user?.groups?.some((group: UserGroup) => group.name === 'Administrator');
     const hasSupervisorGroup = user?.groups?.some((group: UserGroup) => group.name === 'Supervisor');
-    
+
     if (hasAdminGroup) return 'admin';
     if (hasSupervisorGroup) return 'supervisor';
     return 'employee';
@@ -66,8 +67,8 @@ function MainTabNavigator({
       key: 'dashboard',
       label: t('navigation.dashboard'),
       component: userRole === 'admin' ? AdminDashboardScreen :
-                userRole === 'supervisor' ? SupervisorDashboardScreen :
-                EmployeeDashboardScreen,
+        userRole === 'supervisor' ? SupervisorDashboardScreen :
+          EmployeeDashboardScreen,
       roles: ['employee', 'supervisor', 'admin'] as const,
     },
     {
@@ -128,6 +129,7 @@ function MainTabNavigator({
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor="#007bff" barStyle="light-content" />
       {/* Header with Title and Language Switcher */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>
@@ -138,8 +140,8 @@ function MainTabNavigator({
 
       {/* Top Navigation Tabs */}
       <View style={styles.topTabBar}>
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.tabScrollView}
           contentContainerStyle={styles.tabScrollContent}

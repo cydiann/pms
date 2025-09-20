@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
 import { ExtendedUser } from '../../types/users';
 import { showConfirm, showError, showSuccess } from '../../utils/platformUtils';
+import { translatePermissionName } from '../../utils/permissionTranslations';
 
 // Import types from userService instead of duplicating
 interface Permission {
@@ -268,7 +269,7 @@ function GroupDetailModal({
             <Text style={styles.sectionTitle}>{t('groupManagement.groupPermissions')}</Text>
             {group.permissions.map(permission => (
               <View key={permission.id} style={styles.permissionItem}>
-                <Text style={styles.permissionName}>{permission.name}</Text>
+                <Text style={styles.permissionName}>{translatePermissionName(permission.name, t)}</Text>
                 <Text style={styles.permissionCode}>{permission.codename}</Text>
               </View>
             ))}
@@ -325,7 +326,7 @@ function GroupDetailModal({
                 {permissions[contentType].map(permission => (
                   <View key={permission.id} style={styles.permissionToggle}>
                     <View style={styles.permissionInfo}>
-                      <Text style={styles.permissionToggleName}>{permission.name}</Text>
+                      <Text style={styles.permissionToggleName}>{translatePermissionName(permission.name, t)}</Text>
                       <Text style={styles.permissionToggleCode}>{permission.codename}</Text>
                     </View>
                     <Switch

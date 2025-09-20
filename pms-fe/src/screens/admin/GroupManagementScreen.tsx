@@ -15,6 +15,7 @@ import { ExtendedUser } from '../../types/users';
 import AddGroupModal from '../../components/modals/AddGroupModal';
 import GroupDetailModal from '../../components/modals/GroupDetailModal';
 import { showError } from '../../utils/platformUtils';
+import { translatePermissionName } from '../../utils/permissionTranslations';
 
 interface UserGroup {
   readonly id: number;
@@ -149,7 +150,7 @@ function GroupManagementScreen(): React.JSX.Element {
           {item.permissions.slice(0, 3).map(permission => (
             <View key={permission.id} style={styles.permissionTag}>
               <Text style={styles.permissionText} numberOfLines={1}>
-                {permission.name}
+                {translatePermissionName(permission.name, t)}
               </Text>
             </View>
           ))}

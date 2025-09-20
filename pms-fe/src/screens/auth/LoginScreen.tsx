@@ -8,7 +8,9 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
@@ -73,10 +75,12 @@ function LoginScreen(): React.JSX.Element {
   }, [login, clearError]);
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <SafeAreaView style={styles.container}>
+      <StatusBar backgroundColor="#f8f9fa" barStyle="dark-content" />
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -226,6 +230,7 @@ function LoginScreen(): React.JSX.Element {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -233,6 +238,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  keyboardContainer: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,

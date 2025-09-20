@@ -13,6 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
 import { showError, showSuccess } from '../../utils/platformUtils';
+import { translatePermissionName } from '../../utils/permissionTranslations';
 
 interface AddGroupModalProps {
   readonly visible: boolean;
@@ -326,7 +327,7 @@ function AddGroupModal({
                     {typePermissions.map(permission => (
                       <View key={permission.id} style={styles.permissionToggle}>
                         <View style={styles.permissionInfo}>
-                          <Text style={styles.permissionName}>{permission.name}</Text>
+                          <Text style={styles.permissionName}>{translatePermissionName(permission.name, t)}</Text>
                           <Text style={styles.permissionCode}>{permission.codename}</Text>
                         </View>
                         <Switch
