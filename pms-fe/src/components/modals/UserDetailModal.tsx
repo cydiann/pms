@@ -535,9 +535,17 @@ function UserDetailModal({
       transparent={true}
       statusBarTranslucent={true}
     >
-      <View style={styles.overlay}>
-        <View style={styles.container}>
-        <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.overlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <TouchableOpacity
+          style={styles.container}
+          activeOpacity={1}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <View style={styles.header}>
           <View style={styles.headerLeft}>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Text style={styles.closeButtonText}>{t('actions.cancel')}</Text>
@@ -583,15 +591,15 @@ function UserDetailModal({
           renderViewMode()
         )}
 
-        {canDelete && !editing && user && (
-          <View style={styles.footer}>
-            <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-              <Text style={styles.deleteButtonText}>{t('userManagement.deleteUser')}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        </View>
-      </View>
+          {canDelete && !editing && user && (
+            <View style={styles.footer}>
+              <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+                <Text style={styles.deleteButtonText}>{t('userManagement.deleteUser')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 };
@@ -602,12 +610,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 40,
   },
   container: {
-    width: '100%',
-    maxWidth: 600,
-    maxHeight: '90%',
+    width: '90%',
+    height: '85%',
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
     shadowColor: '#000',
