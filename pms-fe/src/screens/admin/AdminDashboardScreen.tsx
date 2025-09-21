@@ -50,7 +50,7 @@ function AdminDashboardScreen(): React.JSX.Element {
       <View style={styles.requestHeader}>
         <Text style={styles.requestTitle}>{item.item}</Text>
         <View style={[
-          styles.statusBadge, 
+          styles.statusBadge,
           { backgroundColor: requestService.getStatusColor(item.status) }
         ]}>
           <Text style={styles.statusText}>{item.status_display}</Text>
@@ -73,7 +73,7 @@ function AdminDashboardScreen(): React.JSX.Element {
   }
 
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -105,7 +105,7 @@ function AdminDashboardScreen(): React.JSX.Element {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('dashboard.systemOverview')}</Text>
-        
+
         <View style={styles.overviewGrid}>
           <View style={styles.overviewItem}>
             <Text style={styles.overviewNumber}>{stats?.approved_requests || 0}</Text>
@@ -142,8 +142,8 @@ function AdminDashboardScreen(): React.JSX.Element {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('dashboard.quickActions')}</Text>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.actionButton}
           onPress={() => setActiveTab('allRequests')}
         >
@@ -155,7 +155,7 @@ function AdminDashboardScreen(): React.JSX.Element {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.actionButton}
           onPress={() => setActiveTab('userManagement')}
         >
@@ -167,7 +167,7 @@ function AdminDashboardScreen(): React.JSX.Element {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.actionButton}
           onPress={() => setActiveTab('worksiteManagement')}
         >
@@ -183,11 +183,11 @@ function AdminDashboardScreen(): React.JSX.Element {
       {stats && stats.total_requests > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('dashboard.systemStatusBreakdown')}</Text>
-          
+
           {Object.entries(stats.requests_by_status).map(([status, count]) => (
             <View key={status} style={styles.statusRow}>
               <View style={[
-                styles.statusIndicator, 
+                styles.statusIndicator,
                 { backgroundColor: requestService.getStatusColor(status) }
               ]} />
               <Text style={styles.statusLabel}>

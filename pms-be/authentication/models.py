@@ -52,6 +52,10 @@ class User(AbstractUser):
         
         # Get permissions from groups + individual permissions
         return self.get_all_permissions()
+
+    def can_purchase(self) -> bool:
+        """Return True if user is in the Purchasing group."""
+        return self.groups.filter(name='Purchasing').exists()
     
     def __str__(self):
         return self.get_full_name()

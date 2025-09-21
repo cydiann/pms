@@ -473,5 +473,43 @@
     "error": {
       "createFailed": "Grup oluşturulamadı. Lütfen tekrar deneyin."
     }
+  },
+  "fileUpload": {
+    "errors": {
+      "uploadNotAllowed": "Yükleme İzni Yok",
+      "uploadNotAllowedMessage": "\"{{status}}\" durumundaki talepler için {{documentType}} yüklenemez",
+      "fileTooLarge": "Dosya Çok Büyük",
+      "fileTooLargeMessage": "Dosya boyutu {{maxSize}} değerinden küçük olmalıdır",
+      "selectionFailed": "Seçim Başarısız",
+      "selectionFailedMessage": "Dosya seçilemedi. Lütfen tekrar deneyin.",
+      "uploadFailed": "Yükleme Başarısız",
+      "uploadFailedMessage": "Dosya yüklenemedi. Lütfen tekrar deneyin.",
+      "featureNotAvailable": "Özellik Mevcut Değil",
+      "featureNotAvailableMessage": "Dosya yükleme henüz mobil için aktif değil"
+    },
+    "success": {
+      "uploadSuccessful": "Yükleme Başarılı",
+      "uploadSuccessfulMessage": "{{fileName}} başarıyla yüklendi!"
+    },
+    "actions": {
+      "selectFile": "Dosya Seç",
+      "upload": "Yükle",
+      "uploading": "Yükleniyor...",
+      "cancel": "İptal",
+      "uploadDocument": "{{documentType}} Yükle"
+    },
+    "labels": {
+      "selectedFile": "Seçilen: {{fileName}}",
+      "enterDescription": "Döküman açıklaması girin",
+      "warningCannotUpload": "{{documentType}} yalnızca talep durumu uygun olduğunda yüklenebilir"
+    },
+    "documentTypes": {
+      "quote": "Teklif",
+      "purchase_order": "Satın Alma Siparişi",
+      "dispatch_note": "Sevk İrsaliyesi",
+      "receipt": "Teslimat Makbuzu",
+      "invoice": "Fatura",
+      "other": "Başka Döküman"
+    }
   }
 }

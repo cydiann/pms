@@ -133,7 +133,7 @@ function DocumentList({
                 {item.file_name}
               </Text>
               <Text style={styles.documentType}>
-                {documentService.getDocumentTypeDisplay(item.document_type)}
+                {documentService.getDocumentTypeDisplay(item.document_type, t)}
               </Text>
               <Text style={styles.fileSize}>
                 {documentService.formatFileSize(item.file_size)} • {new Date(item.created_at).toLocaleDateString()}

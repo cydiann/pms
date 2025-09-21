@@ -1,0 +1,32 @@
+Step 1: Start Metro Bundler
+
+  In your first terminal, run:
+  npx react-native start --reset-cache
+
+  Step 2: Run Android App
+
+  In a second terminal (keep Metro running), run:
+  npx react-native run-android
+
+  Alternative: If you want to run on web instead
+
+  If you prefer to test the web version first:
+  npm run web
+
+  Troubleshooting Commands
+
+  If you encounter any issues, try these in sequence:
+
+  1. Clean everything first:
+  cd android && ./gradlew clean && cd ..
+  rm -rf node_modules
+  npm install
+
+  2. Check Android device/emulator:
+  adb devices
+
+  3. If build fails, try:
+  cd android && ./gradlew :app:generateDebugAssets && cd ..
+  npx react-native run-android
+
+  Which platform would you like to run first - Android or web?

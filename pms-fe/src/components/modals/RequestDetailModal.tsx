@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  SafeAreaView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
@@ -74,150 +75,151 @@ function RequestDetailModal({
           <View style={styles.headerSpacer} />
         </View>
 
-        <ScrollView style={styles.content}>
-          <View style={styles.statusContainer}>
-            <Text style={styles.requestTitle}>{request.item}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: requestService.getStatusColor(request.status) }]}>
-              <Text style={styles.statusText}>{requestService.getStatusDisplay(request.status)}</Text>
+        <View style={styles.content}>
+          <ScrollView style={styles.scrollableContent} nestedScrollEnabled={false}>
+            <View style={styles.statusContainer}>
+              <Text style={styles.requestTitle}>{request.item}</Text>
+              <View style={[styles.statusBadge, { backgroundColor: requestService.getStatusColor(request.status) }]}>
+                <Text style={styles.statusText}>{requestService.getStatusDisplay(request.status)}</Text>
+              </View>
             </View>
-          </View>
 
-          <View style={styles.section}>
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>{t('requests.requestNumber')}:</Text>
-              <Text style={styles.value}>{request.request_number}</Text>
-            </View>
-            
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>{t('requests.item')}:</Text>
-              <Text style={styles.value}>{request.item}</Text>
-            </View>
-            
-            {request.description && (
+            <View style={styles.section}>
               <View style={styles.detailRow}>
-                <Text style={styles.label}>{t('requests.description')}:</Text>
-                <Text style={styles.value}>{request.description}</Text>
+                <Text style={styles.label}>{t('requests.requestNumber')}:</Text>
+                <Text style={styles.value}>{request.request_number}</Text>
               </View>
-            )}
-            
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>{t('requests.quantity')}:</Text>
-              <Text style={styles.value}>{request.quantity} {request.unit}</Text>
-            </View>
-            
-            {request.category && (
-              <View style={styles.detailRow}>
-                <Text style={styles.label}>{t('requests.category')}:</Text>
-                <Text style={styles.value}>{request.category}</Text>
-              </View>
-            )}
-            
-            {request.delivery_address && (
-              <View style={styles.detailRow}>
-                <Text style={styles.label}>{t('requests.deliveryAddress')}:</Text>
-                <Text style={styles.value}>{request.delivery_address}</Text>
-              </View>
-            )}
-            
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>{t('requests.reason')}:</Text>
-              <Text style={styles.value}>{request.reason}</Text>
-            </View>
-            
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>{t('requests.createdAt')}:</Text>
-              <Text style={styles.value}>{new Date(request.created_at).toLocaleDateString()}</Text>
-            </View>
-          </View>
 
-          {/* Documents Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('requests.documents')}</Text>
-            
+              <View style={styles.detailRow}>
+                <Text style={styles.label}>{t('requests.item')}:</Text>
+                <Text style={styles.value}>{request.item}</Text>
+              </View>
+
+              {request.description && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.label}>{t('requests.description')}:</Text>
+                  <Text style={styles.value}>{request.description}</Text>
+                </View>
+              )}
+
+              <View style={styles.detailRow}>
+                <Text style={styles.label}>{t('requests.quantity')}:</Text>
+                <Text style={styles.value}>{request.quantity} {request.unit}</Text>
+              </View>
+
+              {request.category && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.label}>{t('requests.category')}:</Text>
+                  <Text style={styles.value}>{request.category}</Text>
+                </View>
+              )}
+
+              {request.delivery_address && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.label}>{t('requests.deliveryAddress')}:</Text>
+                  <Text style={styles.value}>{request.delivery_address}</Text>
+                </View>
+              )}
+
+              <View style={styles.detailRow}>
+                <Text style={styles.label}>{t('requests.reason')}:</Text>
+                <Text style={styles.value}>{request.reason}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.label}>{t('requests.createdAt')}:</Text>
+                <Text style={styles.value}>{new Date(request.created_at).toLocaleDateString()}</Text>
+              </View>
+            </View>
+
             {/* File Upload Options - Show relevant buttons based on status */}
-            <View style={styles.uploadSection}>
-              {/* Always allow "other" document uploads for superuser */}
-              <FileUpload
-                requestId={request.id}
-                requestStatus={request.status}
-                documentType="other"
-                onUploadComplete={() => {
-                  // Trigger document list refresh
-                  setDocumentListKey(prev => prev + 1);
-                }}
-                style={styles.uploadButton}
-              />
-              
-              {/* Quote uploads for approved/purchasing requests */}
-              <FileUpload
-                requestId={request.id}
-                requestStatus={request.status}
-                documentType="quote"
-                onUploadComplete={() => {
-                  setDocumentListKey(prev => prev + 1);
-                }}
-                style={styles.uploadButton}
-              />
-              
-              {/* Purchase Order uploads for approved/purchasing requests */}
-              <FileUpload
-                requestId={request.id}
-                requestStatus={request.status}
-                documentType="purchase_order"
-                onUploadComplete={() => {
-                  setDocumentListKey(prev => prev + 1);
-                }}
-                style={styles.uploadButton}
-              />
-              
-              {/* Dispatch Note uploads for ordered requests */}
-              <FileUpload
-                requestId={request.id}
-                requestStatus={request.status}
-                documentType="dispatch_note"
-                onUploadComplete={() => {
-                  setDocumentListKey(prev => prev + 1);
-                }}
-                style={styles.uploadButton}
-              />
-              
-              {/* Receipt uploads for delivered requests */}
-              <FileUpload
-                requestId={request.id}
-                requestStatus={request.status}
-                documentType="receipt"
-                onUploadComplete={() => {
-                  setDocumentListKey(prev => prev + 1);
-                }}
-                style={styles.uploadButton}
-              />
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{t('requests.documents')}</Text>
+              <View style={styles.uploadSection}>
+                {/* Always allow "other" document uploads for superuser */}
+                <FileUpload
+                  requestId={request.id}
+                  requestStatus={request.status}
+                  documentType="other"
+                  onUploadComplete={() => {
+                    // Trigger document list refresh
+                    setDocumentListKey(prev => prev + 1);
+                  }}
+                  style={styles.uploadButton}
+                />
+
+                {/* Quote uploads for approved/purchasing requests */}
+                <FileUpload
+                  requestId={request.id}
+                  requestStatus={request.status}
+                  documentType="quote"
+                  onUploadComplete={() => {
+                    setDocumentListKey(prev => prev + 1);
+                  }}
+                  style={styles.uploadButton}
+                />
+
+                {/* Purchase Order uploads for approved/purchasing requests */}
+                <FileUpload
+                  requestId={request.id}
+                  requestStatus={request.status}
+                  documentType="purchase_order"
+                  onUploadComplete={() => {
+                    setDocumentListKey(prev => prev + 1);
+                  }}
+                  style={styles.uploadButton}
+                />
+
+                {/* Dispatch Note uploads for ordered requests */}
+                <FileUpload
+                  requestId={request.id}
+                  requestStatus={request.status}
+                  documentType="dispatch_note"
+                  onUploadComplete={() => {
+                    setDocumentListKey(prev => prev + 1);
+                  }}
+                  style={styles.uploadButton}
+                />
+
+                {/* Receipt uploads for delivered requests */}
+                <FileUpload
+                  requestId={request.id}
+                  requestStatus={request.status}
+                  documentType="receipt"
+                  onUploadComplete={() => {
+                    setDocumentListKey(prev => prev + 1);
+                  }}
+                  style={styles.uploadButton}
+                />
+              </View>
             </View>
-            
-            {/* Document List */}
+
+            {canSubmit && (
+              <TouchableOpacity
+                style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+                onPress={handleSubmitRequest}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.submitButtonText}>
+                    {t('requests.submitForApproval')}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+
+          {/* Document List - Separate from ScrollView to avoid nesting VirtualizedList */}
+          <View style={styles.documentSection}>
             <DocumentList
               requestId={request.id}
               style={styles.documentList}
               refreshTrigger={documentListKey}
             />
           </View>
-
-          {canSubmit && (
-            <TouchableOpacity
-              style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
-              onPress={handleSubmitRequest}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.submitButtonText}>
-                  {t('requests.submitForApproval')}
-                </Text>
-              )}
-            </TouchableOpacity>
-          )}
-          
-        </ScrollView>
+        </View>
       </View>
     </Modal>
   );
@@ -261,7 +263,15 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollableContent: {
+    flex: 1,
     padding: 16,
+  },
+  documentSection: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   statusContainer: {
     flexDirection: 'row' as const,

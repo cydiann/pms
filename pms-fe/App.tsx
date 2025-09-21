@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import ENV_CONFIG from './src/config/env';
 import App, { AppConfig, Environment } from './src/App';
 import './src/locales/i18n'; // Initialize i18n
 
@@ -15,12 +16,12 @@ interface RootProps {
 
 function Root({ initialConfig }: RootProps = {}): JSX.Element {
   // Create app configuration based on environment with proper typing
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const isProduction = process.env.NODE_ENV === 'production';
-  
+  const isDevelopment = ENV_CONFIG.NODE_ENV === 'development';
+  const isProduction = ENV_CONFIG.NODE_ENV === 'production';
+
   const appConfig: AppConfig = {
-    environment: (process.env.NODE_ENV as Environment) || 'development',
-    apiUrl: process.env.REACT_APP_API_URL || undefined,
+    environment: (ENV_CONFIG.NODE_ENV as Environment) || 'development',
+    apiUrl: undefined, // Will be determined by api.ts
     features: {
       debugging: isDevelopment,
       analytics: isProduction,

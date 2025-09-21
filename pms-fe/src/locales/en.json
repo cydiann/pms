@@ -452,5 +452,43 @@
     "error": {
       "createFailed": "Failed to create group. Please try again."
     }
+  },
+  "fileUpload": {
+    "errors": {
+      "uploadNotAllowed": "Upload Not Allowed",
+      "uploadNotAllowedMessage": "Cannot upload {{documentType}} for requests with status \"{{status}}\"",
+      "fileTooLarge": "File Too Large",
+      "fileTooLargeMessage": "File size must be less than {{maxSize}}",
+      "selectionFailed": "Selection Failed",
+      "selectionFailedMessage": "Failed to select file. Please try again.",
+      "uploadFailed": "Upload Failed",
+      "uploadFailedMessage": "Failed to upload file. Please try again.",
+      "featureNotAvailable": "Feature Not Available",
+      "featureNotAvailableMessage": "File upload is not yet implemented for mobile"
+    },
+    "success": {
+      "uploadSuccessful": "Upload Successful",
+      "uploadSuccessfulMessage": "{{fileName}} has been uploaded successfully!"
+    },
+    "actions": {
+      "selectFile": "Select File",
+      "upload": "Upload",
+      "uploading": "Uploading...",
+      "cancel": "Cancel",
+      "uploadDocument": "Upload {{documentType}}"
+    },
+    "labels": {
+      "selectedFile": "Selected: {{fileName}}",
+      "enterDescription": "Enter document description",
+      "warningCannotUpload": "{{documentType}} can only be uploaded when request status is appropriate"
+    },
+    "documentTypes": {
+      "quote": "Quotation",
+      "purchase_order": "Purchase Order",
+      "dispatch_note": "Dispatch Note",
+      "receipt": "Delivery Receipt",
+      "invoice": "Invoice",
+      "other": "Other Document"
+    }
   }
 }
