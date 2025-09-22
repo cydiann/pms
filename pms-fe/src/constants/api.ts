@@ -19,7 +19,7 @@ const getBaseUrl = () => {
   } else {
     // For physical Android device, use your computer's network IP
     // For iOS simulator, localhost works. For Android emulator use 10.0.2.2
-    const defaultHost = Platform.OS === 'android' ? '192.168.1.2' : 'localhost';
+    const defaultHost = Platform.OS === 'android' ? '192.168.1.11' : 'localhost';
     const host = ENV_CONFIG.API_HOST_NETWORK || defaultHost;
     return `${protocol}://${host}:${port}`;
   }

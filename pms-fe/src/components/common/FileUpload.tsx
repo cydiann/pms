@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TextInput,
   ViewStyle,
+  Platform,
 } from 'react-native';
 import { pick, types, isErrorWithCode, errorCodes, DocumentPickerResponse } from '@react-native-documents/picker';
 import Icon from 'react-native-vector-icons/MaterialIcons';

@@ -76,7 +76,7 @@ function RequestDetailModal({
         </View>
 
         <View style={styles.content}>
-          <ScrollView style={styles.scrollableContent} nestedScrollEnabled={false}>
+          <ScrollView style={styles.detailsScrollView} nestedScrollEnabled={false}>
             <View style={styles.statusContainer}>
               <Text style={styles.requestTitle}>{request.item}</Text>
               <View style={[styles.statusBadge, { backgroundColor: requestService.getStatusColor(request.status) }]}>
@@ -132,68 +132,6 @@ function RequestDetailModal({
               </View>
             </View>
 
-            {/* File Upload Options - Show relevant buttons based on status */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('requests.documents')}</Text>
-              <View style={styles.uploadSection}>
-                {/* Always allow "other" document uploads for superuser */}
-                <FileUpload
-                  requestId={request.id}
-                  requestStatus={request.status}
-                  documentType="other"
-                  onUploadComplete={() => {
-                    // Trigger document list refresh
-                    setDocumentListKey(prev => prev + 1);
-                  }}
-                  style={styles.uploadButton}
-                />
-
-                {/* Quote uploads for approved/purchasing requests */}
-                <FileUpload
-                  requestId={request.id}
-                  requestStatus={request.status}
-                  documentType="quote"
-                  onUploadComplete={() => {
-                    setDocumentListKey(prev => prev + 1);
-                  }}
-                  style={styles.uploadButton}
-                />
-
-                {/* Purchase Order uploads for approved/purchasing requests */}
-                <FileUpload
-                  requestId={request.id}
-                  requestStatus={request.status}
-                  documentType="purchase_order"
-                  onUploadComplete={() => {
-                    setDocumentListKey(prev => prev + 1);
-                  }}
-                  style={styles.uploadButton}
-                />
-
-                {/* Dispatch Note uploads for ordered requests */}
-                <FileUpload
-                  requestId={request.id}
-                  requestStatus={request.status}
-                  documentType="dispatch_note"
-                  onUploadComplete={() => {
-                    setDocumentListKey(prev => prev + 1);
-                  }}
-                  style={styles.uploadButton}
-                />
-
-                {/* Receipt uploads for delivered requests */}
-                <FileUpload
-                  requestId={request.id}
-                  requestStatus={request.status}
-                  documentType="receipt"
-                  onUploadComplete={() => {
-                    setDocumentListKey(prev => prev + 1);
-                  }}
-                  style={styles.uploadButton}
-                />
-              </View>
-            </View>
-
             {canSubmit && (
               <TouchableOpacity
                 style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
@@ -211,10 +149,11 @@ function RequestDetailModal({
             )}
           </ScrollView>
 
-          {/* Document List - Separate from ScrollView to avoid nesting VirtualizedList */}
+          {/* Document List with integrated upload buttons */}
           <View style={styles.documentSection}>
             <DocumentList
               requestId={request.id}
+              requestStatus={request.status}
               style={styles.documentList}
               refreshTrigger={documentListKey}
             />
@@ -264,8 +203,8 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
-  scrollableContent: {
-    flex: 1,
+  detailsScrollView: {
+    flexGrow: 0, // Don't grow, only take needed space
     padding: 16,
   },
   documentSection: {

@@ -12,9 +12,11 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTranslation } from 'react-i18next';
 import documentService, { ProcurementDocument } from '../../services/documentService';
 import { showError, showConfirm } from '../../utils/platformUtils';
+import FileUpload from './FileUpload';
 
 interface DocumentListProps {
   readonly requestId: number;
+  readonly requestStatus: string;
   readonly onDocumentsChange?: (documents: ProcurementDocument[]) => void;
   readonly style?: ViewStyle | ViewStyle[];
   readonly refreshTrigger?: number;
@@ -27,6 +29,7 @@ interface StatusIcon {
 
 function DocumentList({
   requestId,
+  requestStatus,
   onDocumentsChange,
   style,
   refreshTrigger,
@@ -205,6 +208,10 @@ function DocumentList({
     );
   }
 
+  const handleUploadComplete = () => {
+    loadDocuments(); // Refresh the document list when upload completes
+  };
+
   return (
     <View style={[styles.container, style]}>
       <View style={styles.header}>
@@ -213,7 +220,46 @@ function DocumentList({
           <Icon name="refresh" size={20} color="#007bff" />
         </TouchableOpacity>
       </View>
-      
+
+      {/* File Upload Buttons */}
+      <View style={styles.uploadSection}>
+        <FileUpload
+          requestId={requestId}
+          requestStatus={requestStatus}
+          documentType="other"
+          onUploadComplete={handleUploadComplete}
+          style={styles.uploadButton}
+        />
+        <FileUpload
+          requestId={requestId}
+          requestStatus={requestStatus}
+          documentType="quote"
+          onUploadComplete={handleUploadComplete}
+          style={styles.uploadButton}
+        />
+        <FileUpload
+          requestId={requestId}
+          requestStatus={requestStatus}
+          documentType="purchase_order"
+          onUploadComplete={handleUploadComplete}
+          style={styles.uploadButton}
+        />
+        <FileUpload
+          requestId={requestId}
+          requestStatus={requestStatus}
+          documentType="dispatch_note"
+          onUploadComplete={handleUploadComplete}
+          style={styles.uploadButton}
+        />
+        <FileUpload
+          requestId={requestId}
+          requestStatus={requestStatus}
+          documentType="receipt"
+          onUploadComplete={handleUploadComplete}
+          style={styles.uploadButton}
+        />
+      </View>
+
       <FlatList
         data={documents}
         renderItem={renderDocumentItem}
@@ -222,6 +268,7 @@ function DocumentList({
         refreshing={refreshing}
         onRefresh={handleRefresh}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.flatListContent}
       />
     </View>
   );
@@ -244,6 +291,12 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     padding: 8,
+  },
+  uploadSection: {
+    marginBottom: 16,
+  },
+  uploadButton: {
+    marginBottom: 8,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -338,12 +391,15 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 16, // Reduced padding for more compact empty state
   },
   emptyStateText: {
     fontSize: 16,
     color: '#6c757d',
     marginTop: 8,
+  },
+  flatListContent: {
+    paddingBottom: 144, // Exactly one document card height for full visibility
   },
 } as const);
 
