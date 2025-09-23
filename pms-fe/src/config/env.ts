@@ -7,7 +7,7 @@ const ENV_CONFIG = {
 
   // Backend API Configuration
   API_HOST_LOCAL: 'localhost',
-  API_HOST_NETWORK: '192.168.1.11',
+  API_HOST_NETWORK: '10.0.2.2',  // Android emulator's special IP for host machine
   API_PORT: '8000',
   API_PROTOCOL: 'http',
 
