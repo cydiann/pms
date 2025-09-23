@@ -1,6 +1,7 @@
 import React from 'react';
 import { AuthProvider } from './store/AuthContext';
 import AppNavigator from './navigation/AppNavigator';
+import GlobalAlert from './components/GlobalAlert';
 import { User } from './types/auth';
 
 // Type definitions
@@ -78,6 +79,8 @@ function App({
   return (
     <ActualAuthProvider>
       <AppNavigator />
+      {/* Global, consistent alert modal */}
+      <GlobalAlert />
     </ActualAuthProvider>
   );
 }

@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#2c3e50',
-    marginBottom: 20,
+    marginBottom: 12,
     textAlign: 'center',
   },
   modalInput: {
@@ -423,8 +423,11 @@ const styles = StyleSheet.create({
   modalButton: {
     flex: 1,
     paddingVertical: 12,
+    paddingHorizontal: 12,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
     marginHorizontal: 4,
   },
   cancelButton: {
@@ -438,35 +441,42 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#6c757d',
     fontWeight: '600',
+    fontSize: 16,
+    textAlign: 'center',
   },
   submitButtonText: {
     color: '#fff',
     fontWeight: '600',
+    fontSize: 16,
+    textAlign: 'center',
   },
   modalSubtitle: {
     fontSize: 16,
     color: '#6c757d',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   notificationButtons: {
-    marginBottom: 16,
+    flexDirection: 'row',
+    marginBottom: 12,
   },
   enableButton: {
     backgroundColor: '#28a745',
-    marginBottom: 12,
   },
   disableButton: {
     backgroundColor: '#dc3545',
-    marginBottom: 12,
   },
   enableButtonText: {
     color: '#fff',
     fontWeight: '600',
+    fontSize: 16,
+    textAlign: 'center',
   },
   disableButtonText: {
     color: '#fff',
     fontWeight: '600',
+    fontSize: 16,
+    textAlign: 'center',
   },
   fullWidthButton: {
     marginHorizontal: 0,
