@@ -8,7 +8,10 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
 import { CreateRequestDto, RequestUnit } from '../../types/requests';
 import { showError, showSuccess } from '../../utils/platformUtils';
@@ -32,6 +35,7 @@ function CreateRequestModal({
   onClose,
   onRequestCreated,
 }: CreateRequestModalProps): React.JSX.Element {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<CreateRequestDto>({
     item: '',
@@ -56,8 +60,8 @@ function CreateRequestModal({
   };
 
   const handleSuccess = useCallback((message: string): void => {
-    showSuccess('Success', message);
-  }, []);
+    showSuccess(t('messages.success'), message);
+  }, [t]);
 
   const updateFormField = useCallback(<K extends keyof CreateRequestDto>(
     field: K,
@@ -68,23 +72,23 @@ function CreateRequestModal({
 
   const validateForm = (): boolean => {
     if (!formData.item.trim()) {
-      showError('Error', 'Item name is required');
+      showError(t('messages.error'), t('requests.validation.itemRequired'));
       return false;
     }
-    
+
     if (!formData.quantity.trim()) {
-      showError('Error', 'Quantity is required');
+      showError(t('messages.error'), t('requests.validation.quantityRequired'));
       return false;
     }
-    
+
     const quantityNumber = parseFloat(formData.quantity);
     if (isNaN(quantityNumber) || quantityNumber <= 0) {
-      showError('Error', 'Please enter a valid quantity');
+      showError(t('messages.error'), t('requests.validation.quantityInvalid'));
       return false;
     }
-    
+
     if (!formData.reason.trim()) {
-      showError('Error', 'Reason is required');
+      showError(t('messages.error'), t('requests.validation.reasonRequired'));
       return false;
     }
 
@@ -109,12 +113,12 @@ function CreateRequestModal({
       
       // Show success message after modal is closed
       setTimeout(() => {
-        handleSuccess(`Request "${formData.item}" has been created and submitted for approval!`);
+        handleSuccess(t('requests.success.modalRequestSubmitted', { itemName: formData.item }));
       }, 300);
     } catch (error: unknown) {
       const apiError = error as ApiError;
       const errorMessage = apiError.response?.message || apiError.message || 'Failed to create and submit request';
-      showError('Error', errorMessage);
+      showError(t('messages.error'), errorMessage);
     } finally {
       setLoading(false);
     }
@@ -131,58 +135,63 @@ function CreateRequestModal({
       onRequestCreated?.();
       onClose();
       
-      // Show success message after modal is closed  
+      // Show success message after modal is closed
       setTimeout(() => {
-        handleSuccess(`Draft request "${formData.item}" has been saved!`);
+        handleSuccess(t('requests.success.modalDraftSaved', { itemName: formData.item }));
       }, 300);
     } catch (error: unknown) {
       const apiError = error as ApiError;
       const errorMessage = apiError.response?.message || apiError.message || 'Failed to save draft';
-      showError('Error', errorMessage);
+      showError(t('messages.error'), errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const unitOptions = [
-    { value: RequestUnit.PIECES, label: 'Pieces' },
-    { value: RequestUnit.KG, label: 'Kilograms' },
-    { value: RequestUnit.METER, label: 'Meters' },
-    { value: RequestUnit.M2, label: 'Square Meters' },
-    { value: RequestUnit.LITER, label: 'Liters' },
+    { value: RequestUnit.PIECES, label: t('requests.units.pieces') },
+    { value: RequestUnit.KG, label: t('requests.units.kg') },
+    { value: RequestUnit.METER, label: t('requests.units.meter') },
+    { value: RequestUnit.M2, label: t('requests.units.m2') },
+    { value: RequestUnit.LITER, label: t('requests.units.liter') },
   ] as const;
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={styles.container}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : undefined}
+      statusBarTranslucent={true}
+    >
+      <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create New Request</Text>
+          <Text style={styles.headerTitle}>{t('requests.createTitle')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView style={styles.content}>
           <View style={styles.section}>
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Item *</Text>
+              <Text style={styles.label}>{t('requests.item')} *</Text>
               <TextInput
                 style={styles.input}
                 value={formData.item}
                 onChangeText={(value) => updateFormField('item', value)}
-                placeholder="What do you need to purchase?"
+                placeholder={t('requests.itemPlaceholder')}
                 placeholderTextColor="#6c757d"
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Description</Text>
+              <Text style={styles.label}>{t('requests.description')}</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={formData.description}
                 onChangeText={(value) => updateFormField('description', value)}
-                placeholder="Provide additional details..."
+                placeholder={t('requests.descriptionPlaceholder')}
                 placeholderTextColor="#6c757d"
                 multiline={true}
                 numberOfLines={3}
@@ -191,7 +200,7 @@ function CreateRequestModal({
 
             <View style={styles.row}>
               <View style={[styles.formGroup, styles.quantityColumn]}>
-                <Text style={styles.label}>Quantity *</Text>
+                <Text style={styles.label}>{t('requests.quantity')} *</Text>
                 <TextInput
                   style={styles.input}
                   value={formData.quantity}
@@ -203,7 +212,7 @@ function CreateRequestModal({
               </View>
 
               <View style={[styles.formGroup, styles.unitColumn]}>
-                <Text style={styles.label}>Unit</Text>
+                <Text style={styles.label}>{t('requests.unit')}</Text>
                 <View style={styles.unitContainer}>
                   {unitOptions.map((option) => (
                     <TouchableOpacity
@@ -227,34 +236,34 @@ function CreateRequestModal({
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Category</Text>
+              <Text style={styles.label}>{t('requests.category')}</Text>
               <TextInput
                 style={styles.input}
                 value={formData.category}
                 onChangeText={(value) => updateFormField('category', value)}
-                placeholder="e.g., Office Supplies, Equipment, Materials"
+                placeholder={t('requests.categoryPlaceholder')}
                 placeholderTextColor="#6c757d"
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Delivery Address</Text>
+              <Text style={styles.label}>{t('requests.deliveryAddress')}</Text>
               <TextInput
                 style={styles.input}
                 value={formData.delivery_address}
                 onChangeText={(value) => updateFormField('delivery_address', value)}
-                placeholder="Where should this be delivered?"
+                placeholder={t('requests.deliveryAddressPlaceholder')}
                 placeholderTextColor="#6c757d"
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Reason *</Text>
+              <Text style={styles.label}>{t('requests.reason')} *</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={formData.reason}
                 onChangeText={(value) => updateFormField('reason', value)}
-                placeholder="Why do you need this item?"
+                placeholder={t('requests.reasonPlaceholder')}
                 placeholderTextColor="#6c757d"
                 multiline={true}
                 numberOfLines={3}
@@ -269,7 +278,7 @@ function CreateRequestModal({
               disabled={loading}
             >
               <Text style={styles.draftButtonText}>
-                {loading ? 'Saving...' : 'Save Draft'}
+                {loading ? t('requests.saving') : t('requests.saveDraft')}
               </Text>
             </TouchableOpacity>
 
@@ -281,12 +290,12 @@ function CreateRequestModal({
               {loading ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
-                <Text style={styles.submitButtonText}>Create & Submit</Text>
+                <Text style={styles.submitButtonText}>{t('requests.createAndSubmit')}</Text>
               )}
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 };

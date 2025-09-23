@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Platform } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { User } from '../types/auth';
 import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
@@ -45,6 +45,7 @@ function MainTabNavigator({
   setActiveTab,
   t
 }: MainTabNavigatorProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
 
   // Determine user role
   const getUserRole = (): UserRole => {
@@ -128,10 +129,15 @@ function MainTabNavigator({
   const ActiveComponent = availableTabs.find(tab => tab.key === activeTab)?.component || EmployeeDashboardScreen;
 
   return (
-    <SafeAreaView style={styles.container}>
+    // On Android, avoid top inset so header touches status bar.
+    // Keep top inset on iOS to respect notch/sensors.
+    <SafeAreaView 
+      style={styles.container}
+      edges={Platform.OS === 'android' ? ['left', 'right', 'bottom'] : ['top', 'left', 'right', 'bottom']}
+    >
       <StatusBar backgroundColor="#007bff" barStyle="light-content" />
       {/* Header with Title and Language Switcher */}
-      <View style={styles.header}>
+      <View style={[styles.header, Platform.OS === 'android' && { paddingTop: insets.top }]}>
         <Text style={styles.headerTitle}>
           {availableTabs.find(tab => tab.key === activeTab)?.label || t('navigation.dashboard')}
         </Text>

@@ -81,8 +81,8 @@ function CreateRequestScreen(): React.JSX.Element {
     try {
       const newRequest = await requestService.createRequest(formData);
       showSuccess(
-        'Success',
-        `Draft request ${newRequest.request_number} has been saved!`,
+        t('messages.success'),
+        t('requests.success.draftSaved', { requestNumber: newRequest.request_number }),
         () => {
           // Reset form
           setFormData({
@@ -98,7 +98,7 @@ function CreateRequestScreen(): React.JSX.Element {
       );
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to save draft';
-      showError('Error', errorMessage);
+      showError(t('messages.error'), errorMessage);
     } finally {
       setLoading(false);
     }
@@ -116,8 +116,8 @@ function CreateRequestScreen(): React.JSX.Element {
       await requestService.submitRequest(newRequest.id);
       
       showSuccess(
-        'Success',
-        `Request ${newRequest.request_number} has been submitted for approval!`,
+        t('messages.success'),
+        t('requests.success.requestSubmitted', { requestNumber: newRequest.request_number }),
         () => {
           // Reset form
           setFormData({
@@ -133,7 +133,7 @@ function CreateRequestScreen(): React.JSX.Element {
       );
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to submit request';
-      showError('Error', errorMessage);
+      showError(t('messages.error'), errorMessage);
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@
     "username": "Username",
     "password": "Password",
     "forgotPassword": "Forgot Password?",
+    "forgotPasswordMessage": "Password reset requests are handled by your supervisor. Please contact your immediate supervisor to request a password reset.",
     "logout": "Logout",
     "loginError": "Invalid username or password",
     "loginSuccess": "Login successful"
@@ -87,6 +88,7 @@
     "submitRequestConfirm": "Are you sure you want to submit this request for approval?",
     "requestSubmitted": "Request submitted for approval successfully!",
     "submitForApproval": "Submit for Approval",
+    "createAndSubmit": "Create & Submit",
     "loading": "Loading...",
     "requestNotFound": "Request not found",
     "requestDetails": "Request Details",
@@ -104,6 +106,33 @@
       "quantityMustBePositive": "Quantity must be greater than zero",
       "quantityTooLarge": "Quantity cannot exceed 999,999",
       "reasonRequired": "Reason/justification is required"
+    },
+    "search": {
+      "placeholder": "Search requests by item name or description..."
+    },
+    "filters": {
+      "status": "Status:",
+      "all": "All"
+    },
+    "stats": {
+      "requestsFound": "{{count}} request found",
+      "requestsFound_plural": "{{count}} requests found"
+    },
+    "errors": {
+      "loadingError": "Error Loading Requests",
+      "noMatchingRequests": "No requests match your filters"
+    },
+    "details": {
+      "created": "Created:",
+      "createdBy": "Created by:",
+      "pendingApproval": "Pending Approval",
+      "revision": "Rev."
+    },
+    "success": {
+      "draftSaved": "Draft request {{requestNumber}} has been saved!",
+      "requestSubmitted": "Request {{requestNumber}} has been submitted for approval!",
+      "modalDraftSaved": "Draft request \"{{itemName}}\" has been saved!",
+      "modalRequestSubmitted": "Request \"{{itemName}}\" has been created and submitted for approval!"
     }
   },
   "status": {
@@ -128,7 +157,8 @@
     "edit": "Edit",
     "delete": "Delete",
     "view": "View",
-    "ok": "OK"
+    "ok": "OK",
+    "retry": "Retry"
   },
   "navigation": {
     "dashboard": "Dashboard",

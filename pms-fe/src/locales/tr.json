@@ -4,6 +4,7 @@
     "username": "Kullanıcı Adı",
     "password": "Şifre",
     "forgotPassword": "Şifremi Unuttum?",
+    "forgotPasswordMessage": "Şifre sıfırlama talepleri amiriniz tarafından gerçekleştirilmektedir. Şifre sıfırlama talebinde bulunmak için lütfen amirinizle iletişime geçin.",
     "logout": "Çıkış Yap",
     "loginError": "Geçersiz kullanıcı adı veya şifre",
     "loginSuccess": "Giriş başarılı"
@@ -76,7 +77,8 @@
     "edit": "Düzenle",
     "delete": "Sil",
     "view": "Görüntüle",
-    "ok": "Tamam"
+    "ok": "Tamam",
+    "retry": "Tekrar Dene"
   },
   "forms": {
     "required": "Bu alan zorunludur",
@@ -125,6 +127,7 @@
     "submitRequestConfirm": "Bu talebi onay için göndermek istediğinizden emin misiniz?",
     "requestSubmitted": "Talep onay için başarıyla gönderildi!",
     "submitForApproval": "Onay İçin Gönder",
+    "createAndSubmit": "Oluştur ve Gönder",
     "loading": "Yükleniyor...",
     "requestNotFound": "Talep bulunamadı",
     "requestDetails": "Talep Detayları",
@@ -142,6 +145,32 @@
       "quantityMustBePositive": "Miktar sıfırdan büyük olmalıdır",
       "quantityTooLarge": "Miktar 999.999'u aşamaz",
       "reasonRequired": "Gerekçe/açıklama gereklidir"
+    },
+    "search": {
+      "placeholder": "Ürün adı veya açıklamasına göre talep arayın..."
+    },
+    "filters": {
+      "status": "Durum:",
+      "all": "Tümü"
+    },
+    "stats": {
+      "requestsFound": "{{count}} talep bulundu"
+    },
+    "errors": {
+      "loadingError": "Talepler Yüklenirken Hata",
+      "noMatchingRequests": "Filtrelerinizle eşleşen talep yok"
+    },
+    "details": {
+      "created": "Oluşturuldu:",
+      "createdBy": "Oluşturan:",
+      "pendingApproval": "Onay Bekliyor",
+      "revision": "Rev."
+    },
+    "success": {
+      "draftSaved": "Taslak talep {{requestNumber}} kaydedildi!",
+      "requestSubmitted": "Talep {{requestNumber}} onay için gönderildi!",
+      "modalDraftSaved": "Taslak talep \"{{itemName}}\" kaydedildi!",
+      "modalRequestSubmitted": "Talep \"{{itemName}}\" oluşturuldu ve onay için gönderildi!"
     }
   },
   "navigation": {

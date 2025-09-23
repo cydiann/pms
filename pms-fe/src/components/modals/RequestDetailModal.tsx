@@ -7,8 +7,9 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  SafeAreaView,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
 import { Request } from '../../types/requests';
@@ -65,8 +66,13 @@ function RequestDetailModal({
   const canSubmit = request.status === 'draft';
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={styles.container}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : undefined}
+      statusBarTranslucent={true}
+    >
+      <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Text style={styles.closeButtonText}>✕</Text>
@@ -159,7 +165,7 @@ function RequestDetailModal({
             />
           </View>
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 };

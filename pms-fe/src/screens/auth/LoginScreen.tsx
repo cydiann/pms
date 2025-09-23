@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,6 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
 import LoadingButton from '../../components/common/LoadingButton';
 import { LoginRequest } from '../../types/auth';
-import { showSimpleAlert } from '../../utils/platformUtils';
 
 interface LoginFormData {
   username: string;
@@ -56,12 +55,11 @@ function LoginScreen(): React.JSX.Element {
     }
   }, [login, clearError]);
 
+  const [showForgotPasswordInfo, setShowForgotPasswordInfo] = useState(false);
+
   const handleForgotPassword = useCallback((): void => {
-    showSimpleAlert(
-      t('auth.forgotPassword'),
-      'Password reset requests are handled by your supervisor. Please contact your immediate supervisor to request a password reset.'
-    );
-  }, [t]);
+    setShowForgotPasswordInfo(!showForgotPasswordInfo);
+  }, [showForgotPasswordInfo]);
 
   // Dev helper function - remove in production
   const quickLogin = useCallback(async (username: string, password: string): Promise<void> => {
@@ -192,6 +190,14 @@ function LoginScreen(): React.JSX.Element {
               {t('auth.forgotPassword')}
             </Text>
           </TouchableOpacity>
+
+          {showForgotPasswordInfo && (
+            <View style={styles.infoMessageContainer}>
+              <Text style={styles.infoMessageText}>
+                {t('auth.forgotPasswordMessage')}
+              </Text>
+            </View>
+          )}
 
           {/* Dev Login Helpers - Remove in production */}
           <View style={styles.devSection}>
@@ -325,6 +331,21 @@ const styles = StyleSheet.create({
     color: '#007bff',
     fontSize: 16,
     textDecorationLine: 'underline',
+  },
+  infoMessageContainer: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#007bff',
+  },
+  infoMessageText: {
+    color: '#495057',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'left',
   },
   devSection: {
     marginTop: 20,

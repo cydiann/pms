@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import organizationService from '../../services/organizationService';
 import userService from '../../services/userService';
 import { WorkSite } from '../../types/organization';
-import { ExtendedUser } from '../../types/users';
+import { ExtendedUser, UserListItem } from '../../types/users';
 import { showError, showSuccess } from '../../utils/platformUtils';
 
 type SupportedLanguage = 'en' | 'tr';
@@ -34,10 +34,10 @@ interface FormData {
 }
 
 interface FormErrors {
-  readonly address?: string;
-  readonly city?: string;
-  readonly country?: string;
-  readonly general?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  general?: string;
 }
 
 // Common countries list with translations
@@ -77,15 +77,7 @@ function AddWorksiteModal({
 
   // Data loading state
   const [loading, setLoading] = useState(false);
-  const [potentialChiefs, setPotentialChiefs] = useState<ExtendedUser[]>([]);
-
-  // Load initial data when modal opens
-  useEffect(() => {
-    if (visible) {
-      loadPotentialChiefs();
-      resetForm();
-    }
-  }, [visible, loadPotentialChiefs, resetForm]);
+  const [potentialChiefs, setPotentialChiefs] = useState<UserListItem[]>([]);
 
   const resetForm = useCallback((): void => {
     setFormData({
@@ -118,6 +110,14 @@ function AddWorksiteModal({
       setLoading(false);
     }
   }, [currentUser.id]);
+
+  // Load initial data when modal opens
+  useEffect(() => {
+    if (visible) {
+      loadPotentialChiefs();
+      resetForm();
+    }
+  }, [visible, loadPotentialChiefs, resetForm]);
 
   const validateForm = useCallback((): boolean => {
     const newErrors: FormErrors = {};
