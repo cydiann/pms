@@ -30,7 +30,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-hp54&0n40b^djj%fqar2l
 DEBUG = config('DEBUG', default=True, cast=bool)
 
 # Dynamic allowed hosts from environment
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0,192.168.1.2,192.168.1.3').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0,10.0.2.2,192.168.1.2,192.168.1.3').split(',')
 
 
 # Application definition
