@@ -8,6 +8,7 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import organizationService from '../../services/organizationService';
@@ -396,17 +397,27 @@ function AddWorksiteModal({
   );
 };
 
+// Helper function to calculate responsive modal dimensions
+const getResponsiveModalDimensions = () => {
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  return {
+    width: Math.min(screenWidth * 0.95, 600),
+    height: screenHeight * 0.9
+  };
+};
+
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)' as const,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    padding: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 20,
   },
   container: {
-    width: '100%',
-    maxWidth: 600,
+    width: getResponsiveModalDimensions().width,
+    height: getResponsiveModalDimensions().height,
     maxHeight: '90%',
     backgroundColor: '#f8f9fa',
     borderRadius: 12,

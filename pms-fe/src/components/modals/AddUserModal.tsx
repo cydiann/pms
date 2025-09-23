@@ -9,6 +9,7 @@ import {
   Switch,
   ScrollView,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
@@ -598,17 +599,27 @@ function AddUserModal({
   );
 };
 
+// Helper function to calculate responsive modal dimensions
+const getResponsiveModalDimensions = () => {
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  return {
+    width: Math.min(screenWidth * 0.95, 700),
+    height: screenHeight * 0.9
+  };
+};
+
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 20,
   },
   container: {
-    width: '100%',
-    maxWidth: 700,
+    width: getResponsiveModalDimensions().width,
+    height: getResponsiveModalDimensions().height,
     maxHeight: '90%',
     backgroundColor: '#f8f9fa',
     borderRadius: 12,

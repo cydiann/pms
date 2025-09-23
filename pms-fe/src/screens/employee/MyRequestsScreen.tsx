@@ -106,7 +106,7 @@ function MyRequestsScreen(): React.JSX.Element {
         style={styles.createButton}
         onPress={() => setCreateModalVisible(true)}
       >
-        <Text style={styles.createButtonText}>Create Request</Text>
+        <Text style={styles.createButtonText}>{t('requests.createButton')}</Text>
       </TouchableOpacity>
     </View>
   ), [t]);

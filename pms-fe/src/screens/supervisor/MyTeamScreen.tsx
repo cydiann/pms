@@ -46,7 +46,7 @@ function MyTeamScreen(): React.JSX.Element {
           item.is_active ? styles.statusBadgeActive : styles.statusBadgeInactive
         ]}>
           <Text style={styles.statusText}>
-            {item.is_active ? 'Active' : 'Inactive'}
+            {item.is_active ? t('userManagement.active') : t('userManagement.inactive')}
           </Text>
         </View>
       </View>
@@ -58,7 +58,7 @@ function MyTeamScreen(): React.JSX.Element {
           </Text>
         )}
         <Text style={styles.detailText}>
-          📅 Joined: {new Date(item.created_at).toLocaleDateString()}
+          📅 {t('supervisor.joined')}: {new Date(item.created_at).toLocaleDateString()}
         </Text>
       </View>
       
@@ -66,15 +66,15 @@ function MyTeamScreen(): React.JSX.Element {
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>{item.total_requests || 0}</Text>
-            <Text style={styles.statLabel}>Total Requests</Text>
+            <Text style={styles.statLabel}>{t('dashboard.totalRequests')}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>{item.pending_requests || 0}</Text>
-            <Text style={styles.statLabel}>Pending</Text>
+            <Text style={styles.statLabel}>{t('supervisor.pending')}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>{item.approved_requests || 0}</Text>
-            <Text style={styles.statLabel}>Approved</Text>
+            <Text style={styles.statLabel}>{t('dashboard.approved')}</Text>
           </View>
         </View>
       )}

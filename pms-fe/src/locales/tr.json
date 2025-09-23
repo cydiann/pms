@@ -204,7 +204,9 @@
     "noTeamMembersTitle": "Ekip Üyesi Yok",
     "noTeamMembersMessage": "Size henüz hiç ekip üyesi atanmamış.",
     "myTeamTitle": "Ekibim",
-    "teamMemberCount": "{{count}} ekip üyesi"
+    "teamMemberCount": "{{count}} ekip üyesi",
+    "joined": "Katılım",
+    "pending": "Bekleyen"
   },
   "userManagement": {
     "title": "Kullanıcı Yönetimi",

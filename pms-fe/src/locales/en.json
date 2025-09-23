@@ -205,7 +205,9 @@
     "noTeamMembersMessage": "You don't have any team members assigned to you yet.",
     "myTeamTitle": "My Team",
     "teamMemberCount": "{{count}} team member",
-    "teamMemberCount_plural": "{{count}} team members"
+    "teamMemberCount_plural": "{{count}} team members",
+    "joined": "Joined",
+    "pending": "Pending"
   },
   "userManagement": {
     "title": "User Management",
