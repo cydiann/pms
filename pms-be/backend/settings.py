@@ -55,6 +55,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'core.middleware.RequestLoggingMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -200,3 +201,94 @@ MINIO_PRESIGNED_URL_EXPIRY = config('MINIO_PRESIGNED_URL_EXPIRY', default=300, c
 
 # File Upload Settings
 MAX_UPLOAD_SIZE = config('MAX_UPLOAD_SIZE', default=10485760, cast=int)  # 10MB default
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'structured': {
+            'format': '{levelname} {asctime} [{name}] {message}',
+            'style': '{',
+        },
+        'json': {
+            '()': 'core.formatters.JsonFormatter',
+        },
+        'verbose': {
+            'format': '{levelname} {asctime} [{name}] {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'structured',
+        },
+        'file_requests': {
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'requests.log',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': config('LOG_BACKUP_COUNT', default=30, cast=int),
+            'formatter': 'json',
+            'encoding': 'utf-8',
+        },
+        'file_app': {
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'app.log',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': config('LOG_BACKUP_COUNT', default=30, cast=int),
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+        'file_errors': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': BASE_DIR / 'logs' / 'errors.log',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': config('LOG_BACKUP_COUNT', default=30, cast=int),
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+    },
+    'loggers': {
+        'pms.requests': {
+            'handlers': ['console', 'file_requests'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'pms.app': {
+            'handlers': ['console', 'file_app'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['file_errors'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'] if DEBUG else [],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}

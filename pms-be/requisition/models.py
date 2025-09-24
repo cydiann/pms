@@ -33,8 +33,7 @@ class Request(models.Model):
     item = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     created_by = models.ForeignKey('authentication.User', on_delete=models.CASCADE, related_name='created_requests')
-    current_approver = models.ForeignKey('authentication.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='pending_approvals')
-    final_approver = models.ForeignKey('authentication.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='final_approved_requests')
+    last_approver = models.ForeignKey('authentication.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='requests_last_approved')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     unit = models.CharField(max_length=20, choices=UNIT_CHOICES)
@@ -42,6 +41,9 @@ class Request(models.Model):
     delivery_address = models.TextField(blank=True)
     reason = models.TextField(blank=True)
     
+    # Approval tracking
+    approval_level = models.IntegerField(default=0)
+
     # Revision tracking
     revision_count = models.IntegerField(default=0)
     revision_notes = models.TextField(blank=True)
@@ -53,26 +55,39 @@ class Request(models.Model):
     def get_approval_chain(self):
         """Get the full approval chain from creator's supervisor up"""
         chain = []
+        visited = set()
         current = self.created_by.supervisor
-        while current:
+
+        while current and current.id not in visited:
             chain.append(current)
+            visited.add(current.id)
             current = current.supervisor
+
         return chain
     
     def get_next_approver(self):
-        """Get the next person in the approval chain"""
-        if self.status == 'draft':
-            return self.created_by.supervisor
-        
-        chain = self.get_approval_chain()
-        if not self.current_approver:
-            return chain[0] if chain else None
-            
-        try:
-            current_index = chain.index(self.current_approver)
-            return chain[current_index + 1] if current_index + 1 < len(chain) else None
-        except ValueError:
-            return None
+        """Get the next person in the approval chain based on last approver"""
+        # If someone has approved, use their supervisor regardless of status
+        if self.last_approver:
+            return self.last_approver.supervisor
+
+        # No one has approved yet - start with immediate supervisor
+        return self.created_by.supervisor
+
+    def is_fully_approved(self):
+        """Check if request has gone through all required approvals"""
+        next_approver = self.get_next_approver()
+        return next_approver is None and self.approval_level > 0
+
+    def get_approval_status(self):
+        """Get human readable approval status"""
+        next_approver = self.get_next_approver()
+        if next_approver:
+            return f"Pending approval from {next_approver.get_full_name()}"
+        elif self.is_fully_approved():
+            return "Fully approved - Ready for purchasing"
+        else:
+            return f"Status: {self.get_status_display()}"
     
     def get_valid_transitions(self):
         """Get valid status transitions from current state"""
@@ -102,20 +117,16 @@ class Request(models.Model):
         old_status = self.status
         self.status = new_status
         
-        # Set current_approver when transitioning to pending status
+        # Handle approval tracking
         if new_status == 'pending':
             if old_status == 'draft':
-                # First submission - set to immediate supervisor
-                self.current_approver = self.created_by.supervisor
+                # First submission - reset approval tracking
+                self.last_approver = None
+                self.approval_level = 0
             elif old_status == 'revision_requested':
-                # Resubmission after revision - keep current flow
-                chain = self.get_approval_chain()
-                if self.current_approver and self.current_approver in chain:
-                    # Stay with current approver if they requested revision
-                    pass
-                else:
-                    # Reset to beginning of chain
-                    self.current_approver = chain[0] if chain else None
+                # Resubmission after revision - reset approval state
+                self.last_approver = None
+                self.approval_level = 0
         
         self.save()
         
@@ -123,12 +134,12 @@ class Request(models.Model):
         action_map = {
             'pending': 'submitted',
             'in_review': 'approved',
-            'approved': 'final_approved',
+            'approved': 'approved',  # Changed from 'final_approved' to 'approved'
             'rejected': 'rejected',
             'revision_requested': 'revision_requested',
-            'purchasing': 'assigned_purchasing',
-            'ordered': 'ordered',
-            'delivered': 'delivered',
+            'purchasing': 'approved',  # Changed from 'assigned_purchasing' to 'approved'
+            'ordered': 'approved',  # Changed from 'ordered' to 'approved'
+            'delivered': 'approved',  # Changed from 'delivered' to 'approved'
             'completed': 'completed',
         }
         

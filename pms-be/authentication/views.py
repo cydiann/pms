@@ -168,7 +168,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def available_permissions(self, request):
         """Get all available permissions with content type and app label info"""
         permissions_qs = Permission.objects.all().select_related('content_type')
-        
+
         return Response([{
             'id': perm.id,
             'name': perm.name,
@@ -176,6 +176,156 @@ class UserViewSet(viewsets.ModelViewSet):
             'content_type': perm.content_type.model,
             'app_label': perm.content_type.app_label
         } for perm in permissions_qs])
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser], url_path='remove-supervisor', url_name='remove-supervisor')
+    def remove_supervisor(self, request, pk=None):
+        """Remove supervisor from user (promotes to top level)"""
+        user = self.get_object()
+
+        # Store current supervisor for response
+        old_supervisor = user.supervisor
+        old_supervisor_info = {
+            'id': old_supervisor.id if old_supervisor else None,
+            'username': old_supervisor.username if old_supervisor else None,
+            'full_name': old_supervisor.get_full_name() if old_supervisor else None,
+        } if old_supervisor else None
+
+        # Remove supervisor
+        try:
+            result = user.remove_supervisor()
+
+            if result:
+                return Response({
+                    'message': f'Supervisor removed from {user.get_full_name()}',
+                    'user': {
+                        'id': user.id,
+                        'username': user.username,
+                        'full_name': user.get_full_name(),
+                    },
+                    'old_supervisor': old_supervisor_info,
+                    'new_supervisor': None
+                })
+            else:
+                return Response({
+                    'message': f'{user.get_full_name()} had no supervisor to remove',
+                    'user': {
+                        'id': user.id,
+                        'username': user.username,
+                        'full_name': user.get_full_name(),
+                    },
+                    'old_supervisor': None,
+                    'new_supervisor': None
+                })
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser], url_path='change-supervisor', url_name='change-supervisor')
+    def change_supervisor(self, request, pk=None):
+        """Change or remove supervisor for user"""
+        user = self.get_object()
+        new_supervisor_id = request.data.get('supervisor_id')
+
+        # Store current supervisor for response
+        old_supervisor = user.supervisor
+        old_supervisor_info = {
+            'id': old_supervisor.id if old_supervisor else None,
+            'username': old_supervisor.username if old_supervisor else None,
+            'full_name': old_supervisor.get_full_name() if old_supervisor else None,
+        } if old_supervisor else None
+
+        # Get new supervisor (None if supervisor_id is None)
+        new_supervisor = None
+        if new_supervisor_id is not None:
+            try:
+                new_supervisor = User.objects.get(id=new_supervisor_id, deleted_at__isnull=True)
+            except User.DoesNotExist:
+                return Response(
+                    {'error': f'Supervisor with ID {new_supervisor_id} not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Change supervisor
+        try:
+            result = user.change_supervisor(new_supervisor)
+
+            new_supervisor_info = {
+                'id': new_supervisor.id if new_supervisor else None,
+                'username': new_supervisor.username if new_supervisor else None,
+                'full_name': new_supervisor.get_full_name() if new_supervisor else None,
+            } if new_supervisor else None
+
+            if result:
+                if new_supervisor:
+                    message = f'Changed supervisor for {user.get_full_name()} to {new_supervisor.get_full_name()}'
+                else:
+                    message = f'Removed supervisor from {user.get_full_name()}'
+            else:
+                message = f'No change needed for {user.get_full_name()}'
+
+            return Response({
+                'message': message,
+                'changed': result,
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'full_name': user.get_full_name(),
+                },
+                'old_supervisor': old_supervisor_info,
+                'new_supervisor': new_supervisor_info
+            })
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['get'], url_path='hierarchy-chain', url_name='hierarchy-chain')
+    def hierarchy_chain(self, request, pk=None):
+        """Get user's full hierarchy chain from themselves up to the top level"""
+        user = self.get_object()
+
+        try:
+            hierarchy = user.get_hierarchy_chain()
+
+            hierarchy_data = []
+            for i, person in enumerate(hierarchy):
+                hierarchy_data.append({
+                    'level': i,
+                    'id': person.id,
+                    'username': person.username,
+                    'full_name': person.get_full_name(),
+                    'first_name': person.first_name,
+                    'last_name': person.last_name,
+                    'is_user': person.id == user.id,
+                    'is_top_level': i == len(hierarchy) - 1,
+                    'worksite': {
+                        'city': person.worksite.city,
+                        'country': person.worksite.country
+                    } if person.worksite else None
+                })
+
+            return Response({
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'full_name': user.get_full_name(),
+                },
+                'hierarchy_levels': len(hierarchy),
+                'hierarchy': hierarchy_data,
+                'direct_supervisor': {
+                    'id': user.supervisor.id,
+                    'username': user.supervisor.username,
+                    'full_name': user.supervisor.get_full_name(),
+                } if user.supervisor else None
+            })
+        except Exception as e:
+            return Response(
+                {'error': f'Error retrieving hierarchy: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class GroupViewSet(viewsets.ModelViewSet):

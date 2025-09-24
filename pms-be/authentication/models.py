@@ -17,11 +17,42 @@ class User(AbstractUser):
     objects = UserManager()
     
     def save(self, *args, **kwargs):
-        """Override save to auto-generate username if not provided"""
+        """Override save to auto-generate username if not provided and validate supervisor assignment"""
         if not self.username and self.first_name and self.last_name:
             # Generate username using the manager method
             self.username = self.__class__.objects.generate_username(self.first_name, self.last_name)
+
+        # Prevent circular supervision chains
+        if self.supervisor:
+            self._validate_supervisor_assignment()
+
         super().save(*args, **kwargs)
+
+    def _validate_supervisor_assignment(self):
+        """Validate that supervisor assignment doesn't create circular reference"""
+        if not self.supervisor:
+            return
+
+        # Can't supervise yourself
+        if self.supervisor.id == self.id:
+            raise ValueError("A user cannot supervise themselves")
+
+        # Check for circular reference in the chain
+        visited = set()
+        current = self.supervisor
+
+        while current and current.id not in visited:
+            visited.add(current.id)
+
+            # If we reach ourselves through the chain, it's circular
+            if current.supervisor and current.supervisor.id == self.id:
+                raise ValueError(f"Circular supervision detected: {self.get_full_name()} cannot supervise {self.supervisor.get_full_name()} as it creates a circular reference")
+
+            current = current.supervisor
+
+        # If we hit a node we've already visited, there's a circular reference
+        if current and current.id in visited:
+            raise ValueError("Circular supervision chain detected in existing hierarchy")
     
     def get_full_name(self):
         return f"{self.first_name} {self.last_name}"
@@ -37,11 +68,75 @@ class User(AbstractUser):
     def get_hierarchy_chain(self):
         """Get the full supervisor chain from this user up to CEO"""
         chain = [self]
+        visited = {self.id}
         current = self.supervisor
-        while current:
+
+        while current and current.id not in visited:
             chain.append(current)
+            visited.add(current.id)
             current = current.supervisor
+
         return chain
+
+    def remove_supervisor(self):
+        """Remove supervisor from this user (promotes to top level)"""
+        return self.change_supervisor(None)
+
+    def change_supervisor(self, new_supervisor):
+        """
+        Change supervisor for this user with audit logging.
+
+        Args:
+            new_supervisor: User object or None to remove supervisor
+
+        Returns:
+            bool: True if change was made, False if no change needed
+
+        Raises:
+            ValueError: If the assignment would create circular supervision
+        """
+        if self.supervisor == new_supervisor:
+            return False  # No change needed
+
+        old_supervisor = self.supervisor
+        old_supervisor_info = {
+            'supervisor_id': old_supervisor.id if old_supervisor else None,
+            'supervisor_name': old_supervisor.get_full_name() if old_supervisor else None
+        }
+
+        # Set new supervisor (this will trigger validation in save())
+        self.supervisor = new_supervisor
+        self.save()  # This may raise ValueError for circular references
+
+        # Log the organizational change in audit if AuditLog is available
+        try:
+            from requisition.models import AuditLog
+
+            if new_supervisor is None:
+                action = 'supervisor_removed'
+                description = f'Supervisor {old_supervisor_info["supervisor_name"]} removed from {self.get_full_name()}'
+            elif old_supervisor is None:
+                action = 'supervisor_assigned'
+                description = f'Supervisor {new_supervisor.get_full_name()} assigned to {self.get_full_name()}'
+            else:
+                action = 'supervisor_changed'
+                description = f'Supervisor changed from {old_supervisor_info["supervisor_name"]} to {new_supervisor.get_full_name()} for {self.get_full_name()}'
+
+            AuditLog.objects.create(
+                user=self,  # The user whose supervision is changing
+                action=action,
+                table_name='authentication_user',
+                record_id=self.id,
+                old_values=old_supervisor_info,
+                new_values={
+                    'supervisor_id': new_supervisor.id if new_supervisor else None,
+                    'supervisor_name': new_supervisor.get_full_name() if new_supervisor else None
+                }
+            )
+        except ImportError:
+            pass  # AuditLog not available
+
+        return True
     
     def get_user_permissions(self):
         """Get all permissions for this user (from groups + individual permissions)"""

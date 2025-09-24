@@ -130,7 +130,14 @@ class RequestModelTest(TestCase):
         
         # After submitting request (transitions to pending status)
         request.transition_to('pending', self.employee)
-        # Now the request should be assigned to manager, and next approver should be CEO
+        # Still pending manager approval - next approver should still be manager
+        next_approver = request.get_next_approver()
+        self.assertEqual(next_approver, self.manager)
+
+        # After manager approves, next approver should be CEO
+        request.last_approver = self.manager
+        request.approval_level = 1
+        request.save()
         next_approver = request.get_next_approver()
         self.assertEqual(next_approver, self.ceo)
     
