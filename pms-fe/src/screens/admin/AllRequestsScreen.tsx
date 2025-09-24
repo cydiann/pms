@@ -86,7 +86,7 @@ function AllRequestsScreen(): React.JSX.Element {
       <View style={styles.requestHeader}>
         <Text style={styles.requestNumber}>{item.request_number}</Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status_display}</Text>
+          <Text style={styles.statusText}>{t(`status.${item.status}`)}</Text>
         </View>
       </View>
       

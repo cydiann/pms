@@ -60,7 +60,7 @@ function SupervisorDashboardScreen(): React.JSX.Element {
       <View style={styles.requestHeader}>
         <Text style={styles.requestTitle}>{item.item}</Text>
         <View style={styles.statusBadge}>
-          <Text style={styles.statusText}>{item.status_display}</Text>
+          <Text style={styles.statusText}>{t(`status.${item.status}`)}</Text>
         </View>
       </View>
       <Text style={styles.requestCreator}>By: {item.created_by_name}</Text>
@@ -160,7 +160,7 @@ function SupervisorDashboardScreen(): React.JSX.Element {
             <View key={status} style={styles.statusRow}>
               <View style={getStatusIndicatorStyle(status)} />
               <Text style={styles.statusLabel}>
-                {requestService.getStatusDisplay(status)}
+                {t(`status.${status}`)}
               </Text>
               <Text style={styles.statusCount}>{count}</Text>
             </View>

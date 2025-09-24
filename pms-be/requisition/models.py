@@ -13,7 +13,7 @@ class Request(models.Model):
         ('revision_requested', 'Revision Requested'),
         ('approved', 'Final Approved - Ready for Purchase'),
         ('rejected', 'Rejected'),
-        ('purchasing', 'Assigned to Purchasing Team'),
+        ('purchasing', 'Assigned to Purchasing'),
         ('ordered', 'Order Placed'),
         ('delivered', 'Delivered'),
         ('completed', 'Request Completed'),

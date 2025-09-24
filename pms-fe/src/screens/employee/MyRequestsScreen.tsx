@@ -64,7 +64,7 @@ function MyRequestsScreen(): React.JSX.Element {
       <View style={styles.requestHeader}>
         <Text style={styles.requestNumber}>{item.request_number}</Text>
         <View style={getStatusBadgeStyle(item.status)}>
-          <Text style={styles.statusText}>{item.status_display}</Text>
+          <Text style={styles.statusText}>{t(`status.${item.status}`)}</Text>
         </View>
       </View>
       

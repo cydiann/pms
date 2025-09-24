@@ -135,7 +135,7 @@ function EmployeeDashboardScreen(): React.JSX.Element {
             <View key={status} style={styles.statusRow}>
               <View style={getStatusIndicatorStyle(status)} />
               <Text style={styles.statusLabel}>
-                {requestService.getStatusDisplay(status)}
+                {t(`status.${status}`)}
               </Text>
               <Text style={styles.statusCount}>{count}</Text>
             </View>

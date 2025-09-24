@@ -86,7 +86,7 @@ function RequestDetailModal({
             <View style={styles.statusContainer}>
               <Text style={styles.requestTitle}>{request.item}</Text>
               <View style={[styles.statusBadge, { backgroundColor: requestService.getStatusColor(request.status) }]}>
-                <Text style={styles.statusText}>{requestService.getStatusDisplay(request.status)}</Text>
+                <Text style={styles.statusText}>{t(`status.${request.status}`)}</Text>
               </View>
             </View>
 

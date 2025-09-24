@@ -91,7 +91,7 @@ function RequestDetailScreen(): React.JSX.Element {
       <View style={styles.header}>
         <Text style={styles.title}>{request.item}</Text>
         <View style={[styles.statusBadge, { backgroundColor: requestService.getStatusColor(request.status) }]}>
-          <Text style={styles.statusText}>{requestService.getStatusDisplay(request.status)}</Text>
+          <Text style={styles.statusText}>{t(`status.${request.status}`)}</Text>
         </View>
       </View>
 

@@ -53,7 +53,7 @@ function AdminDashboardScreen(): React.JSX.Element {
           styles.statusBadge,
           { backgroundColor: requestService.getStatusColor(item.status) }
         ]}>
-          <Text style={styles.statusText}>{item.status_display}</Text>
+          <Text style={styles.statusText}>{t(`status.${item.status}`)}</Text>
         </View>
       </View>
       <Text style={styles.requestCreator}>By: {item.created_by_name}</Text>
@@ -191,7 +191,7 @@ function AdminDashboardScreen(): React.JSX.Element {
                 { backgroundColor: requestService.getStatusColor(status) }
               ]} />
               <Text style={styles.statusLabel}>
-                {requestService.getStatusDisplay(status)}
+                {t(`status.${status}`)}
               </Text>
               <Text style={styles.statusCount}>{count}</Text>
             </View>
