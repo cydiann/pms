@@ -1,0 +1,2 @@
+- In pms-fe it was a design decision to first develop for web because of fast iteration. Web interface will not be used and any web specific things shoult be ported to their mobile counterparts
+- When we are hardcoding anything that user sees it needs to be on en.json and tr.json to support both languages and it needs to fetch from those using i18next

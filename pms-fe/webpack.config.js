@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const webpack = require('webpack');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
@@ -33,6 +34,8 @@ module.exports = (env, argv) => {
     },
     fallback: {
       'react-native': 'react-native-web',
+      'process': require.resolve('process/browser'),
+      'buffer': require.resolve('buffer'),
     },
   },
   module: {
@@ -61,6 +64,14 @@ module.exports = (env, argv) => {
     new HtmlWebpackPlugin({
       template: './public/index.html',
       inject: true,
+    }),
+    new webpack.ProvidePlugin({
+      process: 'process/browser',
+      Buffer: ['buffer', 'Buffer'],
+    }),
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(isProduction ? 'production' : 'development'),
+      'process.env.REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || ''),
     }),
   ],
   devtool: isProduction ? false : 'source-map',

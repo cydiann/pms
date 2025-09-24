@@ -1,8 +1,35 @@
-// API Configuration
+import { Platform } from 'react-native';
+import ENV_CONFIG from '../config/env';
+
+const getBaseUrl = () => {
+  console.log('ENV Variables:', {
+    API_HOST_LOCAL: ENV_CONFIG.API_HOST_LOCAL,
+    API_HOST_NETWORK: ENV_CONFIG.API_HOST_NETWORK,
+    API_PORT: ENV_CONFIG.API_PORT,
+    API_PROTOCOL: ENV_CONFIG.API_PROTOCOL,
+    NODE_ENV: ENV_CONFIG.NODE_ENV
+  });
+
+  const protocol = ENV_CONFIG.API_PROTOCOL || 'http';
+  const port = ENV_CONFIG.API_PORT || '8000';
+
+  if (Platform.OS === 'web') {
+    const host = ENV_CONFIG.API_HOST_LOCAL || 'localhost';
+    return `${protocol}://${host}:${port}`;
+  } else {
+    // For physical Android device, use your computer's network IP
+    // For iOS simulator, localhost works. For Android emulator use 10.0.2.2
+    const defaultHost = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+    const host = ENV_CONFIG.API_HOST_NETWORK || defaultHost;
+    return `${protocol}://${host}:${port}`;
+  }
+};
+
+const baseUrl = getBaseUrl();
+console.log('🌐 API_CONFIG.BASE_URL:', baseUrl);
+
 export const API_CONFIG = {
-  BASE_URL: process.env.NODE_ENV === 'production' 
-    ? 'https://pms-backend-production-20b3.up.railway.app'
-    : 'http://localhost:8000',
+  BASE_URL: baseUrl,
   TIMEOUT: 10000,
 };
 

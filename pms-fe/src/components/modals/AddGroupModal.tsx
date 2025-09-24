@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,43 +9,52 @@ import {
   ScrollView,
   ActivityIndicator,
   Switch,
+  Dimensions,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
-import { ExtendedUser } from '../../types/users';
-import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
+import { showError, showSuccess } from '../../utils/platformUtils';
+import { translatePermissionName } from '../../utils/permissionTranslations';
 
 interface AddGroupModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onGroupCreated?: (group: any) => void;
-  currentUser: ExtendedUser;
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly onGroupCreated?: (group: Group) => void;
 }
 
 interface Permission {
-  id: number;
-  name: string;
-  codename: string;
-  content_type: string;
+  readonly id: number;
+  readonly name: string;
+  readonly codename: string;
+  readonly content_type: string;
+}
+
+interface Group {
+  readonly id: number;
+  readonly name: string;
+}
+
+interface ApiError {
+  readonly status: number;
+  readonly data: Record<string, string | string[]>;
+  readonly message: string;
 }
 
 interface FormData {
-  name: string;
-  permissions: Set<number>;
+  readonly name: string;
+  readonly permissions: Set<number>;
 }
 
 interface FormErrors {
-  name?: string;
-  general?: string;
+  readonly name?: string;
+  readonly general?: string;
 }
 
-const AddGroupModal: React.FC<AddGroupModalProps> = ({
+function AddGroupModal({
   visible,
   onClose,
   onGroupCreated,
-  currentUser,
-}) => {
-  console.log('AddGroupModal: Rendered with visible:', visible);
+}: AddGroupModalProps): React.JSX.Element {
   
   const { t } = useTranslation();
   
@@ -66,13 +75,12 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
   // Load initial data when modal opens
   useEffect(() => {
     if (visible) {
-      console.log('AddGroupModal: Modal opened, loading permissions...');
       loadPermissions();
       resetForm();
     }
-  }, [visible]);
+  }, [visible, loadPermissions]);
 
-  const resetForm = () => {
+  const resetForm = (): void => {
     setFormData({
       name: '',
       permissions: new Set(),
@@ -80,18 +88,15 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
     setErrors({});
   };
 
-  const loadPermissions = async () => {
+  const loadPermissions = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
-      console.log('AddGroupModal: Loading all permissions...');
       
       const permissions = await userService.getPermissions();
-      console.log('AddGroupModal: Loaded permissions:', permissions?.length || 0);
       
       setAllPermissions(permissions || []);
       
-    } catch (error: any) {
-      console.error('AddGroupModal: Failed to load permissions:', error);
+    } catch (error) {
       showError(
         t('messages.error'),
         'Failed to load permissions. Please try again.'
@@ -100,7 +105,7 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -118,11 +123,8 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async () => {
-    console.log('AddGroupModal: Submit attempted');
-    
+  const handleSubmit = async (): Promise<void> => {
     if (!validateForm()) {
-      console.log('AddGroupModal: Validation failed:', errors);
       return;
     }
 
@@ -134,14 +136,10 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
         name: formData.name.trim(),
       };
 
-      console.log('AddGroupModal: Creating group with data:', groupData);
-
       const newGroup = await userService.createGroup(groupData);
-      console.log('AddGroupModal: Group created successfully:', newGroup);
 
       // Assign permissions if any selected
       if (formData.permissions.size > 0) {
-        console.log('AddGroupModal: Assigning permissions to group...');
         await userService.manageGroupPermissions(newGroup.id, {
           action: 'set',
           permission_ids: Array.from(formData.permissions)
@@ -158,17 +156,17 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
       onGroupCreated?.(newGroup);
       onClose();
 
-    } catch (error: any) {
-      console.error('AddGroupModal: Failed to create group:', error);
+    } catch (error) {
+      const apiError = error as ApiError;
       
       // Handle specific validation errors from backend
-      if (error.status === 400 && error.data) {
+      if (apiError.status === 400 && apiError.data) {
         const backendErrors: FormErrors = {};
         
-        if (error.data.name) {
-          backendErrors.name = Array.isArray(error.data.name) 
-            ? error.data.name[0] 
-            : error.data.name;
+        if (apiError.data.name) {
+          backendErrors.name = Array.isArray(apiError.data.name) 
+            ? apiError.data.name[0] 
+            : apiError.data.name as string;
         }
         
         if (Object.keys(backendErrors).length > 0) {
@@ -179,14 +177,14 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
       
       // Generic error handling
       setErrors({ 
-        general: error.message || t('groupManagement.error.createFailed')
+        general: apiError.message || t('groupManagement.error.createFailed')
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const updateFormField = (field: keyof FormData, value: any) => {
+  const updateFormField = (field: keyof FormData, value: string | Set<number>): void => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear field-specific error when user starts typing
@@ -195,7 +193,7 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
     }
   };
 
-  const togglePermission = (permissionId: number) => {
+  const togglePermission = (permissionId: number): void => {
     setFormData(prev => {
       const newPermissions = new Set(prev.permissions);
       if (newPermissions.has(permissionId)) {
@@ -217,7 +215,7 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
     return acc;
   }, {} as Record<string, Permission[]>);
 
-  const selectAllPermissionsForType = (contentType: string, select: boolean) => {
+  const selectAllPermissionsForType = (contentType: string, select: boolean): void => {
     const typePermissions = groupedPermissions[contentType];
     setFormData(prev => {
       const newPermissions = new Set(prev.permissions);
@@ -310,7 +308,6 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
                 const typePermissions = groupedPermissions[contentType];
                 const selectedInType = typePermissions.filter(p => formData.permissions.has(p.id)).length;
                 const allSelected = selectedInType === typePermissions.length;
-                const someSelected = selectedInType > 0 && selectedInType < typePermissions.length;
 
                 return (
                   <View key={contentType} style={styles.permissionGroup}>
@@ -331,7 +328,7 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
                     {typePermissions.map(permission => (
                       <View key={permission.id} style={styles.permissionToggle}>
                         <View style={styles.permissionInfo}>
-                          <Text style={styles.permissionName}>{permission.name}</Text>
+                          <Text style={styles.permissionName}>{translatePermissionName(permission.name, t)}</Text>
                           <Text style={styles.permissionCode}>{permission.codename}</Text>
                         </View>
                         <Switch
@@ -364,17 +361,27 @@ const AddGroupModal: React.FC<AddGroupModalProps> = ({
   );
 };
 
+// Helper function to calculate responsive modal dimensions
+const getResponsiveModalDimensions = () => {
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  return {
+    width: Math.min(screenWidth * 0.95, 700),
+    height: screenHeight * 0.9
+  };
+};
+
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)' as const,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 10,
+    paddingVertical: 20,
   },
   container: {
-    width: '100%',
-    maxWidth: 700,
+    width: getResponsiveModalDimensions().width,
+    height: getResponsiveModalDimensions().height,
     maxHeight: '90%',
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
@@ -401,9 +408,9 @@ const styles = StyleSheet.create({
     color: '#6c757d',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     padding: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -522,9 +529,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   permissionToggle: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f3f4',
@@ -543,9 +550,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   noPermissionsText: {
-    textAlign: 'center',
+    textAlign: 'center' as const,
     color: '#6c757d',
-    fontStyle: 'italic',
+    fontStyle: 'italic' as const,
     paddingVertical: 20,
   },
   summarySection: {
@@ -564,6 +571,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1976d2',
   },
-});
+} as const);
 
-export default AddGroupModal;
+export type { AddGroupModalProps };
+export default AddGroupModal as (props: AddGroupModalProps) => React.JSX.Element;

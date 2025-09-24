@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,88 +6,109 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
+  ViewStyle,
+  Platform,
 } from 'react-native';
+import { pick, types, isErrorWithCode, errorCodes, DocumentPickerResponse } from '@react-native-documents/picker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTranslation } from 'react-i18next';
 import documentService from '../../services/documentService';
 import { ProcurementDocument, CreateDocumentDto } from '../../services/documentService';
-import { showError, showSuccess, showSimpleAlert } from '../../utils/platformUtils';
+import { showError, showSuccess } from '../../utils/platformUtils';
+
+type DocumentType = 'quote' | 'purchase_order' | 'dispatch_note' | 'receipt' | 'invoice' | 'other';
 
 interface FileUploadProps {
-  requestId: number;
-  requestStatus: string;
-  documentType?: 'quote' | 'purchase_order' | 'dispatch_note' | 'receipt' | 'invoice' | 'other';
-  onUploadComplete?: (document: ProcurementDocument) => void;
-  style?: any;
-  disabled?: boolean;
+  readonly requestId: number;
+  readonly requestStatus: string;
+  readonly documentType?: DocumentType;
+  readonly onUploadComplete?: (document: ProcurementDocument) => void;
+  readonly style?: ViewStyle | ViewStyle[];
+  readonly disabled?: boolean;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({
+function FileUpload({
   requestId,
   requestStatus,
   documentType = 'other',
   onUploadComplete,
   style,
   disabled = false,
-}) => {
-  const { t } = useTranslation();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+}: FileUploadProps): React.JSX.Element | null {
+const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<DocumentPickerResponse | null>(null);
   const [description, setDescription] = useState('');
   const [showDescriptionInput, setShowDescriptionInput] = useState(false);
 
-  const canUploadDocumentType = (type: string, status: string): boolean => {
+  // Constants
+  const FILE_SIZE_LIMIT = 10485760 as const; // 10MB
+
+  const canUploadDocumentType = (type: DocumentType, status: string): boolean => {
     return documentService.canUploadDocumentType(type, status);
   };
 
-  const handleFileSelect = () => {
+  const handleFileSelect = async () => {
     if (disabled || uploading) return;
-    
+
     // Check if document type can be uploaded for current request status
     if (!canUploadDocumentType(documentType, requestStatus)) {
       showError(
-        'Upload Not Allowed',
-        `Cannot upload ${documentService.getDocumentTypeDisplay(documentType)} for requests with status "${requestStatus}"`
+        t('fileUpload.errors.uploadNotAllowed'),
+        t('fileUpload.errors.uploadNotAllowedMessage', {
+          documentType: documentService.getDocumentTypeDisplay(documentType, t),
+          status: requestStatus
+        })
       );
       return;
     }
 
-    fileInputRef.current?.click();
+    try {
+      const result = await pick({
+        type: [
+          types.pdf,
+          types.doc,
+          types.docx,
+          types.xls,
+          types.xlsx,
+          types.csv,
+          types.images,
+          types.plainText,
+          types.zip,
+        ],
+      });
+
+      const file = result[0];
+
+      // Validate file size (10MB limit)
+      if (!documentService.validateFileSize(file, FILE_SIZE_LIMIT)) {
+        showError(
+          t('fileUpload.errors.fileTooLarge'),
+          t('fileUpload.errors.fileTooLargeMessage', {
+            maxSize: documentService.formatFileSize(FILE_SIZE_LIMIT)
+          })
+        );
+        return;
+      }
+
+      // Store the file and show description input
+      setSelectedFile(file);
+      setShowDescriptionInput(true);
+      setDescription(`${documentService.getDocumentTypeDisplay(documentType, t)} - ${file.name}`);
+
+    } catch (error: any) {
+      if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) {
+        // User cancelled the picker
+        return;
+      }
+      console.error('Document picker error:', error);
+      showError(
+        t('fileUpload.errors.selectionFailed'),
+        t('fileUpload.errors.selectionFailedMessage')
+      );
+    }
   };
 
-  const handleFileChange = async (event: Event) => {
-    const target = event.target as HTMLInputElement;
-    const file = target.files?.[0];
-    
-    if (!file) return;
-
-    // Validate file type
-    if (!documentService.validateFileType(file)) {
-      showError(
-        'Invalid File Type',
-        'Please select a valid file type (PDF, DOC, XLS, images, etc.)'
-      );
-      return;
-    }
-
-    // Validate file size (10MB limit)
-    if (!documentService.validateFileSize(file)) {
-      showError(
-        'File Too Large',
-        `File size must be less than ${documentService.formatFileSize(10485760)}`
-      );
-      return;
-    }
-
-    // Store the file and show description input
-    setSelectedFile(file);
-    setShowDescriptionInput(true);
-    setDescription(`${documentService.getDocumentTypeDisplay(documentType)} - ${file.name}`);
-    
-    // Clear the input so the same file can be selected again
-    target.value = '';
-  };
 
   const handleUpload = async () => {
     if (!selectedFile) return;
@@ -106,36 +127,48 @@ const FileUpload: React.FC<FileUploadProps> = ({
     setDescription('');
   };
 
-  const uploadFile = async (file: File) => {
+  const uploadFile = async (file: DocumentPickerResponse) => {
     setUploading(true);
-    
+
     try {
       const documentData: CreateDocumentDto = {
         request: requestId,
         document_type: documentType,
-        file_name: file.name,
-        file_size: file.size,
-        file_type: file.type,
-        description: description || `${documentService.getDocumentTypeDisplay(documentType)} - ${file.name}`,
+        file_name: file.name || 'unknown',
+        file_size: file.size || 0,
+        file_type: file.type || 'application/octet-stream',
+        description: description || `${documentService.getDocumentTypeDisplay(documentType, t)} - ${file.name}`,
       };
 
       const uploadedDocument = await documentService.completeUpload(documentData, file);
-      
-      showSuccess('Upload Successful', `${file.name} has been uploaded successfully!`);
-      
+
+      showSuccess(
+        t('fileUpload.success.uploadSuccessful'),
+        t('fileUpload.success.uploadSuccessfulMessage', { fileName: file.name })
+      );
+
       onUploadComplete?.(uploadedDocument);
-      
+
     } catch (error: any) {
-      console.error('Upload failed:', error);
-      showError('Upload Failed', error.message || 'Failed to upload file. Please try again.');
+      if (error?.response) {
+        console.error('Upload failed (API):', error.response.status, error.response.data);
+      } else {
+        console.error('Upload failed:', error);
+      }
+      showError(
+        t('fileUpload.errors.uploadFailed'),
+        error.message || t('fileUpload.errors.uploadFailedMessage')
+      );
     } finally {
       setUploading(false);
     }
   };
 
-  const getButtonText = () => {
-    if (uploading) return 'Uploading...';
-    return `Upload ${documentService.getDocumentTypeDisplay(documentType)}`;
+  const getButtonText = (): string => {
+    if (uploading) return t('fileUpload.actions.uploading');
+    return t('fileUpload.actions.uploadDocument', {
+      documentType: documentService.getDocumentTypeDisplay(documentType, t)
+    });
   };
 
   const isUploadAllowed = canUploadDocumentType(documentType, requestStatus);
@@ -147,13 +180,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   return (
     <View style={[styles.container, style]}>
-      <input
-        type="file"
-        ref={fileInputRef}
-        style={{ display: 'none' }}
-        onChange={handleFileChange}
-        accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.gif,.webp,.txt,.zip,.rar"
-      />
       
       {!showDescriptionInput ? (
         <TouchableOpacity
@@ -189,7 +215,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           </Text>
           <TextInput
             style={styles.descriptionInput}
-            placeholder="Enter document description"
+            placeholder={t('fileUpload.labels.enterDescription')}
             value={description}
             onChangeText={setDescription}
             multiline
@@ -201,7 +227,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
               onPress={handleCancel}
               disabled={uploading}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{t('fileUpload.actions.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.formButton, styles.confirmButton, uploading && styles.uploadButtonDisabled]}
@@ -211,7 +237,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
               {uploading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.confirmButtonText}>Upload</Text>
+                <Text style={styles.confirmButtonText}>{t('fileUpload.actions.upload')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -220,7 +246,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
       
       {!isUploadAllowed && (
         <Text style={styles.warningText}>
-          {documentService.getDocumentTypeDisplay(documentType)} can only be uploaded when request status is appropriate
+          {t('fileUpload.labels.warningCannotUpload', {
+            documentType: documentService.getDocumentTypeDisplay(documentType, t)
+          })}
         </Text>
       )}
     </View>
@@ -315,6 +343,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-});
+} as const);
 
-export default FileUpload;
+export type { DocumentType, FileUploadProps };
+export default FileUpload as (props: FileUploadProps) => React.JSX.Element | null;

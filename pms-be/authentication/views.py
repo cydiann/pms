@@ -39,12 +39,26 @@ class UserViewSet(viewsets.ModelViewSet):
         # Users can only see themselves unless they have view_user permission
         if self.request.user.has_perm('auth.view_user'):
             return User.objects.filter(deleted_at__isnull=True)
-        return User.objects.filter(id=self.request.user.id)
+
+        # Allow supervisors to see their subordinates
+        subordinates = self.request.user.get_all_subordinates()
+        subordinate_ids = [sub.id for sub in subordinates]
+        user_ids = [self.request.user.id] + subordinate_ids
+        return User.objects.filter(id__in=user_ids, deleted_at__isnull=True)
     
     def get_permissions(self):
-        # Special case for 'me' and 'my_permissions' actions - only need authentication
         if self.action in ['me', 'my_permissions']:
             return [permissions.IsAuthenticated()]
+
+        if self.action == 'list':
+            class ListPermission(permissions.IsAuthenticated):
+                def has_permission(self, request, view):
+                    if not super().has_permission(request, view):
+                        return False
+                    return (request.user.has_perm('auth.view_user') or
+                            request.user.has_subordinates())
+            return [ListPermission()]
+
         return super().get_permissions()
     
     @action(detail=False, methods=['get'], url_path='me', url_name='me')
