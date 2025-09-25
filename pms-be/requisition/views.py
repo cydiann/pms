@@ -401,6 +401,30 @@ class RequestViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(team_requests, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'], url_path='my-approved-requests', url_name='my-approved-requests')
+    def my_approved_requests(self, request):
+        """Get requests that current user has approved"""
+        # Get requests where current user appears in the approval history with 'approved' action
+        approved_request_ids = ApprovalHistory.objects.filter(
+            user=request.user,
+            action='approved'
+        ).values_list('request_id', flat=True).distinct()
+
+        # Get the actual request objects
+        approved_requests = Request.objects.filter(
+            id__in=approved_request_ids
+        ).order_by('-created_at')
+
+        # Apply pagination
+        page = self.paginate_queryset(approved_requests)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        # Fallback if pagination is not configured
+        serializer = self.get_serializer(approved_requests, many=True)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'], url_path='purchasing-queue', url_name='purchasing-queue')
     def purchasing_queue(self, request):
         """Get requests ready for purchasing"""
