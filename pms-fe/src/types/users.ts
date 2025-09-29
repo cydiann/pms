@@ -93,6 +93,15 @@ export interface UserFilters {
   groups?: number[];
 }
 
+// User Role Information - from backend's get_role_info()
+export interface UserRoleInfo {
+  has_subordinates: boolean;
+  can_purchase: boolean;
+  can_view_all_requests: boolean;
+  is_admin: boolean;
+  subordinate_count: number;
+}
+
 // User Statistics (for admin dashboard)
 export interface UserStats {
   total_users: number;

@@ -10,6 +10,7 @@ import {
   UserFilters,
   UserStats,
   UserGroup,
+  UserRoleInfo,
 } from '../types/users';
 import { PaginatedResponse, UserQueryParams } from '../types/api';
 
@@ -103,6 +104,11 @@ class UserService {
   // Get current user's permissions
   async getCurrentUserPermissions(): Promise<UserPermissions> {
     return await apiClient.get<UserPermissions>(API_ENDPOINTS.AUTH.USER_MY_PERMISSIONS);
+  }
+
+  // Get current user's role information for UI display
+  async getUserRoleInfo(): Promise<UserRoleInfo> {
+    return await apiClient.get<UserRoleInfo>(API_ENDPOINTS.AUTH.USER_ROLE_INFO);
   }
 
   // Admin: View user as if logged in as them

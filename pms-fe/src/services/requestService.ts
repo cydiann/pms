@@ -124,6 +124,11 @@ class RequestService {
     return await apiClient.get<Request[]>(API_ENDPOINTS.REQUESTS.PENDING_APPROVALS);
   }
 
+  // Get requests approved by current user (supervisor)
+  async getMyApprovedRequests(): Promise<Request[]> {
+    return await apiClient.get<Request[]>('/api/requests/my-approved-requests/');
+  }
+
   // Get admin dashboard stats (using new core endpoint)
   async getAdminStats(): Promise<AdminStats> {
     return await apiClient.get<AdminStats>(API_ENDPOINTS.CORE.SYSTEM_STATS);

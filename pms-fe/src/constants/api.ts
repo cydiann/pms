@@ -41,6 +41,7 @@ export const API_ENDPOINTS = {
     USER_DETAIL: (id: number) => `/api/auth/users/${id}/`,
     USER_ME: '/api/auth/users/me/',
     USER_MY_PERMISSIONS: '/api/auth/users/my-permissions/',
+    USER_ROLE_INFO: '/api/auth/users/role-info/',
     USER_VIEW_AS: (id: number) => `/api/auth/users/${id}/view-as/`,
     USER_MANAGE_GROUPS: (id: number) => `/api/auth/users/${id}/manage-groups/`,
     USER_MANAGE_PERMISSIONS: (id: number) => `/api/auth/users/${id}/manage-permissions/`,

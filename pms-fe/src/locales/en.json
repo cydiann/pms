@@ -104,7 +104,27 @@
       "quantityMustBePositive": "Quantity must be greater than zero",
       "quantityTooLarge": "Quantity cannot exceed 999,999",
       "reasonRequired": "Reason/justification is required"
+    },
+    "tabs": {
+      "myRequests": "My Requests",
+      "pendingApprovals": "Pending Approvals",
+      "approvedByMe": "Approved by Me"
+    },
+    "empty": {
+      "myRequests": "You haven't created any requests yet.",
+      "pendingApprovals": "No requests are pending your approval.",
+      "approvedByMe": "You haven't approved any requests yet."
     }
+  },
+  "purchasing": {
+    "queueTitle": "Purchasing Queue",
+    "queueSubtitle": "{{count}} requests ready for purchasing",
+    "noRequestsTitle": "No Purchasing Requests",
+    "noRequestsMessage": "All approved requests have been processed."
+  },
+  "errors": {
+    "failedToLoadRequests": "Failed to load requests",
+    "loadingError": "Loading Error"
   },
   "status": {
     "draft": "Draft",
@@ -146,7 +166,8 @@
     "requests": "Requests",
     "team": "Team",
     "profile": "Profile",
-    "settings": "Settings"
+    "settings": "Settings",
+    "purchasing": "Purchasing"
   },
   "forms": {
     "required": "This field is required",

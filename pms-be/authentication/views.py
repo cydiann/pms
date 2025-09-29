@@ -63,7 +63,13 @@ class UserViewSet(viewsets.ModelViewSet):
             'groups': [{'id': g.id, 'name': g.name} for g in user.groups.all()],
             'permissions': list(user_permissions)
         })
-    
+
+    @action(detail=False, methods=['get'], url_path='role-info', url_name='role-info')
+    def role_info(self, request):
+        """Get current user's role information for UI display"""
+        user = request.user
+        return Response(user.get_role_info())
+
     @action(detail=True, methods=['get'], permission_classes=[permissions.IsAdminUser], url_path='view-as', url_name='view-as')
     def view_as(self, request, pk=None):
         target_user = self.get_object()

@@ -142,7 +142,27 @@
       "quantityMustBePositive": "Miktar sıfırdan büyük olmalıdır",
       "quantityTooLarge": "Miktar 999.999'u aşamaz",
       "reasonRequired": "Gerekçe/açıklama gereklidir"
+    },
+    "tabs": {
+      "myRequests": "Taleplerim",
+      "pendingApprovals": "Bekleyen Onaylar",
+      "approvedByMe": "Onayladıklarım"
+    },
+    "empty": {
+      "myRequests": "Henüz hiç talep oluşturmadınız.",
+      "pendingApprovals": "Onayınızı bekleyen talep bulunmuyor.",
+      "approvedByMe": "Henüz hiç talep onaylamadınız."
     }
+  },
+  "purchasing": {
+    "queueTitle": "Satın Alma Kuyruğu",
+    "queueSubtitle": "{{count}} talep satın alma için hazır",
+    "noRequestsTitle": "Satın Alma Talebi Yok",
+    "noRequestsMessage": "Tüm onaylanmış talepler işleme alınmıştır."
+  },
+  "errors": {
+    "failedToLoadRequests": "Talepler yüklenemedi",
+    "loadingError": "Yükleme Hatası"
   },
   "navigation": {
     "dashboard": "Ana Sayfa",
@@ -160,7 +180,8 @@
     "requests": "Talepler",
     "team": "Ekip",
     "profile": "Profil",
-    "settings": "Ayarlar"
+    "settings": "Ayarlar",
+    "purchasing": "Satın Alma"
   },
   "profile": {
     "title": "Profil",

@@ -169,14 +169,21 @@ class Request(models.Model):
             year = timezone.now().year
             random_part = str(uuid.uuid4()).replace('-', '').upper()[:6]
             self.request_number = f"REQ-{year}-{random_part}"
-            
+
             # Ensure uniqueness by checking existing request numbers
             while Request.objects.filter(request_number=self.request_number).exists():
                 random_part = str(uuid.uuid4()).replace('-', '').upper()[:6]
                 self.request_number = f"REQ-{year}-{random_part}"
-        
+
         super().save(*args, **kwargs)
-    
+
+    class Meta:
+        permissions = [
+            ('can_purchase', 'Can handle purchasing tasks'),
+            ('view_all_requests', 'Can view all requests system-wide'),
+        ]
+        ordering = ['-created_at']
+
     def __str__(self):
         return f"{self.request_number} - {self.item}"
 

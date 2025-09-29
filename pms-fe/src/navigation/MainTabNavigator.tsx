@@ -1,16 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User } from '../types/auth';
+import { UserRoleInfo } from '../types/users';
 import LanguageSwitcher from '../components/common/LanguageSwitcher';
-
-// Type definitions
-type UserRole = 'employee' | 'supervisor' | 'admin';
-
-interface UserGroup {
-  readonly id: number;
-  readonly name: string;
-}
+import { useUserRole } from '../hooks/useUserRole';
 
 // Import screens
 import EmployeeDashboardScreen from '../screens/employee/DashboardScreen';
@@ -18,18 +12,21 @@ import SupervisorDashboardScreen from '../screens/supervisor/DashboardScreen';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import MyRequestsScreen from '../screens/employee/MyRequestsScreen';
 import ProfileScreen from '../screens/common/ProfileScreen';
-import TeamRequestsScreen from '../screens/supervisor/TeamRequestsScreen';
-import MyTeamScreen from '../screens/supervisor/MyTeamScreen';
 import AllRequestsScreen from '../screens/admin/AllRequestsScreen';
 import UserManagementScreen from '../screens/admin/UserManagementScreen';
 import WorksiteManagementScreen from '../screens/admin/WorksiteManagementScreen';
 import GroupManagementScreen from '../screens/admin/GroupManagementScreen';
+import MyTeamScreen from '../screens/supervisor/MyTeamScreen';
+
+// Import new components
+import SupervisorRequestsTabs from '../components/supervisor/SupervisorRequestsTabs';
+import PurchasingRequestsScreen from '../components/purchasing/PurchasingRequestsScreen';
 
 interface TabItem {
   readonly key: string;
   readonly label: string;
   readonly component: React.ComponentType;
-  readonly roles: readonly UserRole[];
+  readonly showWhen: (roleInfo: UserRoleInfo) => boolean;
 }
 
 interface MainTabNavigatorProps {
@@ -46,83 +43,80 @@ function MainTabNavigator({
   t
 }: MainTabNavigatorProps): React.JSX.Element {
 
-  // Determine user role
-  const getUserRole = (): UserRole => {
-    if (user?.is_superuser) return 'admin';
-    // Check if user has subordinates (is a supervisor)
-    // For now, we'll use groups to determine supervisor role
-    const hasAdminGroup = user?.groups?.some((group: UserGroup) => group.name === 'Administrator');
-    const hasSupervisorGroup = user?.groups?.some((group: UserGroup) => group.name === 'Supervisor');
+  const { roleInfo, loading } = useUserRole();
 
-    if (hasAdminGroup) return 'admin';
-    if (hasSupervisorGroup) return 'supervisor';
-    return 'employee';
-  };
-
-  const userRole = getUserRole();
+  // Show loading state while role info is loading
+  if (loading || !roleInfo) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007bff" />
+        <Text style={styles.loadingText}>{t('common.loading')}</Text>
+      </SafeAreaView>
+    );
+  }
 
   // Define all tabs with role restrictions
   const allTabs: readonly TabItem[] = [
     {
       key: 'dashboard',
       label: t('navigation.dashboard'),
-      component: userRole === 'admin' ? AdminDashboardScreen :
-        userRole === 'supervisor' ? SupervisorDashboardScreen :
+      component: roleInfo.is_admin ? AdminDashboardScreen :
+        roleInfo.has_subordinates ? SupervisorDashboardScreen :
           EmployeeDashboardScreen,
-      roles: ['employee', 'supervisor', 'admin'] as const,
+      showWhen: () => true, // Everyone has a dashboard
     },
     {
-      key: 'myRequests',
-      label: t('navigation.myRequests'),
-      component: MyRequestsScreen,
-      roles: ['employee', 'supervisor', 'admin'] as const,
+      key: 'requests',
+      label: t('navigation.requests'),
+      component: roleInfo.has_subordinates ? SupervisorRequestsTabs : MyRequestsScreen,
+      showWhen: () => true, // Everyone can see requests
     },
     {
-      key: 'teamRequests',
-      label: t('navigation.team'),
-      component: TeamRequestsScreen,
-      roles: ['supervisor'] as const,
+      key: 'purchasing',
+      label: t('navigation.purchasing'),
+      component: PurchasingRequestsScreen,
+      showWhen: (role) => role.can_purchase,
     },
     {
       key: 'myTeam',
       label: t('navigation.myTeam'),
       component: MyTeamScreen,
-      roles: ['supervisor'] as const,
+      showWhen: (role) => role.has_subordinates,
     },
     {
       key: 'allRequests',
-      label: t('navigation.requests'),
+      label: t('navigation.allRequests'),
       component: AllRequestsScreen,
-      roles: ['admin'] as const,
+      showWhen: (role) => role.can_view_all_requests,
     },
     {
       key: 'userManagement',
       label: t('navigation.users'),
       component: UserManagementScreen,
-      roles: ['admin'] as const,
+      showWhen: (role) => role.is_admin,
     },
     {
       key: 'worksiteManagement',
       label: t('navigation.worksites'),
       component: WorksiteManagementScreen,
-      roles: ['admin'] as const,
+      showWhen: (role) => role.is_admin,
     },
     {
       key: 'groupManagement',
       label: t('navigation.groups'),
       component: GroupManagementScreen,
-      roles: ['admin'] as const,
+      showWhen: (role) => role.is_admin,
     },
     {
       key: 'profile',
       label: t('navigation.profile'),
       component: ProfileScreen,
-      roles: ['employee', 'supervisor', 'admin'] as const,
+      showWhen: () => true, // Everyone has profile
     },
   ] as const;
 
   // Filter tabs based on user role
-  const availableTabs = allTabs.filter(tab => tab.roles.includes(userRole));
+  const availableTabs = allTabs.filter(tab => tab.showWhen(roleInfo));
 
   // Get the active component
   const ActiveComponent = availableTabs.find(tab => tab.key === activeTab)?.component || EmployeeDashboardScreen;
@@ -180,6 +174,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#6c757d',
   },
   header: {
     flexDirection: 'row' as const,

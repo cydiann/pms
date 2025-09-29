@@ -29,7 +29,9 @@ class RequestViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        if user.is_superuser:
+
+        # Admins can see all requests
+        if user.can_view_all_requests():
             return Request.objects.all()
 
         # Regular users only see their own requests in the main list
@@ -267,11 +269,11 @@ class RequestViewSet(viewsets.ModelViewSet):
         """Mark request as purchased (purchasing team)"""
         # For purchasing actions, get the request regardless of ownership
         request_obj = Request.objects.get(pk=pk)
-        
-        # Check if user has purchasing permissions or is superuser
-        if not (request.user.is_superuser or request.user.can_purchase()):
+
+        # Check if user has purchasing permissions
+        if not request.user.can_purchase():
             return Response(
-                {'error': 'Only purchasing team can mark as purchased'}, 
+                {'error': 'Only purchasing team can mark as purchased'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -307,11 +309,11 @@ class RequestViewSet(viewsets.ModelViewSet):
         """Mark request as delivered"""
         # For purchasing actions, get the request regardless of ownership
         request_obj = Request.objects.get(pk=pk)
-        
-        # Check if user has purchasing permissions or is superuser
-        if not (request.user.is_superuser or request.user.can_purchase()):
+
+        # Check if user has purchasing permissions
+        if not request.user.can_purchase():
             return Response(
-                {'error': 'Only purchasing team can mark as delivered'}, 
+                {'error': 'Only purchasing team can mark as delivered'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -429,9 +431,9 @@ class RequestViewSet(viewsets.ModelViewSet):
     def purchasing_queue(self, request):
         """Get requests ready for purchasing"""
         # Check if user has purchasing permissions
-        if not (request.user.is_superuser or request.user.can_purchase()):
+        if not request.user.can_purchase():
             return Response(
-                {'error': 'Only purchasing team can access purchasing queue'}, 
+                {'error': 'Only purchasing team can access purchasing queue'},
                 status=status.HTTP_403_FORBIDDEN
             )
         

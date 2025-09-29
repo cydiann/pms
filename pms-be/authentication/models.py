@@ -149,8 +149,33 @@ class User(AbstractUser):
         return self.get_all_permissions()
 
     def can_purchase(self) -> bool:
-        """Return True if user is in the Purchasing group."""
-        return self.groups.filter(name='Purchasing').exists()
+        """Return True if user has purchasing permissions."""
+        return (
+            self.is_superuser or
+            self.has_perm('requisition.can_purchase') or
+            self.groups.filter(name='Purchasing').exists()
+        )
+
+    def has_subordinates(self) -> bool:
+        """Return True if user has direct reports."""
+        return self.direct_reports.filter(deleted_at__isnull=True).exists()
+
+    def can_view_all_requests(self) -> bool:
+        """Return True if user can view all requests system-wide (admins)."""
+        return (
+            self.is_superuser or
+            self.has_perm('requisition.view_all_requests')
+        )
+
+    def get_role_info(self) -> dict:
+        """Get comprehensive role information for the user."""
+        return {
+            'has_subordinates': self.has_subordinates(),
+            'can_purchase': self.can_purchase(),
+            'can_view_all_requests': self.can_view_all_requests(),
+            'is_admin': self.is_superuser,
+            'subordinate_count': self.direct_reports.filter(deleted_at__isnull=True).count(),
+        }
     
     def __str__(self):
         return self.get_full_name()
