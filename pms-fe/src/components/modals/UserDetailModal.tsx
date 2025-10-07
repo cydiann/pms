@@ -9,6 +9,8 @@ import {
   Switch,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
@@ -391,8 +393,16 @@ function UserDetailModal({
 
   const renderEditMode = () => {
     return (
-      <ScrollView style={styles.content}>
-        <View style={styles.section}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          style={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('userManagement.editUser')}</Text>
           
           <View style={styles.formGroup}>
@@ -523,7 +533,8 @@ function UserDetailModal({
             </>
           )}
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   };
 
@@ -623,6 +634,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 10,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row' as const,

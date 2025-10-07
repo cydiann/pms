@@ -10,6 +10,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
@@ -376,8 +378,17 @@ function AddUserModal({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {errors.general && (
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <ScrollView
+            style={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {errors.general && (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{errors.general}</Text>
             </View>
@@ -584,9 +595,10 @@ function AddUserModal({
               </View>
             </View>
           )}
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
         </View>
-        
+
         {/* Add Worksite Modal */}
         <AddWorksiteModal
           visible={addWorksiteModalVisible}
@@ -628,6 +640,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 10,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   loadingContainer: {
     backgroundColor: '#fff',

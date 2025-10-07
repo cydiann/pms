@@ -9,6 +9,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import organizationService from '../../services/organizationService';
@@ -285,8 +287,17 @@ function AddWorksiteModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {errors.general && (
+          <KeyboardAvoidingView
+            style={styles.keyboardAvoidingView}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          >
+            <ScrollView
+              style={styles.content}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {errors.general && (
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>{errors.general}</Text>
               </View>
@@ -390,7 +401,8 @@ function AddWorksiteModal({
                 <Text style={styles.helperText}>{t('addWorksite.chiefHelp')}</Text>
               </View>
             </View>
-          </ScrollView>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </View>
     </Modal>
@@ -426,6 +438,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 10,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   loadingContainer: {
     backgroundColor: '#fff',
