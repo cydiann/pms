@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
 import { Request } from '../../types/requests';
 import RequestListItem from '../common/RequestListItem';
+import RequestDetailModal from '../modals/RequestDetailModal';
 
 type TabType = 'myRequests' | 'pendingApprovals' | 'approvedByMe';
 
@@ -25,6 +26,8 @@ function SupervisorRequestsTabs(): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<TabType>('myRequests');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   // Data for each tab
   const [myRequests, setMyRequests] = useState<Request[]>([]);
@@ -50,7 +53,7 @@ function SupervisorRequestsTabs(): React.JSX.Element {
           setPendingApprovals(Array.isArray(pendingData) ? pendingData : pendingData.results || []);
           break;
         case 'approvedByMe':
-          const approvedData = await requestService.getMyApprovedRequests();
+          const approvedData = await requestService.getApprovedRequests();
 
           // Sort: newest first, rejected at bottom
           const sortedApproved = (Array.isArray(approvedData) ? approvedData : approvedData.results || []).sort((a: Request, b: Request) => {
@@ -127,9 +130,25 @@ function SupervisorRequestsTabs(): React.JSX.Element {
     );
   }, [t, activeTab]);
 
+  const handleRequestPress = useCallback((request: Request) => {
+    setSelectedRequest(request);
+    setModalVisible(true);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setModalVisible(false);
+    setSelectedRequest(null);
+  }, []);
+
+  const handleRequestUpdated = useCallback(() => {
+    // Reload data after request is updated
+    loadAllTabs();
+    handleCloseModal();
+  }, [loadAllTabs, handleCloseModal]);
+
   const renderRequestItem = useCallback(({ item }: { item: Request }) => (
-    <RequestListItem request={item} />
-  ), []);
+    <RequestListItem request={item} onPress={handleRequestPress} />
+  ), [handleRequestPress]);
 
   return (
     <View style={styles.container}>
@@ -184,6 +203,16 @@ function SupervisorRequestsTabs(): React.JSX.Element {
           />
         )}
       </View>
+
+      {/* Request Detail Modal */}
+      {selectedRequest && (
+        <RequestDetailModal
+          visible={modalVisible}
+          request={selectedRequest}
+          onClose={handleCloseModal}
+          onRequestUpdated={handleRequestUpdated}
+        />
+      )}
     </View>
   );
 }

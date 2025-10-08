@@ -152,7 +152,8 @@
       "myRequests": "Henüz hiç talep oluşturmadınız.",
       "pendingApprovals": "Onayınızı bekleyen talep bulunmuyor.",
       "approvedByMe": "Henüz hiç talep onaylamadınız."
-    }
+    },
+    "waitingForApproval": "Onay bekliyor: {{name}}"
   },
   "purchasing": {
     "queueTitle": "Satın Alma Kuyruğu",

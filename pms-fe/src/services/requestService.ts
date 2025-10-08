@@ -11,6 +11,7 @@ import {
   ApprovalHistory,
   RequestStats,
   AdminStats,
+  DashboardStats,
 } from '../types/requests';
 import { PaginatedResponse, RequestQueryParams } from '../types/api';
 
@@ -40,11 +41,13 @@ class RequestService {
     return await this.getAllRequests(params);
   }
 
-  // Get requests from subordinates (for supervisors)
-  async getSubordinateRequests(params?: RequestQueryParams): Promise<PaginatedResponse<Request>> {
+  // Get team requests (for supervisors) - filters subordinates' requests
+  async getTeamRequests(status?: string): Promise<Request[]> {
+    const params = status ? { status } : {};
     const queryString = params ? new URLSearchParams(params as any).toString() : '';
-    const url = `${API_ENDPOINTS.REQUESTS.MY_REQUESTS}${queryString ? `?${queryString}` : ''}`;
-    return await apiClient.get<PaginatedResponse<Request>>(url);
+    const url = `/api/requests/my-team-requests/${queryString ? `?${queryString}` : ''}`;
+    const response = await apiClient.get<PaginatedResponse<Request>>(url);
+    return response.results || [];
   }
 
   // Get single request details
@@ -59,7 +62,7 @@ class RequestService {
 
   // Update existing request (only drafts can be edited)
   async updateRequest(id: number, data: UpdateRequestDto): Promise<Request> {
-    return await apiClient.put<Request>(API_ENDPOINTS.REQUESTS.DETAIL(id), data);
+    return await apiClient.patch<Request>(API_ENDPOINTS.REQUESTS.DETAIL(id), data);
   }
 
   // Submit draft request (draft -> pending)
@@ -109,14 +112,9 @@ class RequestService {
     return await apiClient.delete<void>(API_ENDPOINTS.REQUESTS.DETAIL(id));
   }
 
-  // Get dashboard statistics
-  async getDashboardStats(): Promise<RequestStats> {
-    return await apiClient.get<RequestStats>(`${API_ENDPOINTS.REQUESTS.LIST}stats/`);
-  }
-
-  // Get subordinate dashboard stats (for supervisors)
-  async getSubordinateStats(): Promise<RequestStats> {
-    return await apiClient.get<RequestStats>(`${API_ENDPOINTS.REQUESTS.LIST}subordinate-stats/`);
+  // Get dashboard statistics - matches backend dashboard-stats endpoint
+  async getDashboardStats(): Promise<DashboardStats> {
+    return await apiClient.get<DashboardStats>('/api/requests/dashboard-stats/');
   }
 
   // Get pending approvals for current user (supervisor)
@@ -125,8 +123,9 @@ class RequestService {
   }
 
   // Get requests approved by current user (supervisor)
-  async getMyApprovedRequests(): Promise<Request[]> {
-    return await apiClient.get<Request[]>('/api/requests/my-approved-requests/');
+  async getApprovedRequests(): Promise<Request[]> {
+    const response = await apiClient.get<PaginatedResponse<Request>>('/api/requests/my-approved-requests/');
+    return response.results || [];
   }
 
   // Get admin dashboard stats (using new core endpoint)
@@ -150,36 +149,18 @@ class RequestService {
   }
 
   // Utility methods for request status and transitions
+  // Note: These methods are kept for backward compatibility
+  // Use constants from '@/constants/requests' for new code
   getStatusDisplay(status: string): string {
-    const statusMap: Record<string, string> = {
-      draft: 'Draft',
-      pending: 'Pending Approval',
-      in_review: 'Under Review',
-      revision_requested: 'Revision Requested',
-      approved: 'Final Approved - Ready for Purchase',
-      rejected: 'Rejected',
-      purchasing: 'Assigned to Purchasing Team',
-      ordered: 'Order Placed',
-      delivered: 'Delivered',
-      completed: 'Request Completed',
-    };
-    return statusMap[status] || status;
+    // Import from constants for consistency
+    const { STATUS_LABELS } = require('../constants/requests');
+    return STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status;
   }
 
   getStatusColor(status: string): string {
-    const colorMap: Record<string, string> = {
-      draft: '#6c757d',      // gray
-      pending: '#ffc107',    // yellow
-      in_review: '#17a2b8',  // teal
-      revision_requested: '#fd7e14', // orange
-      approved: '#28a745',   // green
-      rejected: '#dc3545',   // red
-      purchasing: '#6f42c1', // purple
-      ordered: '#20c997',    // teal-green
-      delivered: '#007bff',  // blue
-      completed: '#28a745',  // green
-    };
-    return colorMap[status] || '#6c757d';
+    // Import from constants for consistency
+    const { STATUS_COLORS } = require('../constants/requests');
+    return STATUS_COLORS[status as keyof typeof STATUS_COLORS] || '#6c757d';
   }
 
   canUserEdit(request: Request, currentUserId: number): boolean {

@@ -12,16 +12,23 @@ class UserSerializer(serializers.ModelSerializer):
     permissions = serializers.SerializerMethodField()
     user_permissions = serializers.SerializerMethodField()
     username = serializers.CharField(required=False, allow_blank=True)
-    
+
+    # New computed fields for UI
+    is_supervisor = serializers.SerializerMethodField()
+    subordinate_count = serializers.SerializerMethodField()
+    can_purchase = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
             'id', 'username', 'first_name', 'last_name', 'full_name', 'phone_number',
             'groups', 'worksite', 'worksite_name', 'division', 'division_name',
             'supervisor', 'supervisor_name', 'is_staff', 'is_active', 'is_superuser',
-            'permissions', 'user_permissions', 'created_at', 'deleted_at'
+            'permissions', 'user_permissions', 'created_at', 'deleted_at',
+            'is_supervisor', 'subordinate_count', 'can_purchase'
         ]
-        read_only_fields = ['created_at', 'deleted_at', 'permissions', 'user_permissions', 'full_name']
+        read_only_fields = ['created_at', 'deleted_at', 'permissions', 'user_permissions', 'full_name',
+                           'is_supervisor', 'subordinate_count', 'can_purchase']
         
     def validate(self, attrs):
         """Validate that either username is provided or both first_name and last_name"""
@@ -67,9 +74,21 @@ class UserSerializer(serializers.ModelSerializer):
         # Return individual user permissions (not from groups)
         request = self.context.get('request')
         if request and (request.user == obj or request.user.is_superuser):
-            return [{'id': p.id, 'name': p.name, 'codename': p.codename} 
+            return [{'id': p.id, 'name': p.name, 'codename': p.codename}
                     for p in obj.user_permissions.all()]
         return []
+
+    def get_is_supervisor(self, obj):
+        """Return True if user has direct reports"""
+        return obj.has_subordinates()
+
+    def get_subordinate_count(self, obj):
+        """Return count of direct reports only"""
+        return obj.direct_reports.filter(deleted_at__isnull=True).count()
+
+    def get_can_purchase(self, obj):
+        """Return True if user has purchasing permissions"""
+        return obj.can_purchase()
 
 
 class GroupSerializer(serializers.ModelSerializer):

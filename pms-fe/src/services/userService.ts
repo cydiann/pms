@@ -11,6 +11,7 @@ import {
   UserStats,
   UserGroup,
   UserRoleInfo,
+  TeamMember,
 } from '../types/users';
 import { PaginatedResponse, UserQueryParams } from '../types/api';
 
@@ -151,7 +152,7 @@ class UserService {
     // This would be implemented based on the user's supervisor relationship
     const currentUser = await this.getCurrentUser();
     if (!currentUser.id) return [];
-    
+
     // Get all users where supervisor = current user
     const response = await this.getUsers({ supervisor: currentUser.id });
     return response.results.map(user => ({
@@ -161,6 +162,23 @@ class UserService {
       approved_requests: 0,
       draft_requests: 0,
     }));
+  }
+
+  // Get my team (direct subordinates) - matches backend endpoint
+  async getMyTeam(): Promise<TeamMember[]> {
+    const response = await apiClient.get<{ team_members: TeamMember[] }>('/api/auth/users/my-team/');
+    return response.team_members || [];
+  }
+
+  // Get subordinates of specific user (drill-down functionality)
+  async getSubordinatesOf(userId: number): Promise<TeamMember[]> {
+    const response = await apiClient.get<{ subordinates: TeamMember[] }>(`/api/auth/users/${userId}/subordinates/`);
+    return response.subordinates || [];
+  }
+
+  // Get team hierarchy tree
+  async getTeamHierarchy(userId: number): Promise<any> {
+    return await apiClient.get(`/api/auth/users/${userId}/team-hierarchy/`);
   }
 
   // Admin: Manage user groups

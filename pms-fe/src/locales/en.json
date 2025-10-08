@@ -114,7 +114,8 @@
       "myRequests": "You haven't created any requests yet.",
       "pendingApprovals": "No requests are pending your approval.",
       "approvedByMe": "You haven't approved any requests yet."
-    }
+    },
+    "waitingForApproval": "Waiting for: {{name}}"
   },
   "purchasing": {
     "queueTitle": "Purchasing Queue",

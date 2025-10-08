@@ -86,6 +86,11 @@ class ApiClient {
     return response.data;
   }
 
+  public async patch<T>(url: string, data?: any): Promise<T> {
+    const response = await this.axiosInstance.patch<T>(url, data);
+    return response.data;
+  }
+
   public async delete<T>(url: string): Promise<T> {
     const response = await this.axiosInstance.delete<T>(url);
     return response.data;

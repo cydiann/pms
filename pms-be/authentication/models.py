@@ -150,11 +150,7 @@ class User(AbstractUser):
 
     def can_purchase(self) -> bool:
         """Return True if user has purchasing permissions."""
-        return (
-            self.is_superuser or
-            self.has_perm('requisition.can_purchase') or
-            self.groups.filter(name='Purchasing').exists()
-        )
+        return self.is_superuser or self.has_perm('requisition.can_purchase')
 
     def has_subordinates(self) -> bool:
         """Return True if user has direct reports."""
@@ -162,10 +158,7 @@ class User(AbstractUser):
 
     def can_view_all_requests(self) -> bool:
         """Return True if user can view all requests system-wide (admins)."""
-        return (
-            self.is_superuser or
-            self.has_perm('requisition.view_all_requests')
-        )
+        return self.is_superuser or self.has_perm('requisition.view_all_requests')
 
     def get_role_info(self) -> dict:
         """Get comprehensive role information for the user."""

@@ -31,7 +31,7 @@ class RequestViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         # Admins can see all requests
-        if user.can_view_all_requests():
+        if user.is_superuser or user.has_perm('requisition.view_all_requests'):
             return Request.objects.all()
 
         # Regular users only see their own requests in the main list
@@ -85,13 +85,7 @@ class RequestViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='approve', url_name='approve')
     def approve(self, request, pk=None):
         # For approval actions, get the request regardless of ownership
-        try:
-            request_obj = Request.objects.get(pk=pk)
-        except Request.DoesNotExist:
-            return Response(
-                {'detail': 'Request not found.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        request_obj = get_object_or_404(Request, pk=pk)
 
         # First check if request is in a valid state for approval
         if request_obj.status not in ['pending', 'in_review']:
@@ -122,11 +116,12 @@ class RequestViewSet(viewsets.ModelViewSet):
                 }, status=status.HTTP_403_FORBIDDEN)
 
         with transaction.atomic():
-            # Update approval tracking
-            request_obj.last_approver = request.user
+            # Update approval tracking AFTER determining status
+            # Determine new status based on CURRENT state
             request_obj.approval_level += 1
+            request_obj.last_approver = request.user
+            request_obj.save()
 
-            # Determine new status
             if request_obj.is_fully_approved():
                 new_status = 'approved'  # Ready for purchasing
             else:
@@ -143,7 +138,6 @@ class RequestViewSet(viewsets.ModelViewSet):
                     )
             else:
                 # Status doesn't need to change, but still record the approval history
-                request_obj.save()
                 ApprovalHistory.objects.create(
                     request=request_obj,
                     user=request.user,
@@ -163,7 +157,7 @@ class RequestViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='reject', url_name='reject')
     def reject(self, request, pk=None):
         # For approval actions, get the request regardless of ownership
-        request_obj = Request.objects.get(pk=pk)
+        request_obj = get_object_or_404(Request, pk=pk)
 
         # First check if request is in a valid state for rejection
         if request_obj.status not in ['pending', 'in_review', 'approved', 'purchasing']:
@@ -230,7 +224,7 @@ class RequestViewSet(viewsets.ModelViewSet):
     def request_revision(self, request, pk=None):
         """Request revision of a submitted request"""
         # For approval actions, get the request regardless of ownership
-        request_obj = Request.objects.get(pk=pk)
+        request_obj = get_object_or_404(Request, pk=pk)
 
         # Check if user is the next approver or superuser
         next_approver = request_obj.get_next_approver()
@@ -263,15 +257,48 @@ class RequestViewSet(viewsets.ModelViewSet):
             'message': 'Revision requested',
             'revision_count': request_obj.revision_count
         })
-    
+
+    @action(detail=True, methods=['post'], url_path='assign-to-purchasing', url_name='assign-to-purchasing')
+    def assign_to_purchasing(self, request, pk=None):
+        """Assign an approved request to the purchasing team"""
+        # For purchasing actions, get the request regardless of ownership
+        request_obj = get_object_or_404(Request, pk=pk)
+
+        # Check if user has purchasing permissions
+        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
+            return Response(
+                {'error': 'Only purchasing team can assign requests'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if request_obj.status != 'approved':
+            return Response(
+                {'error': 'Can only assign fully approved requests to purchasing'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            try:
+                request_obj.transition_to('purchasing', request.user, request.data.get('notes', ''))
+            except ValueError as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        return Response({
+            'status': 'purchasing',
+            'message': 'Request assigned to purchasing team'
+        })
+
     @action(detail=True, methods=['post'], url_path='mark-purchased', url_name='mark-purchased')
     def mark_purchased(self, request, pk=None):
         """Mark request as purchased (purchasing team)"""
         # For purchasing actions, get the request regardless of ownership
-        request_obj = Request.objects.get(pk=pk)
+        request_obj = get_object_or_404(Request, pk=pk)
 
         # Check if user has purchasing permissions
-        if not request.user.can_purchase():
+        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
             return Response(
                 {'error': 'Only purchasing team can mark as purchased'},
                 status=status.HTTP_403_FORBIDDEN
@@ -308,10 +335,10 @@ class RequestViewSet(viewsets.ModelViewSet):
     def mark_delivered(self, request, pk=None):
         """Mark request as delivered"""
         # For purchasing actions, get the request regardless of ownership
-        request_obj = Request.objects.get(pk=pk)
+        request_obj = get_object_or_404(Request, pk=pk)
 
         # Check if user has purchasing permissions
-        if not request.user.can_purchase():
+        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
             return Response(
                 {'error': 'Only purchasing team can mark as delivered'},
                 status=status.HTTP_403_FORBIDDEN
@@ -431,7 +458,7 @@ class RequestViewSet(viewsets.ModelViewSet):
     def purchasing_queue(self, request):
         """Get requests ready for purchasing"""
         # Check if user has purchasing permissions
-        if not request.user.can_purchase():
+        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
             return Response(
                 {'error': 'Only purchasing team can access purchasing queue'},
                 status=status.HTTP_403_FORBIDDEN
@@ -463,13 +490,7 @@ class RequestViewSet(viewsets.ModelViewSet):
     def current_approver(self, request, pk=None):
         """Get the current approver information for a request"""
         # For approval status, get the request regardless of ownership
-        try:
-            request_obj = Request.objects.get(pk=pk)
-        except Request.DoesNotExist:
-            return Response(
-                {'detail': 'Request not found.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        request_obj = get_object_or_404(Request, pk=pk)
 
         # Get approval status information
         next_approver = request_obj.get_next_approver()
@@ -533,6 +554,75 @@ class RequestViewSet(viewsets.ModelViewSet):
 
             response_data['approval_chain'] = approval_chain
             response_data['total_required_approvals'] = len(supervisors)
+
+        return Response(response_data)
+
+    @action(detail=False, methods=['get'], url_path='dashboard-stats', url_name='dashboard-stats')
+    def dashboard_stats(self, request):
+        """Get dashboard statistics tailored to user role"""
+        user = request.user
+
+        # Base stats for all users: my requests by status
+        my_requests = Request.objects.filter(created_by=user)
+        my_stats = {
+            'total': my_requests.count(),
+            'draft': my_requests.filter(status='draft').count(),
+            'pending': my_requests.filter(status='pending').count(),
+            'in_review': my_requests.filter(status='in_review').count(),
+            'approved': my_requests.filter(status='approved').count(),
+            'rejected': my_requests.filter(status='rejected').count(),
+            'revision_requested': my_requests.filter(status='revision_requested').count(),
+            'purchasing': my_requests.filter(status='purchasing').count(),
+            'ordered': my_requests.filter(status='ordered').count(),
+            'delivered': my_requests.filter(status='delivered').count(),
+            'completed': my_requests.filter(status='completed').count(),
+        }
+
+        response_data = {
+            'user_id': user.id,
+            'username': user.username,
+            'full_name': user.get_full_name(),
+            'my_requests': my_stats,
+        }
+
+        # Supervisor stats: if user has subordinates
+        if user.has_subordinates():
+            # Get requests where current user is the next approver
+            pending_approvals = []
+            for req in Request.objects.filter(status__in=['pending', 'in_review']):
+                if req.get_next_approver() == user:
+                    pending_approvals.append(req)
+
+            # Get requests from all subordinates
+            all_subordinates = user.get_all_subordinates()
+            team_requests = Request.objects.filter(created_by__in=all_subordinates)
+
+            # Get requests I've approved
+            approved_by_me = ApprovalHistory.objects.filter(
+                user=user,
+                action='approved'
+            ).values_list('request_id', flat=True).distinct()
+
+            response_data['supervisor_stats'] = {
+                'pending_approvals_count': len(pending_approvals),
+                'team_total_requests': team_requests.count(),
+                'team_pending': team_requests.filter(status__in=['pending', 'in_review']).count(),
+                'team_approved': team_requests.filter(status='approved').count(),
+                'team_completed': team_requests.filter(status='completed').count(),
+                'approved_by_me_count': len(approved_by_me),
+                'subordinate_count': len(all_subordinates),
+            }
+
+        # Purchasing team stats: if user can purchase
+        if user.is_superuser or user.has_perm('requisition.can_purchase'):
+            purchasing_queue = Request.objects.filter(status__in=['approved', 'purchasing'])
+            ordered_items = Request.objects.filter(status='ordered')
+
+            response_data['purchasing_stats'] = {
+                'queue_count': purchasing_queue.count(),
+                'ordered_count': ordered_items.count(),
+                'delivered_count': Request.objects.filter(status='delivered').count(),
+            }
 
         return Response(response_data)
 
@@ -647,10 +737,22 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         
-        # Non-admin users can only see documents for their requests or if they have purchase permissions
-        if not user.is_superuser and not user.can_purchase():
-            # Regular users can only see documents for their requests
-            user_requests = Request.objects.filter(created_by=user)
+        # Non-admin users can only see documents for their requests, subordinate requests, or if they have purchase permissions
+        if not user.is_superuser and not user.has_perm('requisition.can_purchase'):
+            # Users can see documents for:
+            # 1. Their own requests
+            # 2. Requests from their subordinates (supervisor access)
+            from django.db.models import Q
+            from authentication.models import User
+
+            # Get subordinates recursively
+            subordinates = User.get_all_subordinates(user)
+            subordinate_ids = [sub.id for sub in subordinates]
+
+            # Filter: own requests OR subordinate requests
+            user_requests = Request.objects.filter(
+                Q(created_by=user) | Q(created_by_id__in=subordinate_ids)
+            )
             queryset = queryset.filter(request__in=user_requests)
         
         return queryset.select_related('request', 'uploaded_by')
@@ -755,7 +857,7 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
         if not (
             user.is_superuser or
             document.uploaded_by == user or
-            user.can_purchase()
+            user.has_perm('requisition.can_purchase')
         ):
             return Response(
                 {"error": "You don't have permission to delete this document"},
@@ -786,10 +888,22 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
         
         # Check permissions
         user = request.user
+        from authentication.models import User
+
+        # Get subordinates recursively
+        subordinates = User.get_all_subordinates(user)
+        subordinate_ids = [sub.id for sub in subordinates]
+
+        # Allow access if:
+        # 1. User is admin/superuser
+        # 2. User is the request creator
+        # 3. User is in the purchasing team
+        # 4. Request creator is user's subordinate (supervisor access)
         if not (
             user.is_superuser or
             request_obj.created_by == user or
-            user.can_purchase()
+            user.has_perm('requisition.can_purchase') or
+            request_obj.created_by.id in subordinate_ids
         ):
             return Response(
                 {"error": "You don't have permission to view documents for this request"},

@@ -97,7 +97,7 @@ const { t } = useTranslation();
       setDescription(`${documentService.getDocumentTypeDisplay(documentType, t)} - ${file.name}`);
 
     } catch (error: any) {
-      if (isErrorWithCode(error) && error.code === errorCodes.CANCELED) {
+      if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) {
         // User cancelled the picker
         return;
       }

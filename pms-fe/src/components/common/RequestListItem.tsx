@@ -69,6 +69,14 @@ function RequestListItem({ request, onPress }: RequestListItemProps): React.JSX.
         )}
       </View>
 
+      {request.next_approver_name && ['pending', 'in_review'].includes(request.status) && (
+        <View style={styles.approverInfo}>
+          <Text style={styles.approverText}>
+            {t('requests.waitingForApproval', { name: request.next_approver_name })}
+          </Text>
+        </View>
+      )}
+
       <View style={styles.requestFooter}>
         <Text style={styles.dateText}>
           {new Date(request.created_at).toLocaleDateString()}
@@ -144,6 +152,20 @@ const styles = StyleSheet.create({
   revisionText: {
     fontSize: 12,
     color: '#fd7e14',
+    fontWeight: '500',
+  },
+  approverInfo: {
+    backgroundColor: '#e7f3ff',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#007bff',
+  },
+  approverText: {
+    fontSize: 13,
+    color: '#004085',
     fontWeight: '500',
   },
 });

@@ -516,7 +516,6 @@ class DynamicApprovalFlowTest(APITestCase):
         from django.contrib.auth.models import Group
         purchasing_group, created = Group.objects.get_or_create(name='Purchasing')
         self.purchasing_user.groups.add(purchasing_group)
-
         # Create test request
         self.request = Request.objects.create(
             item="High-Value Equipment",

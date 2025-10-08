@@ -247,5 +247,5 @@ const styles = StyleSheet.create({
   },
 } as const);
 
-export type { MainTabNavigatorProps, TabItem, UserRole, UserGroup };
+export type { MainTabNavigatorProps, TabItem };
 export default MainTabNavigator as (props: MainTabNavigatorProps) => React.JSX.Element;

@@ -4,7 +4,7 @@ from .models import Request, ApprovalHistory, AuditLog
 
 
 class RequestFilter(django_filters.FilterSet):
-    status = django_filters.ChoiceFilter(choices=Request.STATUS_CHOICES)
+    status = django_filters.MultipleChoiceFilter(choices=Request.STATUS_CHOICES, conjoined=False)
     category = django_filters.CharFilter(lookup_expr='icontains')
     created_by = django_filters.NumberFilter(field_name='created_by__id')
     created_by_username = django_filters.CharFilter(field_name='created_by__username', lookup_expr='icontains')

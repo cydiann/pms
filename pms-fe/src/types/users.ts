@@ -124,3 +124,15 @@ export interface UserGroup {
     codename: string;
   }>;
 }
+
+// Team Member - for supervisor's team view
+export interface TeamMember {
+  id: number;
+  username: string;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  worksite_name: string;
+  is_supervisor: boolean;
+  subordinate_count: number;
+}

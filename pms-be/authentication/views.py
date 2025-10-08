@@ -24,22 +24,32 @@ class UserViewSet(viewsets.ModelViewSet):
     
     # Define permissions for each action
     action_permissions = {
-        'list': 'auth.view_user',
-        # 'retrieve', 'update', 'partial_update' allow all authenticated users (queryset filtering + object permissions handle access)
+        # 'list' now allows all authenticated users - queryset filtering handles access (admins see all, supervisors see subordinates, users see self)
         'create': 'auth.add_user',
         'destroy': 'auth.delete_user',
         'manage_groups': 'auth.change_group',
         'manage_permissions': 'auth.change_permission',
         'view_as': 'auth.view_user',
         'available_permissions': 'auth.view_permission',
-        # 'me' and 'my_permissions' don't need special permissions - all authenticated users can access
+        # 'me', 'my_permissions', 'retrieve', 'update', 'partial_update' allow all authenticated users (queryset filtering + object permissions handle access)
     }
     
     def get_queryset(self):
-        # Users can only see themselves unless they have view_user permission
-        if self.request.user.has_perm('auth.view_user'):
+        user = self.request.user
+
+        # Admins can see all users
+        if user.has_perm('auth.view_user'):
             return User.objects.filter(deleted_at__isnull=True)
-        return User.objects.filter(id=self.request.user.id)
+
+        # Supervisors can see themselves and their subordinates
+        subordinates = user.get_all_subordinates()
+        if subordinates:
+            # Return self + subordinates
+            subordinate_ids = [sub.id for sub in subordinates]
+            return User.objects.filter(id__in=[user.id] + subordinate_ids, deleted_at__isnull=True)
+
+        # Regular users can only see themselves
+        return User.objects.filter(id=user.id)
     
     def get_permissions(self):
         # Special case for 'me' and 'my_permissions' actions - only need authentication
@@ -287,6 +297,93 @@ class UserViewSet(viewsets.ModelViewSet):
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+    @action(detail=False, methods=['get'], url_path='my-team', url_name='my-team')
+    def my_team(self, request):
+        """Get current user's direct reports (immediate subordinates only)"""
+        user = request.user
+        direct_reports = user.direct_reports.filter(deleted_at__isnull=True).order_by('first_name', 'last_name')
+
+        serializer = self.get_serializer(direct_reports, many=True)
+        return Response({
+            'count': direct_reports.count(),
+            'team_members': serializer.data
+        })
+
+    @action(detail=True, methods=['get'], url_path='subordinates', url_name='subordinates')
+    def subordinates(self, request, pk=None):
+        """Get direct reports of a specific user (for drill-down in team view)"""
+        target_user = self.get_object()
+        current_user = request.user
+
+        # Access control: can only view subordinates of users in your team tree or yourself
+        if target_user != current_user:
+            all_subordinates = current_user.get_all_subordinates()
+            if target_user not in all_subordinates:
+                return Response(
+                    {'error': 'You can only view subordinates of users in your team'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Get direct reports only
+        direct_reports = target_user.direct_reports.filter(deleted_at__isnull=True).order_by('first_name', 'last_name')
+
+        serializer = self.get_serializer(direct_reports, many=True)
+        return Response({
+            'user': {
+                'id': target_user.id,
+                'username': target_user.username,
+                'full_name': target_user.get_full_name(),
+            },
+            'count': direct_reports.count(),
+            'subordinates': serializer.data
+        })
+
+    @action(detail=True, methods=['get'], url_path='team-hierarchy', url_name='team-hierarchy')
+    def team_hierarchy(self, request, pk=None):
+        """Get full team hierarchy tree starting from a specific user"""
+        target_user = self.get_object()
+        current_user = request.user
+
+        # Access control: can only view hierarchy of users in your team tree or yourself
+        if target_user != current_user:
+            all_subordinates = current_user.get_all_subordinates()
+            if target_user not in all_subordinates:
+                return Response(
+                    {'error': 'You can only view team hierarchy of users in your team'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        def build_hierarchy_tree(user):
+            """Recursively build team hierarchy"""
+            direct_reports = user.direct_reports.filter(deleted_at__isnull=True).order_by('first_name', 'last_name')
+
+            children = []
+            for report in direct_reports:
+                children.append(build_hierarchy_tree(report))
+
+            return {
+                'id': user.id,
+                'username': user.username,
+                'full_name': user.get_full_name(),
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'is_supervisor': user.has_subordinates(),
+                'subordinate_count': direct_reports.count(),
+                'worksite': user.worksite.city if user.worksite else None,
+                'children': children
+            }
+
+        hierarchy_tree = build_hierarchy_tree(target_user)
+
+        return Response({
+            'root_user': {
+                'id': target_user.id,
+                'username': target_user.username,
+                'full_name': target_user.get_full_name(),
+            },
+            'hierarchy': hierarchy_tree
+        })
 
     @action(detail=True, methods=['get'], url_path='hierarchy-chain', url_name='hierarchy-chain')
     def hierarchy_chain(self, request, pk=None):

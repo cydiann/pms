@@ -181,6 +181,13 @@ class DocumentService {
     // 2. Upload file to MinIO
     const uploadSuccess = await this.uploadFile(createResponse.upload_url, file);
     if (!uploadSuccess) {
+      // Clean up: delete the document record since upload failed
+      try {
+        await this.deleteDocument(createResponse.id);
+        console.log('Deleted document record after failed upload');
+      } catch (deleteError) {
+        console.error('Failed to delete document record after upload failure:', deleteError);
+      }
       throw new Error('Failed to upload file to storage');
     }
 
@@ -192,9 +199,23 @@ class DocumentService {
       const status = e?.response?.status;
       const details = e?.response?.data;
       console.error('confirmUpload failed:', status, details || e?.message || e);
+      // Clean up: delete the document record since confirmation failed
+      try {
+        await this.deleteDocument(createResponse.id);
+        console.log('Deleted document record after failed confirmation');
+      } catch (deleteError) {
+        console.error('Failed to delete document record after confirmation failure:', deleteError);
+      }
       throw e;
     }
     if (confirmResponse.status !== 'success') {
+      // Clean up: delete the document record since confirmation was not successful
+      try {
+        await this.deleteDocument(createResponse.id);
+        console.log('Deleted document record after unsuccessful confirmation');
+      } catch (deleteError) {
+        console.error('Failed to delete document record after unsuccessful confirmation:', deleteError);
+      }
       throw new Error('Failed to confirm upload');
     }
 

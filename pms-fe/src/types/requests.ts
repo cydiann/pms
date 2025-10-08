@@ -32,7 +32,10 @@ export interface Request {
   created_by: number;
   created_by_name: string; // from serializer
   current_approver?: number;
+  next_approver?: number; // The current person who needs to approve (from get_next_approver)
+  next_approver_name?: string; // The full name of the next approver
   final_approver?: number;
+  last_approver?: number;
   status: RequestStatus;
   status_display: string; // from serializer
   quantity: string; // DecimalField as string
@@ -41,11 +44,11 @@ export interface Request {
   category: string;
   delivery_address: string;
   reason: string;
-  
+
   // Revision tracking
   revision_count: number;
   revision_notes: string;
-  
+
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -172,4 +175,38 @@ export interface AdminStats extends RequestStats {
   total_worksites: number;
   total_divisions: number;
   system_wide_stats: RequestStats;
+}
+
+// Dashboard Stats - matches backend dashboard-stats endpoint
+export interface DashboardStats {
+  user_id: number;
+  username: string;
+  full_name: string;
+  my_requests: {
+    total: number;
+    draft: number;
+    pending: number;
+    in_review: number;
+    approved: number;
+    rejected: number;
+    revision_requested: number;
+    purchasing: number;
+    ordered: number;
+    delivered: number;
+    completed: number;
+  };
+  supervisor_stats?: {
+    pending_approvals_count: number;
+    team_total_requests: number;
+    team_pending: number;
+    team_approved: number;
+    team_completed: number;
+    approved_by_me_count: number;
+    subordinate_count: number;
+  };
+  purchasing_stats?: {
+    queue_count: number;
+    ordered_count: number;
+    delivered_count: number;
+  };
 }

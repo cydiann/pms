@@ -134,12 +134,12 @@ class Request(models.Model):
         action_map = {
             'pending': 'submitted',
             'in_review': 'approved',
-            'approved': 'approved',  # Changed from 'final_approved' to 'approved'
+            'approved': 'final_approved',
             'rejected': 'rejected',
             'revision_requested': 'revision_requested',
-            'purchasing': 'approved',  # Changed from 'assigned_purchasing' to 'approved'
-            'ordered': 'approved',  # Changed from 'ordered' to 'approved'
-            'delivered': 'approved',  # Changed from 'delivered' to 'approved'
+            'purchasing': 'assigned_purchasing',
+            'ordered': 'ordered',
+            'delivered': 'delivered',
             'completed': 'completed',
         }
         
@@ -328,27 +328,34 @@ class ProcurementDocument(models.Model):
     
     def can_upload_document(self, user):
         """Check if user has permission to upload this document type"""
-        from authentication.models import User
         request_status = self.request.status
-        
+        is_creator = self.request.created_by == user
+
         # Admin can always upload
         if user.is_superuser:
             return True
-        
-        # Dispatch notes can be uploaded after ordering
+
+        has_purchase_perm = user.has_perm('requisition.can_purchase')
+
+        # Purchasing-specific documents (only purchasing team)
         if self.document_type == 'dispatch_note':
-            return request_status == 'ordered' and user.can_purchase()
-        
-        # Receipts can be uploaded after delivery
+            return request_status == 'ordered' and has_purchase_perm
+
         if self.document_type == 'receipt':
-            return request_status == 'delivered' and user.can_purchase()
-        
-        # Quotes can be uploaded during purchasing phase
-        if self.document_type == 'quote':
-            return request_status in ['approved', 'purchasing'] and user.can_purchase()
-        
-        # Other documents based on general permissions
-        return user.can_purchase()
+            return request_status == 'delivered' and has_purchase_perm
+
+        if self.document_type in ['quote', 'purchase_order']:
+            return request_status in ['approved', 'purchasing'] and has_purchase_perm
+
+        # Supporting documents (creator can upload during draft/pending/revision, purchasing team anytime)
+        if self.document_type in ['invoice', 'other']:
+            # Creator can upload to their own requests before final approval
+            if is_creator and request_status in ['draft', 'pending', 'in_review', 'revision_requested']:
+                return True
+            # Purchasing team can upload anytime
+            return has_purchase_perm
+
+        return False
 
 
 class AuditLog(models.Model):
