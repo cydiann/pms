@@ -2,11 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
-import { Request, RequestStatus } from '../../types/requests';
-import { PaginatedResponse } from '../../types/api';
+import { Request } from '../../types/requests';
 import RequestDetailModal from '../../components/modals/RequestDetailModal';
 
-function TeamRequestsScreen(): React.JSX.Element {
+function PendingApprovalsScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
@@ -14,31 +13,29 @@ function TeamRequestsScreen(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<RequestStatus | 'all'>('all');
 
-  const loadTeamRequests = useCallback(async (): Promise<void> => {
+  const loadPendingApprovals = useCallback(async (): Promise<void> => {
     try {
       setError(null);
-      const params = statusFilter !== 'all' ? { status: statusFilter } : undefined;
-      const response: PaginatedResponse<Request> = await requestService.getSubordinateRequests(params);
-      setRequests(response.results || []);
+      const response = await requestService.getPendingApprovals();
+      setRequests(response || []);
     } catch (err: any) {
-      setError(err.message || 'Failed to load team requests');
+      setError(err.message || 'Failed to load pending approvals');
       setRequests([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
-    loadTeamRequests();
-  }, [loadTeamRequests]);
+    loadPendingApprovals();
+  }, [loadPendingApprovals]);
 
   const onRefresh = useCallback((): void => {
     setRefreshing(true);
-    loadTeamRequests();
-  }, [loadTeamRequests]);
+    loadPendingApprovals();
+  }, [loadPendingApprovals]);
 
   const getStatusColor = useCallback((status: string): string => {
     return requestService.getStatusColor(status);
@@ -55,21 +52,13 @@ function TeamRequestsScreen(): React.JSX.Element {
   }, []);
 
   const handleRequestUpdated = useCallback((): void => {
-    loadTeamRequests();
-  }, [loadTeamRequests]);
+    loadPendingApprovals();
+  }, [loadPendingApprovals]);
 
   const getStatusBadgeStyle = useCallback((status: string): ViewStyle => ({
     ...styles.statusBadge,
     backgroundColor: getStatusColor(status),
   }), [getStatusColor]);
-
-  const statusFilterOptions: Array<{ value: RequestStatus | 'all'; label: string }> = [
-    { value: 'all', label: t('filters.allStatuses') },
-    { value: RequestStatus.DRAFT, label: t('status.draft') },
-    { value: RequestStatus.PENDING, label: t('status.pending') },
-    { value: RequestStatus.APPROVED, label: t('status.approved') },
-    { value: RequestStatus.REJECTED, label: t('status.rejected') },
-  ];
 
   const renderRequestItem = useCallback(({ item }: { item: Request }): React.JSX.Element => (
     <TouchableOpacity
@@ -102,7 +91,7 @@ function TeamRequestsScreen(): React.JSX.Element {
 
       <View style={styles.requestFooter}>
         <Text style={styles.dateText}>
-          {new Date(item.created_at).toLocaleDateString()}
+          {t('requests.submitted')}: {item.submitted_at ? new Date(item.submitted_at).toLocaleDateString() : t('common.notSubmitted')}
         </Text>
         {item.revision_count > 0 && (
           <Text style={styles.revisionText}>
@@ -116,10 +105,10 @@ function TeamRequestsScreen(): React.JSX.Element {
   const renderEmptyState = useCallback((): React.JSX.Element => (
     <View style={styles.emptyState}>
       <Text style={styles.emptyStateTitle}>
-        {t('supervisor.noTeamRequestsTitle')}
+        {t('supervisor.noPendingApprovalsTitle')}
       </Text>
       <Text style={styles.emptyStateMessage}>
-        {t('supervisor.noTeamRequestsMessage')}
+        {t('supervisor.noPendingApprovalsMessage')}
       </Text>
     </View>
   ), [t]);
@@ -151,26 +140,10 @@ function TeamRequestsScreen(): React.JSX.Element {
 
   return (
     <View style={styles.container}>
-      <View style={styles.filters}>
-        <Text style={styles.filterLabel}>{t('filters.status')}:</Text>
-        <View style={styles.filterButtons}>
-          {statusFilterOptions.map((option) => (
-            <TouchableOpacity
-              key={option.value}
-              style={[
-                styles.filterButton,
-                statusFilter === option.value && styles.filterButtonActive
-              ]}
-              onPress={() => setStatusFilter(option.value)}
-            >
-              <Text style={[
-                styles.filterButtonText,
-                statusFilter === option.value && styles.filterButtonTextActive
-              ]}>
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{t('supervisor.pendingApprovals')}</Text>
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>{requests.length}</Text>
         </View>
       </View>
 
@@ -199,74 +172,47 @@ function TeamRequestsScreen(): React.JSX.Element {
       />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  filters: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
     padding: 16,
-    borderBottomColor: '#e9ecef',
     borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
     color: '#2c3e50',
-    marginBottom: 8,
+    flex: 1,
   },
-  filterButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  filterButton: {
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  filterButtonActive: {
+  countBadge: {
     backgroundColor: '#007bff',
-    borderColor: '#007bff',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    minWidth: 32,
+    alignItems: 'center',
   },
-  filterButtonText: {
-    fontSize: 12,
-    color: '#6c757d',
-    fontWeight: '500',
-  },
-  filterButtonTextActive: {
+  countText: {
     color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   listContent: {
     padding: 8,
-  },
-  emptyContainer: {
-    flex: 1,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  emptyStateMessage: {
-    fontSize: 16,
-    color: '#6c757d',
-    textAlign: 'center',
-    lineHeight: 24,
   },
   requestItem: {
     backgroundColor: '#fff',
@@ -278,6 +224,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ffc107',
   },
   requestHeader: {
     flexDirection: 'row',
@@ -332,6 +280,28 @@ const styles = StyleSheet.create({
     color: '#fd7e14',
     fontWeight: '600',
   },
+  emptyContainer: {
+    flex: 1,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptyStateMessage: {
+    fontSize: 16,
+    color: '#6c757d',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
   loadingState: {
     flex: 1,
     justifyContent: 'center',
@@ -375,4 +345,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TeamRequestsScreen as () => React.JSX.Element;
+export default PendingApprovalsScreen as () => React.JSX.Element;

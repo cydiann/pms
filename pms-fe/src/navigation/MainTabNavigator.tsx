@@ -5,7 +5,7 @@ import { User } from '../types/auth';
 import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
 // Type definitions
-type UserRole = 'employee' | 'supervisor' | 'admin';
+type UserRole = 'employee' | 'supervisor' | 'purchasing' | 'admin';
 
 interface UserGroup {
   readonly id: number;
@@ -15,11 +15,15 @@ interface UserGroup {
 // Import screens
 import EmployeeDashboardScreen from '../screens/employee/DashboardScreen';
 import SupervisorDashboardScreen from '../screens/supervisor/DashboardScreen';
+import PurchasingDashboardScreen from '../screens/purchasing/PurchasingDashboardScreen';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import MyRequestsScreen from '../screens/employee/MyRequestsScreen';
 import ProfileScreen from '../screens/common/ProfileScreen';
+import PendingApprovalsScreen from '../screens/supervisor/PendingApprovalsScreen';
 import TeamRequestsScreen from '../screens/supervisor/TeamRequestsScreen';
 import MyTeamScreen from '../screens/supervisor/MyTeamScreen';
+import PurchasingQueueScreen from '../screens/purchasing/PurchasingQueueScreen';
+import DeliveryTrackingScreen from '../screens/purchasing/DeliveryTrackingScreen';
 import AllRequestsScreen from '../screens/admin/AllRequestsScreen';
 import UserManagementScreen from '../screens/admin/UserManagementScreen';
 import WorksiteManagementScreen from '../screens/admin/WorksiteManagementScreen';
@@ -54,8 +58,12 @@ function MainTabNavigator({
     // For now, we'll use groups to determine supervisor role
     const hasAdminGroup = user?.groups?.some((group: UserGroup) => group.name === 'Administrator');
     const hasSupervisorGroup = user?.groups?.some((group: UserGroup) => group.name === 'Supervisor');
+    const hasPurchasingGroup = user?.groups?.some(
+      (group: UserGroup) => group.name === 'Purchasing' || group.name === 'Purchasing Team'
+    );
 
     if (hasAdminGroup) return 'admin';
+    if (hasPurchasingGroup) return 'purchasing';
     if (hasSupervisorGroup) return 'supervisor';
     return 'employee';
   };
@@ -67,16 +75,27 @@ function MainTabNavigator({
     {
       key: 'dashboard',
       label: t('navigation.dashboard'),
-      component: userRole === 'admin' ? AdminDashboardScreen :
-        userRole === 'supervisor' ? SupervisorDashboardScreen :
-          EmployeeDashboardScreen,
-      roles: ['employee', 'supervisor', 'admin'] as const,
+      component:
+        userRole === 'admin'
+          ? AdminDashboardScreen
+          : userRole === 'supervisor'
+          ? SupervisorDashboardScreen
+          : userRole === 'purchasing'
+          ? PurchasingDashboardScreen
+          : EmployeeDashboardScreen,
+      roles: ['employee', 'supervisor', 'purchasing', 'admin'] as const,
     },
     {
       key: 'myRequests',
       label: t('navigation.myRequests'),
       component: MyRequestsScreen,
-      roles: ['employee', 'supervisor', 'admin'] as const,
+      roles: ['employee', 'supervisor', 'purchasing', 'admin'] as const,
+    },
+    {
+      key: 'pendingApprovals',
+      label: t('navigation.pendingApprovals'),
+      component: PendingApprovalsScreen,
+      roles: ['supervisor', 'admin'] as const,
     },
     {
       key: 'teamRequests',
@@ -89,6 +108,18 @@ function MainTabNavigator({
       label: t('navigation.myTeam'),
       component: MyTeamScreen,
       roles: ['supervisor'] as const,
+    },
+    {
+      key: 'purchasingQueue',
+      label: t('navigation.purchasingQueue'),
+      component: PurchasingQueueScreen,
+      roles: ['purchasing', 'admin'] as const,
+    },
+    {
+      key: 'deliveryTracking',
+      label: t('navigation.deliveryTracking'),
+      component: DeliveryTrackingScreen,
+      roles: ['purchasing', 'admin'] as const,
     },
     {
       key: 'allRequests',
@@ -118,7 +149,7 @@ function MainTabNavigator({
       key: 'profile',
       label: t('navigation.profile'),
       component: ProfileScreen,
-      roles: ['employee', 'supervisor', 'admin'] as const,
+      roles: ['employee', 'supervisor', 'purchasing', 'admin'] as const,
     },
   ] as const;
 

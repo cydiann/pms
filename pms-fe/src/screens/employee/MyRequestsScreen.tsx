@@ -6,6 +6,7 @@ import { Request } from '../../types/requests';
 import { PaginatedResponse } from '../../types/api';
 import RequestDetailModal from '../../components/modals/RequestDetailModal';
 import CreateRequestModal from '../../components/modals/CreateRequestModal';
+import StatusTimeline from '../../components/common/StatusTimeline';
 // Removed unused imports: showSimpleAlert, showSuccess, showError
 
 function MyRequestsScreen(): React.JSX.Element {
@@ -80,17 +81,9 @@ function MyRequestsScreen(): React.JSX.Element {
           </Text>
         )}
       </View>
-      
-      <View style={styles.requestFooter}>
-        <Text style={styles.dateText}>
-          {new Date(item.created_at).toLocaleDateString()}
-        </Text>
-        {item.revision_count > 0 && (
-          <Text style={styles.revisionText}>
-            Rev. {item.revision_count}
-          </Text>
-        )}
-      </View>
+
+      {/* Status Timeline */}
+      <StatusTimeline request={item} />
     </TouchableOpacity>
   ), [handleRequestPress, getStatusBadgeStyle, t]);
 

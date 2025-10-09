@@ -79,7 +79,7 @@ class Request(models.Model):
         transitions = {
             'draft': ['pending'],
             'pending': ['in_review', 'approved', 'rejected', 'revision_requested'],
-            'in_review': ['approved', 'rejected', 'revision_requested'],
+            'in_review': ['in_review', 'approved', 'rejected', 'revision_requested'],
             'revision_requested': ['pending'],  # After revision, goes back to pending
             'approved': ['purchasing', 'rejected'],  # Purchasing team can still reject
             'purchasing': ['ordered', 'rejected', 'revision_requested'],  # Purchasing actions
@@ -100,7 +100,7 @@ class Request(models.Model):
             raise ValueError(f"Invalid transition from '{self.status}' to '{new_status}'")
         
         old_status = self.status
-        self.status = new_status
+        target_status = new_status
         
         # Set current_approver when transitioning to pending status
         if new_status == 'pending':
@@ -116,6 +116,28 @@ class Request(models.Model):
                 else:
                     # Reset to beginning of chain
                     self.current_approver = chain[0] if chain else None
+        elif new_status == 'in_review':
+            # Move to next approver in the chain, if any
+            next_approver = self.get_next_approver()
+            if next_approver:
+                self.current_approver = next_approver
+            else:
+                # No more approvers; treat as final approval
+                target_status = 'approved'
+                self.current_approver = None
+                self.final_approver = user
+        elif new_status == 'approved':
+            # Final approval reached
+            self.current_approver = None
+            self.final_approver = user
+        elif new_status == 'rejected':
+            # Clear current approver on rejection
+            self.current_approver = None
+        elif new_status == 'revision_requested':
+            # Keep current approver so they can review the revision
+            pass
+        
+        self.status = target_status
         
         self.save()
         
@@ -131,11 +153,16 @@ class Request(models.Model):
             'delivered': 'delivered',
             'completed': 'completed',
         }
+        # If the transition ended up approving the request immediately,
+        # make sure we log the correct action.
+        action_status = target_status
+        if new_status == 'in_review' and target_status == 'approved':
+            action_status = 'approved'
         
         ApprovalHistory.objects.create(
             request=self,
             user=user,
-            action=action_map.get(new_status, new_status),
+            action=action_map.get(action_status, action_status),
             level=self.get_approval_level(user),
             notes=notes
         )

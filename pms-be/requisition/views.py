@@ -30,11 +30,23 @@ class RequestViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_superuser:
-            return Request.objects.all()
-        # Filter by user's worksite and permissions
-        return Request.objects.filter(
-            created_by__worksite=user.worksite
-        ).order_by('-created_at')
+            return Request.objects.all().order_by('-created_at')
+
+        filters = Q(created_by=user) | Q(created_by__worksite=user.worksite)
+        filters |= Q(current_approver=user) | Q(final_approver=user)
+
+        # Supervisors should see requests from their subordinate tree even across worksites
+        if hasattr(user, 'get_all_subordinates'):
+            subordinates = user.get_all_subordinates()
+            if subordinates:
+                subordinate_ids = [sub.id for sub in subordinates]
+                filters |= Q(created_by_id__in=subordinate_ids)
+
+        # Purchasing team needs visibility into procurement pipeline regardless of worksite
+        if hasattr(user, 'can_purchase') and user.can_purchase():
+            filters |= Q(status__in=['approved', 'purchasing', 'ordered', 'delivered', 'completed'])
+
+        return Request.objects.filter(filters).distinct().order_by('-created_at')
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -67,16 +79,20 @@ class RequestViewSet(viewsets.ModelViewSet):
         return f"REQ-{year}-{unique_id}"
     
     def can_approve(self, user, request_obj):
-        # Users can approve if they are in the approval chain above the requester
+        """Determine if user may take an approval action on the request."""
         if user.is_superuser:
             return True
-        
-        # Check if user is in the approval chain (supervisor hierarchy)
-        approval_chain = request_obj.get_approval_chain()
-        if user in approval_chain:
-            return True
-            
-        return False
+
+        # During supervisor workflow the current approver must match the user
+        if request_obj.status in ['pending', 'in_review', 'revision_requested']:
+            return request_obj.current_approver_id == user.id
+
+        # Purchasing stage allows members of purchasing group
+        if request_obj.status in ['approved', 'purchasing']:
+            return user.can_purchase()
+
+        # Fallback: allow members of the approval chain for legacy data
+        return user in request_obj.get_approval_chain()
     
     @action(detail=True, methods=['post'], url_path='approve', url_name='approve')
     def approve(self, request, pk=None):
@@ -88,31 +104,31 @@ class RequestViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        notes = request.data.get('notes', '')
+
         with transaction.atomic():
-            # Update request status
-            if request_obj.status == 'pending':
-                request_obj.status = 'purchasing'
-            elif request_obj.status == 'purchasing':
-                request_obj.status = 'ordered'
-            
-            # Remove the role reference - we'll track approval through ApprovalHistory
-            request_obj.save()
-            
-            # Log approval using the model's transition method
             try:
-                request_obj.transition_to(request_obj.status, request.user, request.data.get('notes', ''))
-            except ValueError:
-                # If transition fails, still log the approval attempt
-                ApprovalHistory.objects.create(
-                    request=request_obj,
-                    user=request.user,
-                    action='approved',
-                    level=request_obj.get_approval_level(request.user),
-                    notes=request.data.get('notes', '')
-                )
-        
+                if request_obj.status in ['pending', 'in_review']:
+                    # Determine whether there is another supervisor in the chain
+                    next_approver = request_obj.get_next_approver()
+                    if next_approver:
+                        request_obj.transition_to('in_review', request.user, notes)
+                    else:
+                        request_obj.transition_to('approved', request.user, notes)
+                elif request_obj.status == 'approved':
+                    request_obj.transition_to('purchasing', request.user, notes)
+                elif request_obj.status == 'purchasing':
+                    request_obj.transition_to('ordered', request.user, notes)
+                else:
+                    return Response(
+                        {'error': f"Cannot approve a request in '{request_obj.status}' status"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
         return Response({
-            'status': 'approved', 
+            'status': 'approved',
             'new_status': request_obj.status
         })
     
@@ -126,21 +142,15 @@ class RequestViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
+        notes = request.data.get('notes', '')
+
         with transaction.atomic():
-            request_obj.status = 'rejected'
-            request_obj.save()
-            
-            # Log rejection using the model's transition method
             try:
-                request_obj.transition_to('rejected', request.user, request.data.get('notes', ''))
-            except ValueError:
-                # If transition fails, still log the rejection
-                ApprovalHistory.objects.create(
-                    request=request_obj,
-                    user=request.user,
-                    action='rejected',
-                    level=request_obj.get_approval_level(request.user),
-                    notes=request.data.get('notes', '')
+                request_obj.transition_to('rejected', request.user, notes)
+            except ValueError as exc:
+                return Response(
+                    {'error': str(exc)},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
         
         return Response({'status': 'rejected'})
@@ -307,14 +317,8 @@ class RequestViewSet(viewsets.ModelViewSet):
         request_ids = [req.id for req in pending_requests]
         queryset = Request.objects.filter(id__in=request_ids).order_by('-created_at')
         
-        # Apply pagination
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-            
-        # Fallback if pagination is not configured
-        serializer = self.get_serializer(pending_requests, many=True)
+        # Return a simple list so the mobile client doesn't have to unwrap pagination
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'], url_path='purchasing-queue', url_name='purchasing-queue')
@@ -338,7 +342,42 @@ class RequestViewSet(viewsets.ModelViewSet):
         # Fallback if pagination is not configured
         serializer = self.get_serializer(purchasing_requests, many=True)
         return Response(serializer.data)
-    
+
+    @action(detail=False, methods=['get'], url_path='subordinate-stats', url_name='subordinate-stats')
+    def subordinate_stats(self, request):
+        """Get statistics for all requests created by current user's subordinates"""
+        # Get all subordinates using existing User model method
+        subordinates = request.user.get_all_subordinates()
+        subordinate_ids = [sub.id for sub in subordinates]
+
+        # Filter requests created by subordinates
+        subordinate_requests = Request.objects.filter(
+            created_by__in=subordinate_ids
+        )
+
+        # Calculate statistics using same pattern as admin stats endpoint
+        status_counts = subordinate_requests.values('status').annotate(count=Count('id'))
+        requests_by_status = {item['status']: item['count'] for item in status_counts}
+
+        # Extract specific counts
+        stats = {
+            'total_requests': sum(requests_by_status.values()),
+            'pending_requests': requests_by_status.get('pending', 0),
+            'approved_requests': requests_by_status.get('approved', 0),
+            'rejected_requests': requests_by_status.get('rejected', 0),
+            'draft_requests': requests_by_status.get('draft', 0),
+            'completed_requests': requests_by_status.get('completed', 0),
+            'requests_by_status': requests_by_status,
+            'requests_by_category': {},
+        }
+
+        # Count by category
+        category_counts = subordinate_requests.values('category').annotate(count=Count('id'))
+        for item in category_counts:
+            stats['requests_by_category'][item['category']] = item['count']
+
+        return Response(stats)
+
     @action(detail=True, methods=['get'], url_path='history', url_name='history')
     def history(self, request, pk=None):
         request_obj = self.get_object()

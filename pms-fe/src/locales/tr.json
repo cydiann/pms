@@ -60,7 +60,7 @@
     "pending": "Onay Bekliyor",
     "in_review": "İnceleme Aşamasında",
     "revision_requested": "Revizyon İstendi",
-    "approved": "Son Onay - Satın Alıma Hazır",
+    "approved": "Satın Almaya Hazır",
     "rejected": "Reddedildi",
     "purchasing": "Satın Alma Ekibine Atandı",
     "ordered": "Sipariş Verildi",
@@ -69,9 +69,19 @@
   },
   "actions": {
     "submit": "Gönder",
+    "submitted": "Gönderildi",
     "approve": "Onayla",
+    "approved": "Onaylandı",
     "reject": "Reddet",
+    "rejected": "Reddedildi",
     "requestRevision": "Revizyon İste",
+    "revision_requested": "Revizyon İstendi",
+    "revised": "Revize Edildi",
+    "final_approved": "Son Onay",
+    "assigned_purchasing": "Satın Almaya Atandı",
+    "ordered": "Sipariş Verildi",
+    "delivered": "Teslim Edildi",
+    "completed": "Tamamlandı",
     "save": "Kaydet",
     "cancel": "İptal",
     "edit": "Düzenle",
@@ -79,6 +89,16 @@
     "view": "Görüntüle",
     "ok": "Tamam",
     "retry": "Tekrar Dene"
+  },
+  "common": {
+    "loading": "Yükleniyor...",
+    "retry": "Tekrar Dene",
+    "cancel": "İptal",
+    "notSubmitted": "Gönderilmedi"
+  },
+  "filters": {
+    "status": "Durum",
+    "allStatuses": "Tüm Durumlar"
   },
   "forms": {
     "required": "Bu alan zorunludur",
@@ -88,8 +108,8 @@
     "loading": "Yükleniyor..."
   },
   "messages": {
-    "success": "İşlem başarıyla tamamlandı",
-    "error": "Bir hata oluştu",
+    "success": "Başarılı",
+    "error": "Hata",
     "networkError": "Ağ bağlantısı hatası",
     "unauthorized": "Yetkisiz erişim",
     "notFound": "Kaynak bulunamadı"
@@ -170,7 +190,47 @@
       "draftSaved": "Taslak talep {{requestNumber}} kaydedildi!",
       "requestSubmitted": "Talep {{requestNumber}} onay için gönderildi!",
       "modalDraftSaved": "Taslak talep \"{{itemName}}\" kaydedildi!",
-      "modalRequestSubmitted": "Talep \"{{itemName}}\" oluşturuldu ve onay için gönderildi!"
+      "modalRequestSubmitted": "Talep \"{{itemName}}\" oluşturuldu ve onay için gönderildi!",
+      "approved": "Talep başarıyla onaylandı!",
+      "rejected": "Talep reddedildi",
+      "revisionRequested": "Revizyon talep edildi"
+    },
+    "requestedBy": "Talep Eden",
+    "submitted": "Gönderildi",
+    "revision": "Rev.",
+    "approveRequest": "Talebi Onayla",
+    "rejectRequest": "Talebi Reddet",
+    "requestRevision": "Revizyon İste",
+    "approve": "Onayla",
+    "reject": "Reddet",
+    "approvalNotes": "Onay Notları",
+    "approvalNotesPlaceholder": "Notlarınızı veya yorumlarınızı ekleyin (isteğe bağlı)",
+    "approvalNotesHelp": "Bu notlar talep edene görünür olacaktır",
+    "rejectionReason": "Reddetme Nedeni",
+    "rejectionReasonPlaceholder": "Lütfen bu talebin neden reddedildiğini açıklayın",
+    "additionalNotes": "Ek Notlar",
+    "additionalNotesPlaceholder": "Ek yorumlarınızı ekleyin (isteğe bağlı)",
+    "rejectWarning": "Bu işlem talebi reddedecek ve talep edene bildirim gönderecektir.",
+    "revisionReason": "Revizyon Nedeni",
+    "revisionReasonPlaceholder": "Neyin revize edilmesi gerektiğini açıklayın",
+    "revisionHelpText": "Gerekli değişiklikler hakkında detaylı bilgi verin",
+    "revisionInfo": "Talep eden bilgilendirilecek ve yeniden göndermeden önce değişiklik yapabilecektir.",
+    "supervisorActions": "Yönetici İşlemleri",
+    "approvalHistory": "Onay Geçmişi",
+    "noHistoryAvailable": "Onay geçmişi mevcut değil",
+    "by": "Tarafından",
+    "notes": "Notlar",
+    "reviewNotes": "İnceleme Notları",
+    "tabs": {
+      "details": "Detaylar",
+      "history": "Geçmiş",
+      "documents": "Belgeler"
+    },
+    "timeline": {
+      "today": "Bugün",
+      "yesterday": "Dün",
+      "daysAgo": "{{count}} gün önce",
+      "notSubmitted": "Henüz gönderilmedi"
     }
   },
   "navigation": {
@@ -178,8 +238,11 @@
     "myRequests": "Taleplerim",
     "createRequest": "Talep Oluştur",
     "create": "Oluştur",
+    "pendingApprovals": "Bekleyen Onaylar",
     "teamRequests": "Ekip Talepleri",
     "myTeam": "Ekibim",
+    "purchasingQueue": "Satın Alma Kuyruğu",
+    "deliveryTracking": "Teslimat Takibi",
     "allRequests": "Tüm Talepler",
     "userManagement": "Kullanıcı Yönetimi",
     "users": "Kullanıcılar",
@@ -232,6 +295,9 @@
     "noTeamRequestsMessage": "Ekibiniz henüz hiç talep göndermemiş.",
     "noTeamMembersTitle": "Ekip Üyesi Yok",
     "noTeamMembersMessage": "Size henüz hiç ekip üyesi atanmamış.",
+    "noPendingApprovalsTitle": "Bekleyen Onay Yok",
+    "noPendingApprovalsMessage": "Tüm talepler incelendi. Harika iş!",
+    "pendingApprovals": "Bekleyen Onaylar",
     "myTeamTitle": "Ekibim",
     "teamMemberCount": "{{count}} ekip üyesi",
     "joined": "Katılım",
@@ -541,6 +607,56 @@
       "receipt": "Teslimat Makbuzu",
       "invoice": "Fatura",
       "other": "Başka Döküman"
+    }
+  },
+  "purchasing": {
+    "queue": "Satın Alma Kuyruğu",
+    "actions": "Satın Alma İşlemleri",
+    "markAsOrdered": "Sipariş Verildi Olarak İşaretle",
+    "urgent": "Acil",
+    "waitingDays": "{{count}} gündür bekliyor",
+    "noRequestsTitle": "Satın Alma Talebi Yok",
+    "noRequestsMessage": "Şu anda satın alma işlemi bekleyen talep bulunmamaktadır.",
+    "poNumber": "Satın Alma Sipariş Numarası",
+    "poNumberPlaceholder": "Sipariş numarasını girin (örn: PO-2024-001)",
+    "supplier": "Tedarikçi Bilgisi",
+    "supplierPlaceholder": "Tedarikçi adı ve iletişim bilgilerini girin",
+    "expectedDelivery": "Tahmini Teslimat Tarihi",
+    "expectedDeliveryPlaceholder": "Tahmini teslimat tarihini girin (örn: 2024-12-31)",
+    "orderNotes": "Sipariş Notları",
+    "orderNotesPlaceholder": "Sipariş hakkında ek notlar...",
+    "orderInfo": "Bu talebi sipariş verildi olarak işaretlemek için sipariş detaylarını sağlayın.",
+    "validation": {
+      "poNumberRequired": "Satın alma sipariş numarası gereklidir"
+    },
+    "success": {
+      "markedAsOrdered": "Talep başarıyla sipariş verildi olarak işaretlendi"
+    }
+  },
+  "delivery": {
+    "tracking": "Teslimat Takibi",
+    "actions": "Teslimat İşlemleri",
+    "markAsDelivered": "Teslim Edildi Olarak İşaretle",
+    "overdue": "Gecikmiş",
+    "daysSinceOrdered": "Sipariş verildikten beri {{count}} gün geçti",
+    "noOrdersTitle": "Takip Edilecek Sipariş Yok",
+    "noOrdersMessage": "Şu anda teslimat bekleyen sipariş bulunmamaktadır.",
+    "deliveryDate": "Teslimat Tarihi",
+    "deliveryDatePlaceholder": "Teslimat tarihini girin (örn: 2024-12-15)",
+    "receivedBy": "Teslim Alan",
+    "receivedByPlaceholder": "Teslimatı alan kişinin adını girin",
+    "condition": "Ürün Durumu",
+    "conditionGood": "İyi Durumda",
+    "conditionDamaged": "Hasarlı",
+    "deliveryNotes": "Teslimat Notları",
+    "deliveryNotesPlaceholder": "Teslimat hakkında ek notlar...",
+    "deliveryInfo": "Bu ürünü teslim edildi olarak işaretlemek için teslimat detaylarını onaylayın.",
+    "validation": {
+      "dateRequired": "Teslimat tarihi gereklidir",
+      "conditionRequired": "Ürün durumu seçimi gereklidir"
+    },
+    "success": {
+      "markedAsDelivered": "Ürün başarıyla teslim edildi olarak işaretlendi"
     }
   }
 }

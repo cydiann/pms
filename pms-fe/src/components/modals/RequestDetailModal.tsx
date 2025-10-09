@@ -15,6 +15,13 @@ import requestService from '../../services/requestService';
 import { Request } from '../../types/requests';
 import FileUpload from '../common/FileUpload';
 import DocumentList from '../common/DocumentList';
+import ApprovalHistory from '../common/ApprovalHistory';
+import RequestStatusProgress from '../common/RequestStatusProgress';
+import ApproveRequestModal from './ApproveRequestModal';
+import RejectRequestModal from './RejectRequestModal';
+import RequestRevisionModal from './RequestRevisionModal';
+import MarkAsOrderedModal from './MarkAsOrderedModal';
+import MarkAsDeliveredModal from './MarkAsDeliveredModal';
 import { showError, showSuccess } from '../../utils/platformUtils';
 
 interface RequestDetailModalProps {
@@ -22,6 +29,8 @@ interface RequestDetailModalProps {
   readonly onClose: () => void;
   readonly request: Request | null;
   readonly onRequestUpdated?: () => void;
+  readonly canApprove?: boolean;
+  readonly canPurchase?: boolean;
 }
 
 function RequestDetailModal({
@@ -29,10 +38,18 @@ function RequestDetailModal({
   onClose,
   request,
   onRequestUpdated,
+  canApprove = false,
+  canPurchase = false,
 }: RequestDetailModalProps): React.JSX.Element {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   const [documentListKey, setDocumentListKey] = useState(0);
+  const [approveModalVisible, setApproveModalVisible] = useState(false);
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [revisionModalVisible, setRevisionModalVisible] = useState(false);
+  const [orderedModalVisible, setOrderedModalVisible] = useState(false);
+  const [deliveredModalVisible, setDeliveredModalVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState<'details' | 'history' | 'documents'>('details');
 
   const handleSubmitRequest = async (): Promise<void> => {
     if (!request) {
@@ -61,9 +78,17 @@ function RequestDetailModal({
     }
   };
 
+  const handleActionSuccess = (): void => {
+    onRequestUpdated?.();
+    onClose();
+  };
+
   if (!request) return null;
 
   const canSubmit = request.status === 'draft';
+  const canTakeAction = canApprove && (request.status === 'pending' || request.status === 'in_review');
+  const canMarkOrdered = canPurchase && (request.status === 'approved' || request.status === 'purchasing');
+  const canMarkDelivered = canPurchase && request.status === 'ordered';
 
   return (
     <Modal
@@ -82,13 +107,46 @@ function RequestDetailModal({
         </View>
 
         <View style={styles.content}>
-          <ScrollView style={styles.detailsScrollView} nestedScrollEnabled={false}>
-            <View style={styles.statusContainer}>
-              <Text style={styles.requestTitle}>{request.item}</Text>
-              <View style={[styles.statusBadge, { backgroundColor: requestService.getStatusColor(request.status) }]}>
-                <Text style={styles.statusText}>{t(`status.${request.status}`)}</Text>
+          {/* Tab Navigation */}
+          <View style={styles.tabBar}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'details' && styles.activeTab]}
+              onPress={() => setActiveTab('details')}
+            >
+              <Text style={[styles.tabText, activeTab === 'details' && styles.activeTabText]}>
+                {t('requests.tabs.details')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'history' && styles.activeTab]}
+              onPress={() => setActiveTab('history')}
+            >
+              <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>
+                {t('requests.tabs.history')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'documents' && styles.activeTab]}
+              onPress={() => setActiveTab('documents')}
+            >
+              <Text style={[styles.tabText, activeTab === 'documents' && styles.activeTabText]}>
+                {t('requests.tabs.documents')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Tab Content - Details */}
+          {activeTab === 'details' && (
+            <ScrollView style={styles.detailsScrollView} nestedScrollEnabled={false}>
+              {/* Status Progress */}
+              <RequestStatusProgress currentStatus={request.status} />
+
+              <View style={styles.statusContainer}>
+                <Text style={styles.requestTitle}>{request.item}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: requestService.getStatusColor(request.status) }]}>
+                  <Text style={styles.statusText}>{t(`status.${request.status}`)}</Text>
+                </View>
               </View>
-            </View>
 
             <View style={styles.section}>
               <View style={styles.detailRow}>
@@ -153,18 +211,117 @@ function RequestDetailModal({
                 )}
               </TouchableOpacity>
             )}
-          </ScrollView>
 
-          {/* Document List with integrated upload buttons */}
-          <View style={styles.documentSection}>
-            <DocumentList
+            {canTakeAction && (
+              <View style={styles.supervisorActions}>
+                <Text style={styles.actionsTitle}>{t('requests.supervisorActions')}</Text>
+
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.approveButton]}
+                  onPress={() => setApproveModalVisible(true)}
+                >
+                  <Text style={styles.actionButtonText}>{t('requests.approve')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.revisionButton]}
+                  onPress={() => setRevisionModalVisible(true)}
+                >
+                  <Text style={styles.actionButtonText}>{t('requests.requestRevision')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.rejectButton]}
+                  onPress={() => setRejectModalVisible(true)}
+                >
+                  <Text style={styles.actionButtonText}>{t('requests.reject')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {canMarkOrdered && (
+              <View style={styles.purchasingActions}>
+                <Text style={styles.actionsTitle}>{t('purchasing.actions')}</Text>
+
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.orderedButton]}
+                  onPress={() => setOrderedModalVisible(true)}
+                >
+                  <Text style={styles.actionButtonText}>{t('purchasing.markAsOrdered')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {canMarkDelivered && (
+              <View style={styles.purchasingActions}>
+                <Text style={styles.actionsTitle}>{t('delivery.actions')}</Text>
+
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.deliveredButton]}
+                  onPress={() => setDeliveredModalVisible(true)}
+                >
+                  <Text style={styles.actionButtonText}>{t('delivery.markAsDelivered')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            </ScrollView>
+          )}
+
+          {/* Tab Content - History */}
+          {activeTab === 'history' && (
+            <ApprovalHistory
               requestId={request.id}
-              requestStatus={request.status}
-              style={styles.documentList}
-              refreshTrigger={documentListKey}
+              style={styles.historyContent}
             />
-          </View>
+          )}
+
+          {/* Tab Content - Documents */}
+          {activeTab === 'documents' && (
+            <View style={styles.documentSection}>
+              <DocumentList
+                requestId={request.id}
+                requestStatus={request.status}
+                style={styles.documentList}
+                refreshTrigger={documentListKey}
+              />
+            </View>
+          )}
         </View>
+
+        <ApproveRequestModal
+          visible={approveModalVisible}
+          onClose={() => setApproveModalVisible(false)}
+          request={request}
+          onSuccess={handleActionSuccess}
+        />
+
+        <RejectRequestModal
+          visible={rejectModalVisible}
+          onClose={() => setRejectModalVisible(false)}
+          request={request}
+          onSuccess={handleActionSuccess}
+        />
+
+        <RequestRevisionModal
+          visible={revisionModalVisible}
+          onClose={() => setRevisionModalVisible(false)}
+          request={request}
+          onSuccess={handleActionSuccess}
+        />
+
+        <MarkAsOrderedModal
+          visible={orderedModalVisible}
+          onClose={() => setOrderedModalVisible(false)}
+          request={request}
+          onSuccess={handleActionSuccess}
+        />
+
+        <MarkAsDeliveredModal
+          visible={deliveredModalVisible}
+          onClose={() => setDeliveredModalVisible(false)}
+          request={request}
+          onSuccess={handleActionSuccess}
+        />
       </SafeAreaView>
     </Modal>
   );
@@ -209,9 +366,37 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: {
+    borderBottomColor: '#007bff',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6c757d',
+  },
+  activeTabText: {
+    color: '#007bff',
+    fontWeight: '600',
+  },
   detailsScrollView: {
-    flexGrow: 0, // Don't grow, only take needed space
+    flex: 1,
     padding: 16,
+  },
+  historyContent: {
+    flex: 1,
   },
   documentSection: {
     flex: 1,
@@ -280,6 +465,52 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  supervisorActions: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 40,
+  },
+  actionsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 16,
+  },
+  actionButton: {
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  approveButton: {
+    backgroundColor: '#28a745',
+  },
+  revisionButton: {
+    backgroundColor: '#fd7e14',
+  },
+  rejectButton: {
+    backgroundColor: '#dc3545',
+  },
+  purchasingActions: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 40,
+  },
+  orderedButton: {
+    backgroundColor: '#20c997',
+  },
+  deliveredButton: {
+    backgroundColor: '#007bff',
   },
   sectionTitle: {
     fontSize: 16,
