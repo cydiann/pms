@@ -133,18 +133,30 @@ function PurchasingDashboardScreen(): React.JSX.Element {
       </View>
 
       <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={handleViewQueue}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statNumber}>{stats.total}</Text>
           <Text style={styles.statLabel}>{t('dashboard.totalRequests')}</Text>
-        </View>
-        <View style={styles.statCard}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={handleViewQueue}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statNumber}>{stats.approved}</Text>
           <Text style={styles.statLabel}>{t('status.approved')}</Text>
-        </View>
-        <View style={styles.statCard}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={handleViewQueue}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statNumber}>{stats.purchasing}</Text>
           <Text style={styles.statLabel}>{t('status.purchasing')}</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.quickActions}>

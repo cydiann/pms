@@ -85,18 +85,30 @@ function EmployeeDashboardScreen(): React.JSX.Element {
       </View>
 
       <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={handleViewRequests}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statNumber}>{stats?.pending_requests || 0}</Text>
           <Text style={styles.statLabel}>{t('dashboard.pendingRequests')}</Text>
-        </View>
-        <View style={styles.statCard}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={handleViewRequests}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statNumber}>{stats?.approved_requests || 0}</Text>
           <Text style={styles.statLabel}>{t('dashboard.approvedRequests')}</Text>
-        </View>
-        <View style={styles.statCard}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={handleViewRequests}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statNumber}>{stats?.draft_requests || 0}</Text>
           <Text style={styles.statLabel}>{t('dashboard.draftRequests')}</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.quickActions}>

@@ -1,10 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, FlatList } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, FlatList, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
 import { useTab } from '../../store/TabContext';
 import requestService from '../../services/requestService';
 import { AdminStats, Request } from '../../types/requests';
+import RequestDetailModal from '../../components/modals/RequestDetailModal';
+
+const RECENT_REQUEST_LIMIT = 10;
 
 function AdminDashboardScreen(): React.JSX.Element {
   const { t } = useTranslation();
@@ -14,6 +17,45 @@ function AdminDashboardScreen(): React.JSX.Element {
   const [recentRequests, setRecentRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const { width } = useWindowDimensions();
+  const isCompact = width < 400;
+
+  const responsiveTableStyles = useMemo(
+    () => ({
+      rowPadding: {
+        paddingHorizontal: isCompact ? 8 : 12,
+        paddingVertical: isCompact ? 10 : 12,
+      },
+      headerText: {
+        fontSize: isCompact ? 11 : 12,
+      },
+      cellText: {
+        fontSize: isCompact ? 12 : 13,
+      },
+      statusText: {
+        fontSize: isCompact ? 11 : 12,
+      },
+      requestNumberCell: {
+        flexBasis: isCompact ? 90 : 110,
+      },
+      itemCell: {
+        flexGrow: 1.8,
+        flexBasis: isCompact ? 130 : 160,
+      },
+      userCell: {
+        flexBasis: isCompact ? 120 : 150,
+      },
+      dateCell: {
+        flexBasis: isCompact ? 105 : 120,
+      },
+      statusCell: {
+        flexBasis: isCompact ? 120 : 150,
+      },
+    }),
+    [isCompact],
+  );
 
   const loadDashboardData = useCallback(async (): Promise<void> => {
     try {
@@ -24,9 +66,10 @@ function AdminDashboardScreen(): React.JSX.Element {
       // Load recent system requests
       const recentResponse = await requestService.getAllRequests({
         ordering: '-created_at',
-        page_size: 5
+        page_size: RECENT_REQUEST_LIMIT,
       });
-      setRecentRequests(recentResponse.results);
+      const recentItems = recentResponse.results ?? [];
+      setRecentRequests(recentItems.slice(0, RECENT_REQUEST_LIMIT));
     } catch (error) {
       // TODO: Add proper error handling/user feedback
       console.error('Error loading admin dashboard:', error);
@@ -45,23 +88,120 @@ function AdminDashboardScreen(): React.JSX.Element {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  const renderRecentRequestItem = useCallback(({ item }: { item: Request }): React.JSX.Element => (
-    <TouchableOpacity style={styles.requestItem}>
-      <View style={styles.requestHeader}>
-        <Text style={styles.requestTitle}>{item.item}</Text>
-        <View style={[
-          styles.statusBadge,
-          { backgroundColor: requestService.getStatusColor(item.status) }
-        ]}>
-          <Text style={styles.statusText}>{t(`status.${item.status}`)}</Text>
+  const handleRequestPress = useCallback((request: Request): void => {
+    setSelectedRequest(request);
+    setModalVisible(true);
+  }, []);
+
+  const handleModalClose = useCallback((): void => {
+    setModalVisible(false);
+    setSelectedRequest(null);
+  }, []);
+
+  const handleRequestUpdated = useCallback((): void => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  const handleGoToAllRequests = useCallback((): void => {
+    setActiveTab('allRequests');
+  }, [setActiveTab]);
+
+  const handleGoToUsers = useCallback((): void => {
+    setActiveTab('userManagement');
+  }, [setActiveTab]);
+
+  const handleGoToPendingApprovals = useCallback((): void => {
+    setActiveTab('pendingApprovals');
+  }, [setActiveTab]);
+
+  const renderRecentRequestItem = useCallback(
+    ({ item, index }: { item: Request; index: number }): React.JSX.Element => (
+      <TouchableOpacity
+        style={[
+          styles.tableRow,
+          responsiveTableStyles.rowPadding,
+          index % 2 === 0 ? styles.tableRowEven : styles.tableRowOdd,
+        ]}
+        onPress={() => handleRequestPress(item)}
+        activeOpacity={0.7}
+      >
+        <Text
+          style={[
+            styles.tableCell,
+            responsiveTableStyles.cellText,
+            styles.requestNumberCell,
+            responsiveTableStyles.requestNumberCell,
+          ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {item.request_number}
+        </Text>
+        <Text
+          style={[
+            styles.tableCell,
+            responsiveTableStyles.cellText,
+            styles.itemCell,
+            responsiveTableStyles.itemCell,
+          ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {item.item}
+        </Text>
+        <Text
+          style={[
+            styles.tableCell,
+            responsiveTableStyles.cellText,
+            styles.userCell,
+            responsiveTableStyles.userCell,
+          ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {item.created_by_name}
+        </Text>
+        <Text
+          style={[
+            styles.tableCell,
+            responsiveTableStyles.cellText,
+            styles.dateCell,
+            responsiveTableStyles.dateCell,
+          ]}
+        >
+          {new Date(item.created_at).toLocaleDateString()}
+        </Text>
+        <View
+          style={[
+            styles.tableCell,
+            styles.statusCell,
+            responsiveTableStyles.statusCell,
+          ]}
+        >
+          <View
+            style={[
+              styles.statusPill,
+              { backgroundColor: requestService.getStatusColor(item.status) },
+            ]}
+          >
+            <Text
+              style={[styles.statusText, responsiveTableStyles.statusText]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {t(`status.${item.status}`)}
+            </Text>
+          </View>
         </View>
-      </View>
-      <Text style={styles.requestCreator}>By: {item.created_by_name}</Text>
-      <Text style={styles.requestDate}>
-        {new Date(item.created_at).toLocaleDateString()}
-      </Text>
-    </TouchableOpacity>
-  ), []);
+      </TouchableOpacity>
+    ),
+    [handleRequestPress, responsiveTableStyles, t],
+  );
+
+  const renderRecentRequestSeparator = useCallback(
+    (): React.JSX.Element => <View style={styles.tableSeparator} />,
+    [],
+  );
 
   if (loading) {
     return (
@@ -73,132 +213,237 @@ function AdminDashboardScreen(): React.JSX.Element {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <View style={styles.header}>
-        <Text style={styles.welcomeText}>
-          {t('dashboard.welcome')}, {authState.user?.first_name}!
-        </Text>
-        <Text style={styles.subtitle}>
-          {t('dashboard.adminSubtitle')}
-        </Text>
-      </View>
-
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats?.total_requests || 0}</Text>
-          <Text style={styles.statLabel}>{t('dashboard.totalRequests')}</Text>
+    <>
+      <ScrollView
+        style={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={styles.header}>
+          <Text style={styles.welcomeText}>
+            {t('dashboard.welcome')}, {authState.user?.first_name}!
+          </Text>
+          <Text style={styles.subtitle}>
+            {t('dashboard.adminSubtitle')}
+          </Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats?.total_users || 0}</Text>
-          <Text style={styles.statLabel}>{t('dashboard.totalUsers')}</Text>
+
+        <View style={styles.statsContainer}>
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={handleGoToAllRequests}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.statNumber}>{stats?.total_requests || 0}</Text>
+            <Text style={styles.statLabel}>{t('dashboard.totalRequests')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={handleGoToUsers}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.statNumber}>{stats?.total_users || 0}</Text>
+            <Text style={styles.statLabel}>{t('dashboard.totalUsers')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={handleGoToPendingApprovals}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.statNumber}>{stats?.pending_requests || 0}</Text>
+            <Text style={styles.statLabel}>{t('dashboard.pendingApprovals')}</Text>
+          </TouchableOpacity>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats?.pending_requests || 0}</Text>
-          <Text style={styles.statLabel}>{t('dashboard.pendingApprovals')}</Text>
-        </View>
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('dashboard.systemOverview')}</Text>
-
-        <View style={styles.overviewGrid}>
-          <View style={styles.overviewItem}>
-            <Text style={styles.overviewNumber}>{stats?.approved_requests || 0}</Text>
-            <Text style={styles.overviewLabel}>{t('dashboard.approvedRequests')}</Text>
-          </View>
-          <View style={styles.overviewItem}>
-            <Text style={styles.overviewNumber}>{stats?.completed_requests || 0}</Text>
-            <Text style={styles.overviewLabel}>{t('dashboard.completedRequests')}</Text>
-          </View>
-          <View style={styles.overviewItem}>
-            <Text style={styles.overviewNumber}>{stats?.rejected_requests || 0}</Text>
-            <Text style={styles.overviewLabel}>{t('dashboard.rejectedRequests')}</Text>
-          </View>
-          <View style={styles.overviewItem}>
-            <Text style={styles.overviewNumber}>{stats?.active_users || 0}</Text>
-            <Text style={styles.overviewLabel}>{t('dashboard.activeUsers')}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('dashboard.recentRequests')}</Text>
-        {recentRequests.length > 0 ? (
-          <FlatList
-            data={recentRequests}
-            renderItem={renderRecentRequestItem}
-            keyExtractor={(item) => item.id.toString()}
-            scrollEnabled={false}
-          />
-        ) : (
-          <Text style={styles.placeholder}>{t('dashboard.noRecentRequests')}</Text>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('dashboard.quickActions')}</Text>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => setActiveTab('allRequests')}
-        >
-          <Text style={styles.actionButtonText}>
-            📋 {t('dashboard.manageRequests')}
-          </Text>
-          <Text style={styles.actionButtonSubtext}>
-            {t('dashboard.viewAllRequests')}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => setActiveTab('userManagement')}
-        >
-          <Text style={styles.actionButtonText}>
-            👥 {t('dashboard.manageUsers')}
-          </Text>
-          <Text style={styles.actionButtonSubtext}>
-            {stats?.total_users || 0} {t('dashboard.totalSystemUsers')}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => setActiveTab('worksiteManagement')}
-        >
-          <Text style={styles.actionButtonText}>
-            🏢 {t('navigation.worksites')}
-          </Text>
-          <Text style={styles.actionButtonSubtext}>
-            {t('worksiteManagement.title')}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {stats && stats.total_requests > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('dashboard.systemStatusBreakdown')}</Text>
+          <Text style={styles.sectionTitle}>{t('dashboard.systemOverview')}</Text>
 
-          {Object.entries(stats.requests_by_status).map(([status, count]) => (
-            <View key={status} style={styles.statusRow}>
-              <View style={[
-                styles.statusIndicator,
-                { backgroundColor: requestService.getStatusColor(status) }
-              ]} />
-              <Text style={styles.statusLabel}>
-                {t(`status.${status}`)}
-              </Text>
-              <Text style={styles.statusCount}>{count}</Text>
-            </View>
-          ))}
+          <View style={styles.overviewGrid}>
+            <TouchableOpacity
+              style={styles.overviewItem}
+              onPress={handleGoToAllRequests}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.overviewNumber}>{stats?.approved_requests || 0}</Text>
+              <Text style={styles.overviewLabel}>{t('dashboard.approvedRequests')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.overviewItem}
+              onPress={handleGoToAllRequests}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.overviewNumber}>{stats?.completed_requests || 0}</Text>
+              <Text style={styles.overviewLabel}>{t('dashboard.completedRequests')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.overviewItem}
+              onPress={handleGoToAllRequests}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.overviewNumber}>{stats?.rejected_requests || 0}</Text>
+              <Text style={styles.overviewLabel}>{t('dashboard.rejectedRequests')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.overviewItem}
+              onPress={handleGoToUsers}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.overviewNumber}>{stats?.active_users || 0}</Text>
+              <Text style={styles.overviewLabel}>{t('dashboard.activeUsers')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('dashboard.recentRequests')}</Text>
+          {recentRequests.length > 0 ? (
+            <View style={styles.tableContainer}>
+              <View
+                style={[
+                  styles.tableHeader,
+                  responsiveTableStyles.rowPadding,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.tableHeaderCell,
+                    responsiveTableStyles.headerText,
+                    styles.requestNumberCell,
+                    responsiveTableStyles.requestNumberCell,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {t('requests.requestNumber')}
+                </Text>
+                <Text
+                  style={[
+                    styles.tableHeaderCell,
+                    responsiveTableStyles.headerText,
+                    styles.itemCell,
+                    responsiveTableStyles.itemCell,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {t('requests.item')}
+                </Text>
+                <Text
+                  style={[
+                    styles.tableHeaderCell,
+                    responsiveTableStyles.headerText,
+                    styles.userCell,
+                    responsiveTableStyles.userCell,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {t('requests.details.createdBy')}
+                </Text>
+                <Text
+                  style={[
+                    styles.tableHeaderCell,
+                    responsiveTableStyles.headerText,
+                    styles.dateCell,
+                    responsiveTableStyles.dateCell,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {t('requests.createdAt')}
+                </Text>
+                <Text
+                  style={[
+                    styles.tableHeaderCell,
+                    responsiveTableStyles.headerText,
+                    styles.statusCellText,
+                    responsiveTableStyles.statusCell,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {t('requests.status')}
+                </Text>
+              </View>
+              <FlatList
+                data={recentRequests}
+                renderItem={renderRecentRequestItem}
+                keyExtractor={(item) => item.id.toString()}
+                scrollEnabled={false}
+                ItemSeparatorComponent={renderRecentRequestSeparator}
+                contentContainerStyle={styles.tableContent}
+              />
+            </View>
+          ) : (
+            <Text style={styles.placeholder}>{t('dashboard.noRecentRequests')}</Text>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('dashboard.quickActions')}</Text>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => setActiveTab('allRequests')}
+          >
+            <Text style={styles.actionButtonText}>
+              📋 {t('dashboard.manageRequests')}
+            </Text>
+            <Text style={styles.actionButtonSubtext}>
+              {t('dashboard.viewAllRequests')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => setActiveTab('userManagement')}
+          >
+            <Text style={styles.actionButtonText}>
+              👥 {t('dashboard.manageUsers')}
+            </Text>
+            <Text style={styles.actionButtonSubtext}>
+              {stats?.total_users || 0} {t('dashboard.totalSystemUsers')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => setActiveTab('worksiteManagement')}
+          >
+            <Text style={styles.actionButtonText}>
+              🏢 {t('navigation.worksites')}
+            </Text>
+            <Text style={styles.actionButtonSubtext}>
+              {t('worksiteManagement.title')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {stats && stats.total_requests > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('dashboard.systemStatusBreakdown')}</Text>
+
+            {Object.entries(stats.requests_by_status).map(([status, count]) => (
+              <View key={status} style={styles.statusRow}>
+                <View style={[
+                  styles.statusIndicator,
+                  { backgroundColor: requestService.getStatusColor(status) }
+                ]} />
+                <Text style={styles.statusLabel}>
+                  {t(`status.${status}`)}
+                </Text>
+                <Text style={styles.statusCount}>{count}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+
+      {selectedRequest && (
+        <RequestDetailModal
+          visible={modalVisible}
+          onClose={handleModalClose}
+          request={selectedRequest}
+          onRequestUpdated={handleRequestUpdated}
+        />
       )}
-    </ScrollView>
+    </>
   );
 };
 
@@ -288,44 +533,10 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     textAlign: 'center',
   },
-  requestItem: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 6,
-    marginBottom: 8,
-    borderColor: '#e9ecef',
-    borderWidth: 1,
-  },
-  requestHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  requestTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2c3e50',
-    flex: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
   statusText: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#fff',
     fontWeight: '600',
-  },
-  requestCreator: {
-    fontSize: 12,
-    color: '#495057',
-    marginBottom: 2,
-  },
-  requestDate: {
-    fontSize: 12,
-    color: '#6c757d',
   },
   actionButton: {
     backgroundColor: '#f8f9fa',
@@ -394,6 +605,84 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6c757d',
     fontStyle: 'italic',
+  },
+  tableContainer: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    overflow: 'hidden',
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f3f5',
+  },
+  tableHeaderCell: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#495057',
+    paddingHorizontal: 4,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  tableContent: {
+    backgroundColor: '#fff',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tableRowEven: {
+    backgroundColor: '#fff',
+  },
+  tableRowOdd: {
+    backgroundColor: '#f8f9fa',
+  },
+  tableSeparator: {
+    height: 1,
+    backgroundColor: '#e9ecef',
+  },
+  tableCell: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    fontSize: 13,
+    color: '#212529',
+    paddingHorizontal: 4,
+  },
+  requestNumberCell: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  itemCell: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  userCell: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  dateCell: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  statusCell: {
+    flexGrow: 0,
+    flexShrink: 1,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  statusCellText: {
+    flexGrow: 0,
+    textAlign: 'left',
+  },
+  statusPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'flex-end',
+    flexShrink: 1,
+    maxWidth: '100%',
   },
 });
 

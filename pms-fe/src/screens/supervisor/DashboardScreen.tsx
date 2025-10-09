@@ -50,6 +50,10 @@ function SupervisorDashboardScreen(): React.JSX.Element {
     setActiveTab('myTeam');
   }, [setActiveTab]);
 
+  const handleViewPendingApprovals = useCallback((): void => {
+    setActiveTab('pendingApprovals');
+  }, [setActiveTab]);
+
   const getStatusIndicatorStyle = useCallback((status: string): ViewStyle => ({
     ...styles.statusIndicator,
     backgroundColor: requestService.getStatusColor(status),
@@ -96,18 +100,30 @@ function SupervisorDashboardScreen(): React.JSX.Element {
       </View>
 
       <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={handleViewPendingApprovals}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statNumber}>{stats?.pending_requests || 0}</Text>
           <Text style={styles.statLabel}>{t('dashboard.pendingApprovals')}</Text>
-        </View>
-        <View style={styles.statCard}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={handleReviewRequests}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statNumber}>{stats?.total_requests || 0}</Text>
           <Text style={styles.statLabel}>{t('dashboard.teamRequests')}</Text>
-        </View>
-        <View style={styles.statCard}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={handleReviewRequests}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statNumber}>{stats?.approved_requests || 0}</Text>
           <Text style={styles.statLabel}>{t('dashboard.approved')}</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
