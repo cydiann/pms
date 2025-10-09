@@ -9,11 +9,12 @@ from datetime import datetime
 from django.utils import timezone
 import uuid
 
-from .models import Request, ApprovalHistory, AuditLog, ProcurementDocument
+from .models import Request, ApprovalHistory, AuditLog, ProcurementDocument, RequestArchive
 from .serializers import (
     RequestSerializer, RequestCreateSerializer, RequestUpdateSerializer,
     ApprovalHistorySerializer, AuditLogSerializer,
-    ProcurementDocumentSerializer, CreateDocumentSerializer, ConfirmUploadSerializer
+    ProcurementDocumentSerializer, CreateDocumentSerializer, ConfirmUploadSerializer,
+    RequestArchiveSerializer
 )
 from .filters import RequestFilter, ApprovalHistoryFilter, AuditLogFilter
 from organization.models import Worksite, Division
@@ -967,3 +968,170 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
                 "error": str(e),
                 "error_type": type(e).__name__
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class RequestArchiveViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for listing and downloading request archives
+
+    Archives are created via the management command:
+    - Requests and documents are deleted immediately after archive creation
+    - Archive ZIP can be downloaded once
+    - After download, only the ZIP file is deleted (requests already gone)
+    """
+    queryset = RequestArchive.objects.all()
+    serializer_class = RequestArchiveSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    ordering = ['-archive_date']
+
+    def get_queryset(self):
+        """Only admins and purchasing team can access archives"""
+        user = self.request.user
+
+        if not (user.is_superuser or user.has_perm('requisition.can_purchase')):
+            # Return empty queryset for unauthorized users
+            return RequestArchive.objects.none()
+
+        # Optionally filter to show only non-downloaded archives
+        show_all = self.request.query_params.get('show_all', 'false').lower() == 'true'
+
+        if show_all:
+            return RequestArchive.objects.all()
+        else:
+            # Default: only show archives that haven't been downloaded yet
+            return RequestArchive.objects.filter(downloaded=False)
+
+    def list(self, request, *args, **kwargs):
+        """List available archives"""
+        # Check permissions
+        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
+            return Response(
+                {'error': 'Only admins and purchasing team can access archives'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        return super().list(request, *args, **kwargs)
+
+    @action(detail=True, methods=['get'], url_path='download', url_name='download')
+    def download(self, request, pk=None):
+        """
+        Download archive ZIP file
+
+        After successful download:
+        - Archive is marked as downloaded
+        - ZIP file is deleted from disk
+
+        Note: Requests and documents are already deleted when archive was created
+        """
+        # Check permissions
+        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
+            return Response(
+                {'error': 'Only admins and purchasing team can download archives'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        archive = self.get_object()
+
+        # Check if already downloaded
+        if archive.downloaded:
+            return Response(
+                {
+                    'error': 'This archive has already been downloaded',
+                    'downloaded_at': archive.downloaded_at,
+                    'downloaded_by': archive.downloaded_by.get_full_name() if archive.downloaded_by else None
+                },
+                status=status.HTTP_410_GONE
+            )
+
+        # Check if file exists
+        from pathlib import Path
+        archive_path = Path(archive.file_path)
+
+        if not archive_path.exists():
+            return Response(
+                {'error': 'Archive file not found on disk'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Mark as downloaded before sending file (in case of download interruption)
+        archive.mark_downloaded(request.user)
+
+        # Prepare file response
+        from django.http import FileResponse
+
+        try:
+            # Open file for streaming
+            file_handle = open(archive_path, 'rb')
+            response = FileResponse(
+                file_handle,
+                content_type='application/zip',
+                as_attachment=True,
+                filename=archive_path.name
+            )
+
+            # Set content length
+            response['Content-Length'] = archive.file_size
+
+            # After successful response, cleanup in background
+            # Import here to avoid circular imports
+            from requisition.archive_service import ArchiveService
+
+            # Perform cleanup after download
+            # Note: This happens after the response is sent
+            try:
+                service = ArchiveService()
+                service.cleanup_after_download(archive)
+            except Exception as e:
+                import logging
+                logger = logging.getLogger('pms.app')
+                logger.error(f"Cleanup after download failed for archive {archive.id}: {e}")
+
+            return response
+
+        except Exception as e:
+            import logging
+            logger = logging.getLogger('pms.app')
+            logger.error(f"Archive download failed: {e}")
+
+            # Revert download status if file send failed
+            archive.downloaded = False
+            archive.downloaded_at = None
+            archive.downloaded_by = None
+            archive.save()
+
+            return Response(
+                {'error': f'Failed to download archive: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['get'], url_path='stats', url_name='stats')
+    def stats(self, request):
+        """Get archive statistics"""
+        # Check permissions
+        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
+            return Response(
+                {'error': 'Only admins and purchasing team can access archive stats'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        from django.db.models import Sum, Count
+
+        total_archives = RequestArchive.objects.count()
+        available_archives = RequestArchive.objects.filter(downloaded=False).count()
+        downloaded_archives = RequestArchive.objects.filter(downloaded=True).count()
+
+        total_requests_archived = RequestArchive.objects.aggregate(
+            total=Sum('request_count')
+        )['total'] or 0
+
+        total_size = RequestArchive.objects.filter(downloaded=False).aggregate(
+            total=Sum('file_size')
+        )['total'] or 0
+
+        return Response({
+            'total_archives': total_archives,
+            'available_archives': available_archives,
+            'downloaded_archives': downloaded_archives,
+            'total_requests_archived': total_requests_archived,
+            'total_available_size_mb': round(total_size / 1024 / 1024, 2)
+        })

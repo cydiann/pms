@@ -366,6 +366,52 @@ class AuditLog(models.Model):
     old_values = models.JSONField(null=True, blank=True)
     new_values = models.JSONField(null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
-    
+
     def __str__(self):
         return f"{self.user} - {self.action} {self.table_name}:{self.record_id}"
+
+
+class RequestArchive(models.Model):
+    """Track archived request batches stored as ZIP files"""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    archive_date = models.DateTimeField(default=timezone.now)
+    period_start = models.DateTimeField(help_text="Start of the archived period")
+    period_end = models.DateTimeField(help_text="End of the archived period")
+
+    file_path = models.CharField(max_length=500, help_text="Path to ZIP file on disk")
+    file_size = models.BigIntegerField(help_text="ZIP file size in bytes")
+    request_count = models.IntegerField(help_text="Number of requests archived")
+
+    # Track which requests were archived (for reference)
+    archived_request_ids = models.JSONField(default=list, help_text="List of archived request IDs")
+    archived_request_numbers = models.JSONField(default=list, help_text="List of archived request numbers")
+
+    # Download tracking
+    downloaded = models.BooleanField(default=False)
+    downloaded_at = models.DateTimeField(null=True, blank=True)
+    downloaded_by = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='downloaded_archives'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-archive_date']
+        indexes = [
+            models.Index(fields=['downloaded', 'archive_date']),
+        ]
+
+    def __str__(self):
+        return f"Archive {self.period_start.date()} to {self.period_end.date()} ({self.request_count} requests)"
+
+    def mark_downloaded(self, user):
+        """Mark archive as downloaded"""
+        self.downloaded = True
+        self.downloaded_at = timezone.now()
+        self.downloaded_by = user
+        self.save(update_fields=['downloaded', 'downloaded_at', 'downloaded_by'])

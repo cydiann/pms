@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Request, ApprovalHistory, AuditLog, ProcurementDocument
+from .models import Request, ApprovalHistory, AuditLog, ProcurementDocument, RequestArchive
 
 
 class RequestSerializer(serializers.ModelSerializer):
@@ -231,7 +231,7 @@ class CreateDocumentSerializer(serializers.ModelSerializer):
 
 class ConfirmUploadSerializer(serializers.Serializer):
     document_id = serializers.UUIDField()
-    
+
     def validate_document_id(self, value):
         try:
             document = ProcurementDocument.objects.get(id=value)
@@ -241,7 +241,7 @@ class ConfirmUploadSerializer(serializers.Serializer):
             return value
         except ProcurementDocument.DoesNotExist:
             raise serializers.ValidationError("Document not found")
-    
+
     def save(self):
         from requisition.storage import get_storage
 
@@ -253,3 +253,27 @@ class ConfirmUploadSerializer(serializers.Serializer):
         else:
             self.document.mark_failed()
             return False
+
+
+class RequestArchiveSerializer(serializers.ModelSerializer):
+    """Serializer for request archive metadata"""
+    downloaded_by_name = serializers.CharField(source='downloaded_by.get_full_name', read_only=True, allow_null=True)
+    file_size_mb = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RequestArchive
+        fields = [
+            'id', 'archive_date', 'period_start', 'period_end',
+            'file_size', 'file_size_mb', 'request_count',
+            'archived_request_numbers', 'downloaded', 'downloaded_at',
+            'downloaded_by', 'downloaded_by_name', 'created_at'
+        ]
+        read_only_fields = [
+            'id', 'archive_date', 'file_size', 'request_count',
+            'archived_request_ids', 'archived_request_numbers',
+            'downloaded', 'downloaded_at', 'downloaded_by', 'created_at'
+        ]
+
+    def get_file_size_mb(self, obj):
+        """Convert file size to MB for easier reading"""
+        return round(obj.file_size / 1024 / 1024, 2)
