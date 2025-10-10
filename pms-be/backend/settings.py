@@ -106,7 +106,7 @@ else:
             'NAME': config('DB_NAME', default='pms_db'),
             'USER': config('DB_USER', default='pms_user'),
             'PASSWORD': config('DB_PASSWORD', default='pms_password'),
-            'HOST': config('DB_ENGINE', default='localhost'),
+            'HOST': config('DB_HOST', default='localhost'),
             'PORT': config('DB_PORT', default='5432'),
         }
     }

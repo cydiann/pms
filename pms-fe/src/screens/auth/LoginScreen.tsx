@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   Platform,
   StatusBar,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
@@ -17,6 +18,8 @@ import { useAuth } from '../../store/AuthContext';
 import LoadingButton from '../../components/common/LoadingButton';
 import LanguageSwitcher from '../../components/common/LanguageSwitcher';
 import { LoginRequest } from '../../types/auth';
+import { API_CONFIG } from '../../constants/api';
+import apiClient from '../../services/apiClient';
 
 interface LoginFormData {
   username: string;
@@ -26,6 +29,11 @@ interface LoginFormData {
 function LoginScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const { authState, login, clearError } = useAuth();
+
+  const [backendModalVisible, setBackendModalVisible] = useState(false);
+  const [currentBackendUrl, setCurrentBackendUrl] = useState(API_CONFIG.BASE_URL);
+  const [backendUrlInput, setBackendUrlInput] = useState(API_CONFIG.BASE_URL);
+  const [backendUrlError, setBackendUrlError] = useState<string | null>(null);
 
   const {
     control,
@@ -58,9 +66,91 @@ function LoginScreen(): React.JSX.Element {
 
   const [showForgotPasswordInfo, setShowForgotPasswordInfo] = useState(false);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadBackendUrl = async (): Promise<void> => {
+      try {
+        const storedBaseUrl = await apiClient.getStoredBaseUrl();
+        if (!isMounted) {
+          return;
+        }
+        if (storedBaseUrl) {
+          setCurrentBackendUrl(storedBaseUrl);
+          setBackendUrlInput(storedBaseUrl);
+        } else {
+          setCurrentBackendUrl(API_CONFIG.BASE_URL);
+          setBackendUrlInput(API_CONFIG.BASE_URL);
+        }
+      } catch (error) {
+        console.warn('Failed to load backend URL.', error);
+      }
+    };
+
+    void loadBackendUrl();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleForgotPassword = useCallback((): void => {
     setShowForgotPasswordInfo(!showForgotPasswordInfo);
   }, [showForgotPasswordInfo]);
+
+  const handleOpenBackendModal = useCallback((): void => {
+    setBackendUrlError(null);
+    setBackendUrlInput(currentBackendUrl);
+    setBackendModalVisible(true);
+  }, [currentBackendUrl]);
+
+  const handleCloseBackendModal = useCallback((): void => {
+    setBackendModalVisible(false);
+    setBackendUrlError(null);
+  }, []);
+
+  const handleSaveBackendUrl = useCallback(async (): Promise<void> => {
+    const trimmedUrl = backendUrlInput.trim();
+
+    if (!trimmedUrl) {
+      setBackendUrlError('Backend URL is required.');
+      return;
+    }
+
+    try {
+      // Validate using URL constructor to ensure protocol + host exist
+      // Accepts values like http(s)://domain:port
+      // Throws if invalid
+      new URL(trimmedUrl);
+    } catch {
+      setBackendUrlError('Please enter a valid URL including protocol (e.g. https://api.example.com).');
+      return;
+    }
+
+    try {
+      await apiClient.setBaseUrl(trimmedUrl);
+      setCurrentBackendUrl(trimmedUrl);
+      setBackendModalVisible(false);
+      setBackendUrlError(null);
+      console.log('✅ Backend URL updated:', trimmedUrl);
+    } catch (error) {
+      console.warn('Failed to persist backend URL override.', error);
+      setBackendUrlError('Failed to save backend URL. Please try again.');
+    }
+  }, [backendUrlInput]);
+
+  const handleResetBackendUrl = useCallback(async (): Promise<void> => {
+    try {
+      await apiClient.resetBaseUrl();
+      setCurrentBackendUrl(API_CONFIG.BASE_URL);
+      setBackendUrlInput(API_CONFIG.BASE_URL);
+      setBackendUrlError(null);
+      console.log('✅ Backend URL reset to default:', API_CONFIG.BASE_URL);
+    } catch (error) {
+      console.warn('Failed to reset backend URL.', error);
+      setBackendUrlError('Failed to reset backend URL. Please try again.');
+    }
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -74,6 +164,14 @@ function LoginScreen(): React.JSX.Element {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.backendButton}
+            onPress={handleOpenBackendModal}
+            accessibilityRole="button"
+            accessibilityLabel="Configure backend API URL"
+          >
+            <Text style={styles.backendButtonText}>Backend</Text>
+          </TouchableOpacity>
           <LanguageSwitcher variant="light" />
         </View>
         <View style={styles.headerContainer}>
@@ -194,6 +292,60 @@ function LoginScreen(): React.JSX.Element {
 
         </View>
       </ScrollView>
+      <Modal
+        visible={backendModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCloseBackendModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Backend Configuration</Text>
+            <Text style={styles.modalDescription}>
+              Enter the backend API base URL provided by your administrator. This will be used for all network requests.
+            </Text>
+            <Text style={styles.modalLabel}>Current URL</Text>
+            <Text style={styles.modalValue}>{currentBackendUrl}</Text>
+            <Text style={styles.modalLabel}>New URL</Text>
+            <TextInput
+              value={backendUrlInput}
+              onChangeText={setBackendUrlInput}
+              placeholder="https://your-backend.example.com"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              style={[
+                styles.modalInput,
+                backendUrlError && styles.modalInputError,
+              ]}
+            />
+            {backendUrlError && (
+              <Text style={styles.modalErrorText}>{backendUrlError}</Text>
+            )}
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalResetButton]}
+                onPress={handleResetBackendUrl}
+              >
+                <Text style={styles.modalResetButtonText}>Reset Default</Text>
+              </TouchableOpacity>
+              <View style={styles.modalButtonSpacer} />
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={handleCloseBackendModal}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalSaveButton]}
+                onPress={handleSaveBackendUrl}
+              >
+                <Text style={styles.modalSaveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -214,8 +366,22 @@ const styles = StyleSheet.create({
   },
   topBar: {
     width: '100%',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  backendButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+    backgroundColor: '#343a40',
+    marginRight: 12,
+  },
+  backendButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 14,
   },
   headerContainer: {
     alignItems: 'center',
@@ -310,6 +476,104 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'left',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContainer: {
+    width: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+    color: '#212529',
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: '#6c757d',
+    marginBottom: 16,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#495057',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  modalValue: {
+    fontSize: 13,
+    color: '#495057',
+    backgroundColor: '#f1f3f5',
+    borderRadius: 8,
+    padding: 12,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ced4da',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    backgroundColor: '#fff',
+    marginTop: 4,
+  },
+  modalInputError: {
+    borderColor: '#dc3545',
+  },
+  modalErrorText: {
+    color: '#dc3545',
+    fontSize: 12,
+    marginTop: 8,
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+  },
+  modalResetButton: {
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#ced4da',
+  },
+  modalResetButtonText: {
+    color: '#343a40',
+    fontWeight: '600',
+  },
+  modalButtonSpacer: {
+    flex: 1,
+  },
+  modalCancelButton: {
+    backgroundColor: '#e9ecef',
+    marginRight: 10,
+  },
+  modalCancelButtonText: {
+    color: '#495057',
+    fontWeight: '600',
+  },
+  modalSaveButton: {
+    backgroundColor: '#0d6efd',
+  },
+  modalSaveButtonText: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
 });
 

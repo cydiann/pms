@@ -4,10 +4,13 @@ import storage from '../utils/storage';
 
 class ApiClient {
   private axiosInstance: AxiosInstance;
+  private baseUrl: string;
+  private readonly BASE_URL_STORAGE_KEY = '@pms_api_base_url';
 
   constructor() {
+    this.baseUrl = API_CONFIG.BASE_URL;
     this.axiosInstance = axios.create({
-      baseURL: API_CONFIG.BASE_URL,
+      baseURL: this.baseUrl,
       timeout: API_CONFIG.TIMEOUT,
       headers: {
         'Content-Type': 'application/json',
@@ -15,6 +18,7 @@ class ApiClient {
     });
 
     this.setupInterceptors();
+    void this.loadStoredBaseUrl();
   }
 
   private setupInterceptors() {
@@ -69,6 +73,58 @@ class ApiClient {
         return Promise.reject(error);
       }
     );
+  }
+
+  private async loadStoredBaseUrl(): Promise<void> {
+    try {
+      const storedBaseUrl = await storage.getItem(this.BASE_URL_STORAGE_KEY);
+      if (storedBaseUrl) {
+        console.log('🛰️ Loaded stored API base URL:', storedBaseUrl);
+        this.applyBaseUrl(storedBaseUrl);
+      } else {
+        console.log('🛰️ Using default API base URL:', this.baseUrl);
+      }
+    } catch (error) {
+      console.warn('Failed to load stored API base URL, using default.', error);
+    }
+  }
+
+  private applyBaseUrl(url: string): void {
+    this.baseUrl = url;
+    this.axiosInstance.defaults.baseURL = url;
+  }
+
+  public getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  public async getStoredBaseUrl(): Promise<string | null> {
+    try {
+      return await storage.getItem(this.BASE_URL_STORAGE_KEY);
+    } catch (error) {
+      console.warn('Failed to read stored API base URL.', error);
+      return null;
+    }
+  }
+
+  public async setBaseUrl(url: string): Promise<void> {
+    this.applyBaseUrl(url);
+    try {
+      await storage.setItem(this.BASE_URL_STORAGE_KEY, url);
+      console.log('🛰️ Persisted API base URL override:', url);
+    } catch (error) {
+      console.warn('Failed to persist API base URL override.', error);
+    }
+  }
+
+  public async resetBaseUrl(): Promise<void> {
+    this.applyBaseUrl(API_CONFIG.BASE_URL);
+    try {
+      await storage.removeItem(this.BASE_URL_STORAGE_KEY);
+      console.log('🛰️ Reset API base URL to default:', API_CONFIG.BASE_URL);
+    } catch (error) {
+      console.warn('Failed to clear stored API base URL override.', error);
+    }
   }
 
   public async get<T>(url: string): Promise<T> {
