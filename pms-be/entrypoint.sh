@@ -263,6 +263,11 @@ if [ "$DEBUG" = "True" ] || [ "$DEBUG" = "true" ] || [ "$DEBUG" = "1" ]; then
     echo "================================================="
 fi
 
-# Start the Django development server
-echo "Starting Django development server..."
-python manage.py runserver 0.0.0.0:8000
+# Start the server (gunicorn for production, runserver for development)
+if [ "$DEBUG" = "False" ] || [ "$DEBUG" = "false" ] || [ "$DEBUG" = "0" ]; then
+    echo "Starting production server with Gunicorn..."
+    gunicorn backend.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 60
+else
+    echo "Starting Django development server..."
+    python manage.py runserver 0.0.0.0:${PORT:-8000}
+fi

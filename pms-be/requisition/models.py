@@ -79,7 +79,7 @@ class Request(models.Model):
         transitions = {
             'draft': ['pending'],
             'pending': ['in_review', 'approved', 'rejected', 'revision_requested'],
-            'in_review': ['approved', 'rejected', 'revision_requested'],
+            'in_review': ['in_review', 'approved', 'rejected', 'revision_requested'],
             'revision_requested': ['pending'],  # After revision, goes back to pending
             'approved': ['purchasing', 'rejected'],  # Purchasing team can still reject
             'purchasing': ['ordered', 'rejected', 'revision_requested'],  # Purchasing actions
