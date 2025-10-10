@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from decimal import Decimal
@@ -57,6 +58,14 @@ class RequestViewSetTest(APITestCase):
             division=self.division,
             password="employeepass123"
         )
+
+        self.outsider = User.objects.create_user(
+            username="outsider",
+            first_name="Out",
+            last_name="Sider",
+            worksite=self.worksite,
+            password="outsiderpass123"
+        )
         
         # Create test request
         self.request1 = Request.objects.create(
@@ -92,6 +101,36 @@ class RequestViewSetTest(APITestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
+
+    def test_purchasing_user_can_view_ordered_requests(self):
+        """Purchasing team members can access ordered requests for tracking"""
+        purchasing_user = User.objects.create_user(
+            username="purchasing_user",
+            first_name="Procure",
+            last_name="Mentor",
+            worksite=self.worksite,
+            password="purchasepass123"
+        )
+        purchasing_group, _ = Group.objects.get_or_create(name='Purchasing')
+        purchasing_user.groups.add(purchasing_group)
+
+        ordered_request = Request.objects.create(
+            item="Industrial Drill",
+            description="Ordered equipment awaiting delivery",
+            created_by=self.employee,
+            quantity=Decimal('1.00'),
+            unit="pieces",
+            category="Machinery",
+            status='ordered'
+        )
+
+        self.client.force_authenticate(user=purchasing_user)
+        response = self.client.get(self.requests_url, {'status': 'ordered'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        results = response.data.get('results', response.data)
+        self.assertTrue(any(req['id'] == ordered_request.id for req in results))
     
     def test_create_request_as_employee(self):
         """Test employee can create requests"""
@@ -257,6 +296,31 @@ class RequestViewSetTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['action'], 'submitted')
+
+    def test_request_history_accessible_to_supervisor(self):
+        """Supervisors in the approval chain can view history"""
+        self.request1.transition_to('pending', self.employee)
+
+        self.client.force_authenticate(user=self.manager)
+
+        response = self.client.get(
+            reverse('request-history', args=[self.request1.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data), 1)
+
+    def test_request_history_forbidden_for_unrelated_user(self):
+        """Unrelated users cannot view history"""
+        self.request1.transition_to('pending', self.employee)
+
+        self.client.force_authenticate(user=self.outsider)
+
+        response = self.client.get(
+            reverse('request-history', args=[self.request1.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
     
     def test_filter_requests_by_status(self):
         """Test filtering requests by status"""

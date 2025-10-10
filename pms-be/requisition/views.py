@@ -35,6 +35,17 @@ class RequestViewSet(viewsets.ModelViewSet):
         if user.is_superuser or user.has_perm('requisition.view_all_requests'):
             return Request.objects.all()
 
+        # Purchasing team needs broader visibility for procurement workflow
+        if user.can_purchase():
+            return Request.objects.filter(
+                status__in=[
+                    'approved',
+                    'purchasing',
+                    'ordered',
+                    'delivered',
+                ]
+            ).order_by('-created_at')
+
         # Regular users only see their own requests in the main list
         # Use specialized endpoints for team/approval views
         return Request.objects.filter(
@@ -47,6 +58,57 @@ class RequestViewSet(viewsets.ModelViewSet):
         elif self.action in ['update', 'partial_update']:
             return RequestUpdateSerializer
         return RequestSerializer
+    
+    def _build_request_stats(self, queryset):
+        """Aggregate request statistics for the provided queryset."""
+        status_order = [
+            'draft',
+            'pending',
+            'in_review',
+            'revision_requested',
+            'approved',
+            'rejected',
+            'purchasing',
+            'ordered',
+            'delivered',
+            'completed',
+        ]
+
+        requests_by_status = {status: 0 for status in status_order}
+
+        for item in queryset.values('status').annotate(count=Count('id')):
+            status = item['status']
+            count = item['count']
+            if status in requests_by_status:
+                requests_by_status[status] = count
+            else:
+                requests_by_status[status] = count
+
+        total_requests = sum(requests_by_status.values())
+        pending_requests = requests_by_status.get('pending', 0) + requests_by_status.get('in_review', 0)
+        approved_requests = requests_by_status.get('approved', 0)
+        rejected_requests = requests_by_status.get('rejected', 0)
+        draft_requests = requests_by_status.get('draft', 0)
+        completed_requests = requests_by_status.get('completed', 0)
+
+        category_counts = queryset.values('category').annotate(count=Count('id'))
+        requests_by_category = {}
+        for item in category_counts:
+            category = item['category'] or 'Uncategorized'
+            requests_by_category[category] = item['count']
+
+        return {
+            'total_requests': total_requests,
+            'pending_requests': pending_requests,
+            'approved_requests': approved_requests,
+            'rejected_requests': rejected_requests,
+            'draft_requests': draft_requests,
+            'completed_requests': completed_requests,
+            'requests_by_status': requests_by_status,
+            'requests_by_category': requests_by_category,
+            'average_processing_time': 0,
+            'monthly_request_count': 0,
+        }
     
     def create(self, request, *args, **kwargs):
         # Use CreateSerializer for input validation
@@ -256,7 +318,7 @@ class RequestViewSet(viewsets.ModelViewSet):
         request_obj = get_object_or_404(Request, pk=pk)
 
         # Check if user has purchasing permissions
-        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
+        if not request.user.can_purchase():
             return Response(
                 {'error': 'Only purchasing team can assign requests'},
                 status=status.HTTP_403_FORBIDDEN
@@ -289,7 +351,7 @@ class RequestViewSet(viewsets.ModelViewSet):
         request_obj = get_object_or_404(Request, pk=pk)
 
         # Check if user has purchasing permissions
-        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
+        if not request.user.can_purchase():
             return Response(
                 {'error': 'Only purchasing team can mark as purchased'},
                 status=status.HTTP_403_FORBIDDEN
@@ -329,7 +391,7 @@ class RequestViewSet(viewsets.ModelViewSet):
         request_obj = get_object_or_404(Request, pk=pk)
 
         # Check if user has purchasing permissions
-        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
+        if not request.user.can_purchase():
             return Response(
                 {'error': 'Only purchasing team can mark as delivered'},
                 status=status.HTTP_403_FORBIDDEN
@@ -421,6 +483,32 @@ class RequestViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(team_requests, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'], url_path='my-stats', url_name='my-stats')
+    def my_stats(self, request):
+        """Get dashboard statistics for the current user's requests"""
+        queryset = Request.objects.filter(created_by=request.user)
+        stats = self._build_request_stats(queryset)
+        return Response(stats)
+
+    @action(detail=False, methods=['get'], url_path='subordinate-stats', url_name='subordinate-stats')
+    def subordinate_stats(self, request):
+        """Get dashboard statistics for the current user's subordinates"""
+        user = request.user
+
+        if not user.has_subordinates():
+            stats = self._build_request_stats(Request.objects.none())
+            stats['subordinate_count'] = 0
+            return Response(stats)
+
+        subordinates = user.get_all_subordinates()
+        team_requests = Request.objects.filter(
+            created_by__in=subordinates,
+            created_by__worksite=user.worksite
+        )
+        stats = self._build_request_stats(team_requests)
+        stats['subordinate_count'] = len(subordinates)
+        return Response(stats)
+
     @action(detail=False, methods=['get'], url_path='my-approved-requests', url_name='my-approved-requests')
     def my_approved_requests(self, request):
         """Get requests that current user has approved"""
@@ -449,7 +537,7 @@ class RequestViewSet(viewsets.ModelViewSet):
     def purchasing_queue(self, request):
         """Get requests ready for purchasing"""
         # Check if user has purchasing permissions
-        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
+        if not request.user.can_purchase():
             return Response(
                 {'error': 'Only purchasing team can access purchasing queue'},
                 status=status.HTTP_403_FORBIDDEN
@@ -469,7 +557,29 @@ class RequestViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'], url_path='history', url_name='history')
     def history(self, request, pk=None):
-        request_obj = self.get_object()
+        request_obj = get_object_or_404(Request, pk=pk)
+        user = request.user
+
+        # Allow viewing if user is the owner, part of the approval chain,
+        # previously acted on the request, or has elevated access.
+        is_owner = request_obj.created_by == user
+        in_approval_chain = user in request_obj.get_approval_chain()
+        participated = ApprovalHistory.objects.filter(
+            request=request_obj,
+            user=user
+        ).exists()
+        has_global_access = (
+            user.is_superuser
+            or user.can_view_all_requests()
+            or user.can_purchase()
+        )
+
+        if not (is_owner or in_approval_chain or participated or has_global_access):
+            return Response(
+                {'error': 'Not authorized to view approval history'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         history = ApprovalHistory.objects.filter(
             request=request_obj
         ).order_by('-created_at')
@@ -605,7 +715,7 @@ class RequestViewSet(viewsets.ModelViewSet):
             }
 
         # Purchasing team stats: if user can purchase
-        if user.is_superuser or user.has_perm('requisition.can_purchase'):
+        if user.can_purchase():
             purchasing_queue = Request.objects.filter(status__in=['approved', 'purchasing'])
             ordered_items = Request.objects.filter(status='ordered')
 
@@ -647,9 +757,8 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get'], url_path='stats', url_name='stats')
     def stats(self, request):
-        
         User = get_user_model()
-        
+
         # Optimized: Single query for all status counts
         status_counts = Request.objects.values('status').annotate(count=Count('id'))
         requests_by_status = {item['status']: item['count'] for item in status_counts}
@@ -673,12 +782,12 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
             total_users=Count('id'),
             active_users=Count('id', filter=Q(is_active=True))
         )
-        
+
         # Admin specific: all pending approvals (pending + in_review)
         all_pending_approvals = Request.objects.filter(
             status__in=['pending', 'in_review']
         ).count()
-        
+
         return Response({
             # RequestStats interface fields
             'total_requests': total_requests,
@@ -729,7 +838,7 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(status=status_filter)
         
         # Non-admin users can only see documents for their requests, subordinate requests, or if they have purchase permissions
-        if not user.is_superuser and not user.has_perm('requisition.can_purchase'):
+        if not user.is_superuser and not user.can_purchase():
             # Users can see documents for:
             # 1. Their own requests
             # 2. Requests from their subordinates (supervisor access)
@@ -848,7 +957,7 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
         if not (
             user.is_superuser or
             document.uploaded_by == user or
-            user.has_perm('requisition.can_purchase')
+            user.can_purchase()
         ):
             return Response(
                 {"error": "You don't have permission to delete this document"},
@@ -893,7 +1002,7 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
         if not (
             user.is_superuser or
             request_obj.created_by == user or
-            user.has_perm('requisition.can_purchase') or
+            user.can_purchase() or
             request_obj.created_by.id in subordinate_ids
         ):
             return Response(
@@ -978,7 +1087,7 @@ class RequestArchiveViewSet(viewsets.ReadOnlyModelViewSet):
         """Only admins and purchasing team can access archives"""
         user = self.request.user
 
-        if not (user.is_superuser or user.has_perm('requisition.can_purchase')):
+        if not user.can_purchase():
             # Return empty queryset for unauthorized users
             return RequestArchive.objects.none()
 
@@ -994,7 +1103,7 @@ class RequestArchiveViewSet(viewsets.ReadOnlyModelViewSet):
     def list(self, request, *args, **kwargs):
         """List available archives"""
         # Check permissions
-        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
+        if not request.user.can_purchase():
             return Response(
                 {'error': 'Only admins and purchasing team can access archives'},
                 status=status.HTTP_403_FORBIDDEN
@@ -1014,7 +1123,7 @@ class RequestArchiveViewSet(viewsets.ReadOnlyModelViewSet):
         Note: Requests and documents are already deleted when archive was created
         """
         # Check permissions
-        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
+        if not request.user.can_purchase():
             return Response(
                 {'error': 'Only admins and purchasing team can download archives'},
                 status=status.HTTP_403_FORBIDDEN
@@ -1098,7 +1207,7 @@ class RequestArchiveViewSet(viewsets.ReadOnlyModelViewSet):
     def stats(self, request):
         """Get archive statistics"""
         # Check permissions
-        if not (request.user.is_superuser or request.user.has_perm('requisition.can_purchase')):
+        if not request.user.can_purchase():
             return Response(
                 {'error': 'Only admins and purchasing team can access archive stats'},
                 status=status.HTTP_403_FORBIDDEN

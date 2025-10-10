@@ -95,17 +95,20 @@ function DeliveryTrackingScreen(): React.JSX.Element {
         onPress={() => handleRequestPress(item)}
         activeOpacity={0.7}
       >
-        {isOverdue && (
-          <View style={styles.overdueBadge}>
-            <Text style={styles.overdueBadgeText}>{t('delivery.overdue')}</Text>
-          </View>
-        )}
-
         <View style={styles.requestHeader}>
           <Text style={styles.requestNumber}>{item.request_number}</Text>
-          <View style={getStatusBadgeStyle(item.status)}>
+        </View>
+
+        <View style={styles.badgesRow}>
+          <View style={[getStatusBadgeStyle(item.status), styles.statusBadgeContainer]}>
             <Text style={styles.statusText}>{t(`status.${item.status}`)}</Text>
           </View>
+
+          {isOverdue && (
+            <View style={styles.overdueBadge}>
+              <Text style={styles.overdueBadgeText}>{t('delivery.overdue')}</Text>
+            </View>
+          )}
         </View>
 
         <Text style={styles.requestTitle}>{item.item}</Text>
@@ -130,7 +133,7 @@ function DeliveryTrackingScreen(): React.JSX.Element {
             style={styles.deliveredButton}
             onPress={(e) => handleMarkDeliveredPress(item, e)}
           >
-            <Text style={styles.deliveredButtonText}>{t('delivery.markDelivered')}</Text>
+            <Text style={styles.deliveredButtonText}>{t('delivery.markAsDelivered')}</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -277,15 +280,6 @@ const styles = StyleSheet.create({
     borderLeftColor: '#dc3545',
     borderLeftWidth: 6,
   },
-  overdueBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#dc3545',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
   overdueBadgeText: {
     color: '#fff',
     fontSize: 10,
@@ -297,6 +291,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    flexWrap: 'wrap',
+  },
+  statusBadgeContainer: {
+    marginRight: 8,
   },
   requestNumber: {
     fontSize: 14,
@@ -312,6 +315,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  overdueBadge: {
+    backgroundColor: '#dc3545',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
   },
   requestTitle: {
     fontSize: 18,
