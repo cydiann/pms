@@ -4,6 +4,8 @@ from datetime import datetime
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 
+from .utils import user_can_purchase
+
 
 class Request(models.Model):
     STATUS_CHOICES = [
@@ -319,24 +321,18 @@ class ProcurementDocument(models.Model):
         
         # Dispatch notes can be uploaded after ordering
         if self.document_type == 'dispatch_note':
-            return request_status == 'ordered' and (
-                user.role and user.role.can_purchase
-            )
+            return request_status == 'ordered' and user_can_purchase(user)
         
         # Receipts can be uploaded after delivery
         if self.document_type == 'receipt':
-            return request_status == 'delivered' and (
-                user.role and user.role.can_purchase
-            )
+            return request_status == 'delivered' and user_can_purchase(user)
         
         # Quotes can be uploaded during purchasing phase
         if self.document_type == 'quote':
-            return request_status in ['approved', 'purchasing'] and (
-                user.role and user.role.can_purchase
-            )
+            return request_status in ['approved', 'purchasing'] and user_can_purchase(user)
         
         # Other documents based on general permissions
-        return user.role and user.role.can_purchase
+        return user_can_purchase(user)
 
 
 class AuditLog(models.Model):

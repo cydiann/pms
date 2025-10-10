@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Request, ApprovalHistory, AuditLog, ProcurementDocument
+from .utils import user_can_purchase
 
 
 class RequestSerializer(serializers.ModelSerializer):
@@ -82,7 +83,7 @@ class ProcurementDocumentSerializer(serializers.ModelSerializer):
         return (
             user.is_superuser or
             obj.uploaded_by == user or
-            (user.role and user.role.can_purchase)
+            user_can_purchase(user)
         )
 
 
@@ -156,7 +157,7 @@ class CreateDocumentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Quotes and POs can only be uploaded during purchasing phase")
         
         # Check user permissions
-        if not user.is_superuser and not (user.role and user.role.can_purchase):
+        if not user.is_superuser and not user_can_purchase(user):
             raise serializers.ValidationError("You don't have permission to upload documents")
         
         return data
