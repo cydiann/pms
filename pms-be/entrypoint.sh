@@ -4,9 +4,10 @@
 
 # Wait for database to be ready
 echo "Waiting for database..."
-until python manage.py check --database default > /dev/null 2>&1; do
+echo "DATABASE_URL is set to: ${DATABASE_URL:0:50}..."  # Show first 50 chars for debugging
+until python manage.py check --database default 2>&1; do
   echo "Database not ready, waiting..."
-  sleep 1
+  sleep 2
 done
 echo "Database is ready!"
 
