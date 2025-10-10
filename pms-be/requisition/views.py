@@ -1,11 +1,11 @@
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Avg, F, ExpressionWrapper, DurationField
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
-from datetime import datetime
+from datetime import timedelta
 from django.utils import timezone
 import uuid
 
@@ -17,7 +17,7 @@ from .serializers import (
 )
 from .filters import RequestFilter, ApprovalHistoryFilter, AuditLogFilter
 from organization.models import Worksite, Division
-from .storage import get_storage
+from .storage import storage
 
 class RequestViewSet(viewsets.ModelViewSet):
     serializer_class = RequestSerializer
@@ -30,23 +30,11 @@ class RequestViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_superuser:
-            return Request.objects.all().order_by('-created_at')
-
-        filters = Q(created_by=user) | Q(created_by__worksite=user.worksite)
-        filters |= Q(current_approver=user) | Q(final_approver=user)
-
-        # Supervisors should see requests from their subordinate tree even across worksites
-        if hasattr(user, 'get_all_subordinates'):
-            subordinates = user.get_all_subordinates()
-            if subordinates:
-                subordinate_ids = [sub.id for sub in subordinates]
-                filters |= Q(created_by_id__in=subordinate_ids)
-
-        # Purchasing team needs visibility into procurement pipeline regardless of worksite
-        if hasattr(user, 'can_purchase') and user.can_purchase():
-            filters |= Q(status__in=['approved', 'purchasing', 'ordered', 'delivered', 'completed'])
-
-        return Request.objects.filter(filters).distinct().order_by('-created_at')
+            return Request.objects.all()
+        # Filter by user's worksite and permissions
+        return Request.objects.filter(
+            created_by__worksite=user.worksite
+        ).order_by('-created_at')
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -54,6 +42,55 @@ class RequestViewSet(viewsets.ModelViewSet):
         elif self.action in ['update', 'partial_update']:
             return RequestUpdateSerializer
         return RequestSerializer
+
+    def _build_request_stats(self, queryset):
+        """
+        Aggregate statistics that match the RequestStats type expected by the mobile client.
+        """
+        status_keys = [choice[0] for choice in Request.STATUS_CHOICES]
+        status_counts = {key: 0 for key in status_keys}
+        for item in queryset.values('status').annotate(count=Count('id')):
+            status = item['status']
+            if status in status_counts:
+                status_counts[status] = item['count']
+
+        total_requests = sum(status_counts.values())
+
+        category_counts = {}
+        for item in queryset.values('category').annotate(count=Count('id')):
+            category = item['category'] or 'uncategorized'
+            category_counts[category] = item['count']
+
+        recent_threshold = timezone.now() - timedelta(days=30)
+        monthly_request_count = queryset.filter(created_at__gte=recent_threshold).count()
+
+        processing_qs = queryset.filter(
+            submitted_at__isnull=False
+        ).exclude(
+            updated_at__lt=F('submitted_at')
+        ).annotate(
+            processing_time=ExpressionWrapper(
+                F('updated_at') - F('submitted_at'),
+                output_field=DurationField()
+            )
+        )
+        avg_processing = processing_qs.aggregate(avg=Avg('processing_time'))['avg']
+        average_processing_time = 0.0
+        if avg_processing:
+            average_processing_time = round(avg_processing.total_seconds() / 86400, 2)
+
+        return {
+            'total_requests': total_requests,
+            'pending_requests': status_counts.get('pending', 0),
+            'approved_requests': status_counts.get('approved', 0),
+            'rejected_requests': status_counts.get('rejected', 0),
+            'draft_requests': status_counts.get('draft', 0),
+            'completed_requests': status_counts.get('completed', 0),
+            'requests_by_status': status_counts,
+            'requests_by_category': category_counts,
+            'average_processing_time': average_processing_time,
+            'monthly_request_count': monthly_request_count,
+        }
     
     def create(self, request, *args, **kwargs):
         # Use CreateSerializer for input validation
@@ -79,20 +116,16 @@ class RequestViewSet(viewsets.ModelViewSet):
         return f"REQ-{year}-{unique_id}"
     
     def can_approve(self, user, request_obj):
-        """Determine if user may take an approval action on the request."""
+        # Users can approve if they are in the approval chain above the requester
         if user.is_superuser:
             return True
-
-        # During supervisor workflow the current approver must match the user
-        if request_obj.status in ['pending', 'in_review', 'revision_requested']:
-            return request_obj.current_approver_id == user.id
-
-        # Purchasing stage allows members of purchasing group
-        if request_obj.status in ['approved', 'purchasing']:
-            return user.can_purchase()
-
-        # Fallback: allow members of the approval chain for legacy data
-        return user in request_obj.get_approval_chain()
+        
+        # Check if user is in the approval chain (supervisor hierarchy)
+        approval_chain = request_obj.get_approval_chain()
+        if user in approval_chain:
+            return True
+            
+        return False
     
     @action(detail=True, methods=['post'], url_path='approve', url_name='approve')
     def approve(self, request, pk=None):
@@ -104,31 +137,31 @@ class RequestViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        notes = request.data.get('notes', '')
-
         with transaction.atomic():
+            # Update request status
+            if request_obj.status == 'pending':
+                request_obj.status = 'purchasing'
+            elif request_obj.status == 'purchasing':
+                request_obj.status = 'ordered'
+            
+            # Remove the role reference - we'll track approval through ApprovalHistory
+            request_obj.save()
+            
+            # Log approval using the model's transition method
             try:
-                if request_obj.status in ['pending', 'in_review']:
-                    # Determine whether there is another supervisor in the chain
-                    next_approver = request_obj.get_next_approver()
-                    if next_approver:
-                        request_obj.transition_to('in_review', request.user, notes)
-                    else:
-                        request_obj.transition_to('approved', request.user, notes)
-                elif request_obj.status == 'approved':
-                    request_obj.transition_to('purchasing', request.user, notes)
-                elif request_obj.status == 'purchasing':
-                    request_obj.transition_to('ordered', request.user, notes)
-                else:
-                    return Response(
-                        {'error': f"Cannot approve a request in '{request_obj.status}' status"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            except ValueError as exc:
-                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
+                request_obj.transition_to(request_obj.status, request.user, request.data.get('notes', ''))
+            except ValueError:
+                # If transition fails, still log the approval attempt
+                ApprovalHistory.objects.create(
+                    request=request_obj,
+                    user=request.user,
+                    action='approved',
+                    level=request_obj.get_approval_level(request.user),
+                    notes=request.data.get('notes', '')
+                )
+        
         return Response({
-            'status': 'approved',
+            'status': 'approved', 
             'new_status': request_obj.status
         })
     
@@ -142,15 +175,21 @@ class RequestViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        notes = request.data.get('notes', '')
-
         with transaction.atomic():
+            request_obj.status = 'rejected'
+            request_obj.save()
+            
+            # Log rejection using the model's transition method
             try:
-                request_obj.transition_to('rejected', request.user, notes)
-            except ValueError as exc:
-                return Response(
-                    {'error': str(exc)},
-                    status=status.HTTP_400_BAD_REQUEST
+                request_obj.transition_to('rejected', request.user, request.data.get('notes', ''))
+            except ValueError:
+                # If transition fails, still log the rejection
+                ApprovalHistory.objects.create(
+                    request=request_obj,
+                    user=request.user,
+                    action='rejected',
+                    level=request_obj.get_approval_level(request.user),
+                    notes=request.data.get('notes', '')
                 )
         
         return Response({'status': 'rejected'})
@@ -231,7 +270,7 @@ class RequestViewSet(viewsets.ModelViewSet):
         request_obj = self.get_object()
         
         # Check if user has purchasing permissions or is superuser
-        if not (request.user.is_superuser or request.user.can_purchase()):
+        if not (request.user.is_superuser or (request.user.role and request.user.role.can_purchase)):
             return Response(
                 {'error': 'Only purchasing team can mark as purchased'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -252,10 +291,39 @@ class RequestViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
-        return Response({
-            'status': 'ordered',
-            'message': 'Request marked as purchased/ordered'
-        })
+        request_obj.refresh_from_db()
+        serializer = RequestSerializer(request_obj, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='assign-purchasing', url_name='assign-purchasing')
+    def assign_purchasing(self, request, pk=None):
+        """Move request into purchasing workflow without marking as ordered"""
+        request_obj = self.get_object()
+
+        if not (request.user.is_superuser or (request.user.role and request.user.role.can_purchase)):
+            return Response(
+                {'error': 'Only purchasing team can assign requests to purchasing'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if request_obj.status not in ['approved', 'pending']:
+            return Response(
+                {'error': 'Only approved or pending requests can be assigned to purchasing'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            try:
+                request_obj.transition_to('purchasing', request.user, request.data.get('notes', ''))
+            except ValueError as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        request_obj.refresh_from_db()
+        serializer = RequestSerializer(request_obj, context={'request': request})
+        return Response(serializer.data)
     
     @action(detail=True, methods=['post'], url_path='mark-delivered', url_name='mark-delivered')
     def mark_delivered(self, request, pk=None):
@@ -263,7 +331,7 @@ class RequestViewSet(viewsets.ModelViewSet):
         request_obj = self.get_object()
         
         # Check if user has purchasing permissions or is superuser
-        if not (request.user.is_superuser or request.user.can_purchase()):
+        if not (request.user.is_superuser or (request.user.role and request.user.role.can_purchase)):
             return Response(
                 {'error': 'Only purchasing team can mark as delivered'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -284,10 +352,39 @@ class RequestViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
-        return Response({
-            'status': 'delivered',
-            'message': 'Request marked as delivered'
-        })
+        request_obj.refresh_from_db()
+        serializer = RequestSerializer(request_obj, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='mark-completed', url_name='mark-completed')
+    def mark_completed(self, request, pk=None):
+        """Mark request as fully completed after delivery"""
+        request_obj = self.get_object()
+
+        if not (request.user.is_superuser or (request.user.role and request.user.role.can_purchase)):
+            return Response(
+                {'error': 'Only purchasing team can mark requests as completed'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if request_obj.status != 'delivered':
+            return Response(
+                {'error': 'Only delivered requests can be marked as completed'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            try:
+                request_obj.transition_to('completed', request.user, request.data.get('notes', ''))
+            except ValueError as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        request_obj.refresh_from_db()
+        serializer = RequestSerializer(request_obj, context={'request': request})
+        return Response(serializer.data)
     
     @action(detail=False, methods=['get'], url_path='my-requests', url_name='my-requests')
     def my_requests(self, request):
@@ -317,15 +414,21 @@ class RequestViewSet(viewsets.ModelViewSet):
         request_ids = [req.id for req in pending_requests]
         queryset = Request.objects.filter(id__in=request_ids).order_by('-created_at')
         
-        # Return a simple list so the mobile client doesn't have to unwrap pagination
-        serializer = self.get_serializer(queryset, many=True)
+        # Apply pagination
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+            
+        # Fallback if pagination is not configured
+        serializer = self.get_serializer(pending_requests, many=True)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'], url_path='purchasing-queue', url_name='purchasing-queue')
     def purchasing_queue(self, request):
         """Get requests ready for purchasing"""
         # Check if user has purchasing permissions
-        if not (request.user.is_superuser or request.user.can_purchase()):
+        if not (request.user.is_superuser or (request.user.role and request.user.role.can_purchase)):
             return Response(
                 {'error': 'Only purchasing team can access purchasing queue'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -342,42 +445,7 @@ class RequestViewSet(viewsets.ModelViewSet):
         # Fallback if pagination is not configured
         serializer = self.get_serializer(purchasing_requests, many=True)
         return Response(serializer.data)
-
-    @action(detail=False, methods=['get'], url_path='subordinate-stats', url_name='subordinate-stats')
-    def subordinate_stats(self, request):
-        """Get statistics for all requests created by current user's subordinates"""
-        # Get all subordinates using existing User model method
-        subordinates = request.user.get_all_subordinates()
-        subordinate_ids = [sub.id for sub in subordinates]
-
-        # Filter requests created by subordinates
-        subordinate_requests = Request.objects.filter(
-            created_by__in=subordinate_ids
-        )
-
-        # Calculate statistics using same pattern as admin stats endpoint
-        status_counts = subordinate_requests.values('status').annotate(count=Count('id'))
-        requests_by_status = {item['status']: item['count'] for item in status_counts}
-
-        # Extract specific counts
-        stats = {
-            'total_requests': sum(requests_by_status.values()),
-            'pending_requests': requests_by_status.get('pending', 0),
-            'approved_requests': requests_by_status.get('approved', 0),
-            'rejected_requests': requests_by_status.get('rejected', 0),
-            'draft_requests': requests_by_status.get('draft', 0),
-            'completed_requests': requests_by_status.get('completed', 0),
-            'requests_by_status': requests_by_status,
-            'requests_by_category': {},
-        }
-
-        # Count by category
-        category_counts = subordinate_requests.values('category').annotate(count=Count('id'))
-        for item in category_counts:
-            stats['requests_by_category'][item['category']] = item['count']
-
-        return Response(stats)
-
+    
     @action(detail=True, methods=['get'], url_path='history', url_name='history')
     def history(self, request, pk=None):
         request_obj = self.get_object()
@@ -500,10 +568,14 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(status=status_filter)
         
         # Non-admin users can only see documents for their requests or if they have purchase permissions
-        if not user.is_superuser and not user.can_purchase():
-            # Regular users can only see documents for their requests
-            user_requests = Request.objects.filter(created_by=user)
-            queryset = queryset.filter(request__in=user_requests)
+        if not user.is_superuser:
+            if user.role and user.role.can_purchase:
+                # Purchasing team can see all documents
+                pass
+            else:
+                # Regular users can only see documents for their requests
+                user_requests = Request.objects.filter(created_by=user)
+                queryset = queryset.filter(request__in=user_requests)
         
         return queryset.select_related('request', 'uploaded_by')
     
@@ -584,12 +656,6 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        storage = get_storage()
-        if not storage:
-            return Response({
-                'error': 'File storage is not available'
-            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        
         download_url = storage.get_presigned_download_url(document.object_name)
         
         return Response({
@@ -607,7 +673,7 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
         if not (
             user.is_superuser or
             document.uploaded_by == user or
-            user.can_purchase()
+            (user.role and user.role.can_purchase)
         ):
             return Response(
                 {"error": "You don't have permission to delete this document"},
@@ -618,9 +684,8 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
         document.mark_deleted()
         
         # Optionally delete from MinIO
-        storage = get_storage()
-        if storage:
-            storage.delete_object(document.object_name)
+        from requisition.storage import storage
+        storage.delete_object(document.object_name)
         
         return Response(status=status.HTTP_204_NO_CONTENT)
     
@@ -641,7 +706,7 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
         if not (
             user.is_superuser or
             request_obj.created_by == user or
-            user.can_purchase()
+            (user.role and user.role.can_purchase)
         ):
             return Response(
                 {"error": "You don't have permission to view documents for this request"},
@@ -659,6 +724,29 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
         )
         
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='stats', url_name='stats')
+    def stats(self, request):
+        """Statistics for the current user's requests"""
+        user_queryset = Request.objects.filter(created_by=request.user)
+        stats_data = self._build_request_stats(user_queryset)
+        return Response(stats_data)
+
+    @action(detail=False, methods=['get'], url_path='subordinate-stats', url_name='subordinate-stats')
+    def subordinate_stats(self, request):
+        """Statistics for all requests created by the current user's subordinates"""
+        user = request.user
+        if hasattr(user, 'get_all_subordinates'):
+            subordinates = user.get_all_subordinates()
+        else:
+            subordinates = []
+
+        if not subordinates:
+            return Response(self._build_request_stats(Request.objects.none()))
+
+        subordinate_queryset = Request.objects.filter(created_by__in=subordinates)
+        stats_data = self._build_request_stats(subordinate_queryset)
+        return Response(stats_data)
     
     @action(detail=False, methods=['get'], url_path='test-minio', url_name='test-minio')
     def test_minio(self, request):
@@ -670,13 +758,6 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            storage = get_storage()
-            if not storage:
-                return Response({
-                    "status": "error",
-                    "message": "MinIO storage is not configured or available"
-                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-            
             # Test bucket existence
             bucket_exists = storage.client.bucket_exists(storage.bucket_name)
             

@@ -81,7 +81,7 @@ setup_default_request_groups()
 # Get groups for user assignment
 employee_group = Group.objects.get(name='Employee')
 supervisor_group = Group.objects.get(name='Supervisor') 
-purchasing_group = Group.objects.get(name='Purchasing')
+purchasing_group = Group.objects.get(name='Purchasing Team')
 admin_group = Group.objects.get(name='Administrator')
 
 # Create test users hierarchy
@@ -191,7 +191,7 @@ print('├── Site Manager (manager/manager123) - Supervisor')
 print('│   └── Team Leader (leader/leader123) - Supervisor')
 print('│       ├── Engineer (engineer/engineer123) - Employee')
 print('│       └── Worker (worker/worker123) - Employee')
-print('└── Purchasing Manager (purchasing/purchasing123) - Purchasing')
+print('└── Purchasing Manager (purchasing/purchasing123) - Purchasing Team')
 print('\\n=== Admin Access ===')
 print('Admin Panel: admin/admin123')
 print('API Base URL: http://localhost:8000/api/')

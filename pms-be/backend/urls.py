@@ -19,6 +19,11 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('auth/', include('authentication.urls')),
+    path('org/', include('organization.urls')),
+    path('requests/', include('requisition.urls')),
+    path('core/', include('core.urls')),
+    # API-prefixed routes for versioned clients (mirrors legacy paths above)
     path('api/auth/', include('authentication.urls')),
     path('api/org/', include('organization.urls')),
     path('api/requests/', include('requisition.urls')),

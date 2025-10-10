@@ -13,7 +13,7 @@ class Request(models.Model):
         ('revision_requested', 'Revision Requested'),
         ('approved', 'Final Approved - Ready for Purchase'),
         ('rejected', 'Rejected'),
-        ('purchasing', 'Assigned to Purchasing'),
+        ('purchasing', 'Assigned to Purchasing Team'),
         ('ordered', 'Order Placed'),
         ('delivered', 'Delivered'),
         ('completed', 'Request Completed'),
@@ -79,7 +79,7 @@ class Request(models.Model):
         transitions = {
             'draft': ['pending'],
             'pending': ['in_review', 'approved', 'rejected', 'revision_requested'],
-            'in_review': ['in_review', 'approved', 'rejected', 'revision_requested'],
+            'in_review': ['approved', 'rejected', 'revision_requested'],
             'revision_requested': ['pending'],  # After revision, goes back to pending
             'approved': ['purchasing', 'rejected'],  # Purchasing team can still reject
             'purchasing': ['ordered', 'rejected', 'revision_requested'],  # Purchasing actions
@@ -100,7 +100,7 @@ class Request(models.Model):
             raise ValueError(f"Invalid transition from '{self.status}' to '{new_status}'")
         
         old_status = self.status
-        target_status = new_status
+        self.status = new_status
         
         # Set current_approver when transitioning to pending status
         if new_status == 'pending':
@@ -116,28 +116,6 @@ class Request(models.Model):
                 else:
                     # Reset to beginning of chain
                     self.current_approver = chain[0] if chain else None
-        elif new_status == 'in_review':
-            # Move to next approver in the chain, if any
-            next_approver = self.get_next_approver()
-            if next_approver:
-                self.current_approver = next_approver
-            else:
-                # No more approvers; treat as final approval
-                target_status = 'approved'
-                self.current_approver = None
-                self.final_approver = user
-        elif new_status == 'approved':
-            # Final approval reached
-            self.current_approver = None
-            self.final_approver = user
-        elif new_status == 'rejected':
-            # Clear current approver on rejection
-            self.current_approver = None
-        elif new_status == 'revision_requested':
-            # Keep current approver so they can review the revision
-            pass
-        
-        self.status = target_status
         
         self.save()
         
@@ -153,16 +131,11 @@ class Request(models.Model):
             'delivered': 'delivered',
             'completed': 'completed',
         }
-        # If the transition ended up approving the request immediately,
-        # make sure we log the correct action.
-        action_status = target_status
-        if new_status == 'in_review' and target_status == 'approved':
-            action_status = 'approved'
         
         ApprovalHistory.objects.create(
             request=self,
             user=user,
-            action=action_map.get(action_status, action_status),
+            action=action_map.get(new_status, new_status),
             level=self.get_approval_level(user),
             notes=notes
         )
@@ -346,18 +319,24 @@ class ProcurementDocument(models.Model):
         
         # Dispatch notes can be uploaded after ordering
         if self.document_type == 'dispatch_note':
-            return request_status == 'ordered' and user.can_purchase()
+            return request_status == 'ordered' and (
+                user.role and user.role.can_purchase
+            )
         
         # Receipts can be uploaded after delivery
         if self.document_type == 'receipt':
-            return request_status == 'delivered' and user.can_purchase()
+            return request_status == 'delivered' and (
+                user.role and user.role.can_purchase
+            )
         
         # Quotes can be uploaded during purchasing phase
         if self.document_type == 'quote':
-            return request_status in ['approved', 'purchasing'] and user.can_purchase()
+            return request_status in ['approved', 'purchasing'] and (
+                user.role and user.role.can_purchase
+            )
         
         # Other documents based on general permissions
-        return user.can_purchase()
+        return user.role and user.role.can_purchase
 
 
 class AuditLog(models.Model):

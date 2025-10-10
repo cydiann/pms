@@ -82,4 +82,4 @@ class UserManager(BaseUserManager):
         """
         Get all users in purchasing team.
         """
-        return self.by_group('Purchasing')
+        return self.by_group('Purchasing Team')

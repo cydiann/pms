@@ -69,8 +69,8 @@ class ProcurementDocumentSerializer(serializers.ModelSerializer):
     
     def get_download_url(self, obj):
         if obj.status == 'uploaded':
-            from requisition.storage import get_storage
-            return get_storage().get_presigned_download_url(obj.object_name)
+            from requisition.storage import storage
+            return storage.get_presigned_download_url(obj.object_name)
         return None
     
     def get_can_delete(self, obj):
@@ -82,7 +82,7 @@ class ProcurementDocumentSerializer(serializers.ModelSerializer):
         return (
             user.is_superuser or
             obj.uploaded_by == user or
-            user.can_purchase()
+            (user.role and user.role.can_purchase)
         )
 
 
@@ -156,20 +156,19 @@ class CreateDocumentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Quotes and POs can only be uploaded during purchasing phase")
         
         # Check user permissions
-        if not user.is_superuser and not user.can_purchase():
+        if not user.is_superuser and not (user.role and user.role.can_purchase):
             raise serializers.ValidationError("You don't have permission to upload documents")
         
         return data
     
     def create(self, validated_data):
-        from requisition.storage import get_storage
-
+        from requisition.storage import storage
+        
         # Generate object name
         request_obj = validated_data['request']
         document_type = validated_data['document_type']
         file_name = validated_data['file_name']
-
-        storage = get_storage()
+        
         object_name = storage.generate_object_name(
             request_obj.request_number,
             document_type,
@@ -205,10 +204,9 @@ class ConfirmUploadSerializer(serializers.Serializer):
             raise serializers.ValidationError("Document not found")
     
     def save(self):
-        from requisition.storage import get_storage
-
+        from requisition.storage import storage
+        
         # Verify file exists in MinIO
-        storage = get_storage()
         if storage.object_exists(self.document.object_name):
             self.document.mark_uploaded()
             return True

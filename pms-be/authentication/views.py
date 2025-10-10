@@ -1,5 +1,8 @@
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import Group, Permission
+from django.db.models import Count
+from django.utils import timezone
+from datetime import timedelta
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -32,6 +35,7 @@ class UserViewSet(viewsets.ModelViewSet):
         'manage_permissions': 'auth.change_permission',
         'view_as': 'auth.view_user',
         'available_permissions': 'auth.view_permission',
+        'stats': 'auth.view_user',
         # 'me' and 'my_permissions' don't need special permissions - all authenticated users can access
     }
     
@@ -39,26 +43,12 @@ class UserViewSet(viewsets.ModelViewSet):
         # Users can only see themselves unless they have view_user permission
         if self.request.user.has_perm('auth.view_user'):
             return User.objects.filter(deleted_at__isnull=True)
-
-        # Allow supervisors to see their subordinates
-        subordinates = self.request.user.get_all_subordinates()
-        subordinate_ids = [sub.id for sub in subordinates]
-        user_ids = [self.request.user.id] + subordinate_ids
-        return User.objects.filter(id__in=user_ids, deleted_at__isnull=True)
+        return User.objects.filter(id=self.request.user.id)
     
     def get_permissions(self):
+        # Special case for 'me' and 'my_permissions' actions - only need authentication
         if self.action in ['me', 'my_permissions']:
             return [permissions.IsAuthenticated()]
-
-        if self.action == 'list':
-            class ListPermission(permissions.IsAuthenticated):
-                def has_permission(self, request, view):
-                    if not super().has_permission(request, view):
-                        return False
-                    return (request.user.has_perm('auth.view_user') or
-                            request.user.has_subordinates())
-            return [ListPermission()]
-
         return super().get_permissions()
     
     @action(detail=False, methods=['get'], url_path='me', url_name='me')
@@ -144,6 +134,51 @@ class UserViewSet(viewsets.ModelViewSet):
             'message': message,
             'user_permissions': [{'id': p.id, 'name': p.name, 'codename': p.codename} 
                                for p in user.user_permissions.all()]
+        })
+
+    @action(
+        detail=False,
+        methods=['get'],
+        permission_classes=[permissions.IsAdminUser],
+        url_path='stats',
+        url_name='stats'
+    )
+    def stats(self, request):
+        """Aggregate user statistics for admin dashboard"""
+        user_qs = User.objects.filter(deleted_at__isnull=True)
+
+        total_users = user_qs.count()
+        active_users = user_qs.filter(is_active=True).count()
+        admin_users = user_qs.filter(is_superuser=True).count()
+        users_with_subordinates = user_qs.filter(
+            direct_reports__deleted_at__isnull=True
+        ).distinct().count()
+
+        worksite_counts = user_qs.filter(
+            worksite__isnull=False
+        ).values(
+            'worksite__city',
+            'worksite__country'
+        ).annotate(count=Count('id'))
+
+        users_by_worksite = {}
+        for item in worksite_counts:
+            city = item['worksite__city'] or 'Unknown'
+            country = item['worksite__country'] or 'Unknown'
+            key = f"{city}, {country}"
+            users_by_worksite[key] = item['count']
+
+        recent_threshold = timezone.now() - timedelta(days=30)
+        new_users_this_month = user_qs.filter(created_at__gte=recent_threshold).count()
+
+        return Response({
+            'total_users': total_users,
+            'active_users': active_users,
+            'inactive_users': total_users - active_users,
+            'admin_users': admin_users,
+            'users_with_subordinates': users_with_subordinates,
+            'users_by_worksite': users_by_worksite,
+            'new_users_this_month': new_users_this_month,
         })
     
     @action(detail=False, methods=['get'], url_path='by-group', url_name='by-group')

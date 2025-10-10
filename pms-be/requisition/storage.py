@@ -177,24 +177,4 @@ class MinIOStorage:
             return None
 
 
-# Lazy initialization - only create storage when needed
-storage = None
-
-def get_storage():
-    """Get MinIO storage instance with lazy initialization and error handling"""
-    global storage
-    if storage is None:
-        try:
-            from django.conf import settings
-            # Check if MinIO is enabled and configured
-            if (hasattr(settings, 'MINIO_ENDPOINT') and 
-                settings.MINIO_ENDPOINT and 
-                settings.MINIO_ENDPOINT.strip()):
-                storage = MinIOStorage()
-            else:
-                logger.warning("MinIO storage is not configured. File uploads will be disabled.")
-                storage = None
-        except Exception as e:
-            logger.error(f"Failed to initialize MinIO storage: {e}")
-            storage = None
-    return storage
+storage = MinIOStorage()

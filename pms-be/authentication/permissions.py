@@ -121,14 +121,14 @@ class ActionBasedPermissions(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-
+            
         # Get action permissions from view
         action_permissions = getattr(view, 'action_permissions', {})
         required_permission = action_permissions.get(view.action)
-
+        
         if required_permission is None:
             return True  # No specific permission required for this action
-
+            
         return request.user.has_perm(required_permission)
     
     def has_object_permission(self, request, view, obj):

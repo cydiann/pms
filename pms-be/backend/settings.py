@@ -14,7 +14,6 @@ import sys
 from pathlib import Path
 from decouple import config
 from datetime import timedelta
-import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,7 +29,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-hp54&0n40b^djj%fqar2l
 DEBUG = config('DEBUG', default=True, cast=bool)
 
 # Dynamic allowed hosts from environment
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0,10.0.2.2,192.168.1.2,192.168.1.3').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0').split(',')
 
 
 # Application definition
@@ -87,26 +86,16 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-# Database configuration with Railway support
-DATABASE_URL = config('DATABASE_URL', default=None)
-
-if DATABASE_URL:
-    # Railway or production environment with DATABASE_URL
-    DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL)
+DATABASES = {
+    'default': {
+        'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql'),
+        'NAME': config('DB_NAME', default='pms_db'),
+        'USER': config('DB_USER', default='pms_user'),
+        'PASSWORD': config('DB_PASSWORD', default='pms_password'),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default='5432'),
     }
-else:
-    # Local development with individual environment variables
-    DATABASES = {
-        'default': {
-            'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql'),
-            'NAME': config('DB_NAME', default='pms_db'),
-            'USER': config('DB_USER', default='pms_user'),
-            'PASSWORD': config('DB_PASSWORD', default='pms_password'),
-            'HOST': config('DB_HOST', default='localhost'),
-            'PORT': config('DB_PORT', default='5432'),
-        }
-    }
+}
 
 # Use faster SQLite for tests if specified
 if 'test' in sys.argv or 'pytest' in sys.modules:
@@ -183,9 +172,8 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=config('JWT_REFRESH_TOKEN_LIFETIME_DAYS', default=7, cast=int)),
 }
 
-# CORS Settings (for React Native app and web development)
-# Port 3000: React web development server, Port 8000: API calls from mobile devices
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://127.0.0.1:3000,http://192.168.1.2:3000,http://192.168.1.2:8000').split(',')
+# CORS Settings (for React Native app)
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://127.0.0.1:3000').split(',')
 
 CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=DEBUG, cast=bool)
 

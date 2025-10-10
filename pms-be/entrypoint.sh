@@ -52,7 +52,7 @@ def setup_default_request_groups():
         'Employee': [
             'add_request', 'view_request',
         ],
-        'Purchasing': [
+        'Purchasing Team': [
             'change_request', 'view_request',
             'view_user', 'view_worksite',
         ]
@@ -101,13 +101,13 @@ if created:
 try:
     employee_group = Group.objects.get(name='Employee')
     supervisor_group = Group.objects.get(name='Supervisor') 
-    purchasing_group = Group.objects.get(name='Purchasing')
+    purchasing_group = Group.objects.get(name='Purchasing Team')
     admin_group = Group.objects.get(name='Administrator')
 except Group.DoesNotExist:
     print('Groups not found, creating basic ones...')
     employee_group = Group.objects.create(name='Employee')
     supervisor_group = Group.objects.create(name='Supervisor')
-    purchasing_group = Group.objects.create(name='Purchasing')
+    purchasing_group = Group.objects.create(name='Purchasing Team')
     admin_group = Group.objects.create(name='Administrator')
 
 # Create test users hierarchy
@@ -227,7 +227,7 @@ print('├── Site Manager (manager/manager123) - Supervisor')
 print('│   └── Team Leader (leader/leader123) - Supervisor')
 print('│       ├── Engineer (engineer/engineer123) - Employee')
 print('│       └── Worker (worker/worker123) - Employee')
-print('└── Purchasing Manager (purchasing/purchasing123) - Purchasing')
+print('└── Purchasing Manager (purchasing/purchasing123) - Purchasing Team')
 print('')
 print('=== Access Information ===')
 print('Admin Panel: http://localhost:8000/admin/')
