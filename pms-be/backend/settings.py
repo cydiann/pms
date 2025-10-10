@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 import sys
+import os
 from pathlib import Path
 from decouple import config
 from datetime import timedelta
@@ -89,7 +90,8 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 # Database configuration with Railway support
-DATABASE_URL = config('DATABASE_URL', default=None)
+# Try os.environ first (for Railway), then fall back to decouple config
+DATABASE_URL = os.environ.get('DATABASE_URL') or config('DATABASE_URL', default=None)
 
 if DATABASE_URL:
     # Railway or production environment with DATABASE_URL
@@ -104,7 +106,7 @@ else:
             'NAME': config('DB_NAME', default='pms_db'),
             'USER': config('DB_USER', default='pms_user'),
             'PASSWORD': config('DB_PASSWORD', default='pms_password'),
-            'HOST': config('DB_HOST', default='localhost'),
+            'HOST': config('DB_ENGINE', default='localhost'),
             'PORT': config('DB_PORT', default='5432'),
         }
     }
