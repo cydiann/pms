@@ -4,8 +4,6 @@ from datetime import datetime
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 
-from .utils import user_can_purchase
-
 
 class Request(models.Model):
     STATUS_CHOICES = [
@@ -35,8 +33,7 @@ class Request(models.Model):
     item = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     created_by = models.ForeignKey('authentication.User', on_delete=models.CASCADE, related_name='created_requests')
-    current_approver = models.ForeignKey('authentication.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='pending_approvals')
-    final_approver = models.ForeignKey('authentication.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='final_approved_requests')
+    last_approver = models.ForeignKey('authentication.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='requests_last_approved')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     unit = models.CharField(max_length=20, choices=UNIT_CHOICES)
@@ -44,6 +41,9 @@ class Request(models.Model):
     delivery_address = models.TextField(blank=True)
     reason = models.TextField(blank=True)
     
+    # Approval tracking
+    approval_level = models.IntegerField(default=0)
+
     # Revision tracking
     revision_count = models.IntegerField(default=0)
     revision_notes = models.TextField(blank=True)
@@ -55,26 +55,39 @@ class Request(models.Model):
     def get_approval_chain(self):
         """Get the full approval chain from creator's supervisor up"""
         chain = []
+        visited = set()
         current = self.created_by.supervisor
-        while current:
+
+        while current and current.id not in visited:
             chain.append(current)
+            visited.add(current.id)
             current = current.supervisor
+
         return chain
     
     def get_next_approver(self):
-        """Get the next person in the approval chain"""
-        if self.status == 'draft':
-            return self.created_by.supervisor
-        
-        chain = self.get_approval_chain()
-        if not self.current_approver:
-            return chain[0] if chain else None
-            
-        try:
-            current_index = chain.index(self.current_approver)
-            return chain[current_index + 1] if current_index + 1 < len(chain) else None
-        except ValueError:
-            return None
+        """Get the next person in the approval chain based on last approver"""
+        # If someone has approved, use their supervisor regardless of status
+        if self.last_approver:
+            return self.last_approver.supervisor
+
+        # No one has approved yet - start with immediate supervisor
+        return self.created_by.supervisor
+
+    def is_fully_approved(self):
+        """Check if request has gone through all required approvals"""
+        next_approver = self.get_next_approver()
+        return next_approver is None and self.approval_level > 0
+
+    def get_approval_status(self):
+        """Get human readable approval status"""
+        next_approver = self.get_next_approver()
+        if next_approver:
+            return f"Pending approval from {next_approver.get_full_name()}"
+        elif self.is_fully_approved():
+            return "Fully approved - Ready for purchasing"
+        else:
+            return f"Status: {self.get_status_display()}"
     
     def get_valid_transitions(self):
         """Get valid status transitions from current state"""
@@ -104,20 +117,16 @@ class Request(models.Model):
         old_status = self.status
         self.status = new_status
         
-        # Set current_approver when transitioning to pending status
+        # Handle approval tracking
         if new_status == 'pending':
             if old_status == 'draft':
-                # First submission - set to immediate supervisor
-                self.current_approver = self.created_by.supervisor
+                # First submission - reset approval tracking
+                self.last_approver = None
+                self.approval_level = 0
             elif old_status == 'revision_requested':
-                # Resubmission after revision - keep current flow
-                chain = self.get_approval_chain()
-                if self.current_approver and self.current_approver in chain:
-                    # Stay with current approver if they requested revision
-                    pass
-                else:
-                    # Reset to beginning of chain
-                    self.current_approver = chain[0] if chain else None
+                # Resubmission after revision - reset approval state
+                self.last_approver = None
+                self.approval_level = 0
         
         self.save()
         
@@ -160,14 +169,21 @@ class Request(models.Model):
             year = timezone.now().year
             random_part = str(uuid.uuid4()).replace('-', '').upper()[:6]
             self.request_number = f"REQ-{year}-{random_part}"
-            
+
             # Ensure uniqueness by checking existing request numbers
             while Request.objects.filter(request_number=self.request_number).exists():
                 random_part = str(uuid.uuid4()).replace('-', '').upper()[:6]
                 self.request_number = f"REQ-{year}-{random_part}"
-        
+
         super().save(*args, **kwargs)
-    
+
+    class Meta:
+        permissions = [
+            ('can_purchase', 'Can handle purchasing tasks'),
+            ('view_all_requests', 'Can view all requests system-wide'),
+        ]
+        ordering = ['-created_at']
+
     def __str__(self):
         return f"{self.request_number} - {self.item}"
 
@@ -312,27 +328,34 @@ class ProcurementDocument(models.Model):
     
     def can_upload_document(self, user):
         """Check if user has permission to upload this document type"""
-        from authentication.models import User
         request_status = self.request.status
-        
+        is_creator = self.request.created_by == user
+
         # Admin can always upload
         if user.is_superuser:
             return True
-        
-        # Dispatch notes can be uploaded after ordering
+
+        has_purchase_perm = user.has_perm('requisition.can_purchase')
+
+        # Purchasing-specific documents (only purchasing team)
         if self.document_type == 'dispatch_note':
-            return request_status == 'ordered' and user_can_purchase(user)
-        
-        # Receipts can be uploaded after delivery
+            return request_status == 'ordered' and has_purchase_perm
+
         if self.document_type == 'receipt':
-            return request_status == 'delivered' and user_can_purchase(user)
-        
-        # Quotes can be uploaded during purchasing phase
-        if self.document_type == 'quote':
-            return request_status in ['approved', 'purchasing'] and user_can_purchase(user)
-        
-        # Other documents based on general permissions
-        return user_can_purchase(user)
+            return request_status == 'delivered' and has_purchase_perm
+
+        if self.document_type in ['quote', 'purchase_order']:
+            return request_status in ['approved', 'purchasing'] and has_purchase_perm
+
+        # Supporting documents (creator can upload during draft/pending/revision, purchasing team anytime)
+        if self.document_type in ['invoice', 'other']:
+            # Creator can upload to their own requests before final approval
+            if is_creator and request_status in ['draft', 'pending', 'in_review', 'revision_requested']:
+                return True
+            # Purchasing team can upload anytime
+            return has_purchase_perm
+
+        return False
 
 
 class AuditLog(models.Model):
@@ -343,6 +366,52 @@ class AuditLog(models.Model):
     old_values = models.JSONField(null=True, blank=True)
     new_values = models.JSONField(null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
-    
+
     def __str__(self):
         return f"{self.user} - {self.action} {self.table_name}:{self.record_id}"
+
+
+class RequestArchive(models.Model):
+    """Track archived request batches stored as ZIP files"""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    archive_date = models.DateTimeField(default=timezone.now)
+    period_start = models.DateTimeField(help_text="Start of the archived period")
+    period_end = models.DateTimeField(help_text="End of the archived period")
+
+    file_path = models.CharField(max_length=500, help_text="Path to ZIP file on disk")
+    file_size = models.BigIntegerField(help_text="ZIP file size in bytes")
+    request_count = models.IntegerField(help_text="Number of requests archived")
+
+    # Track which requests were archived (for reference)
+    archived_request_ids = models.JSONField(default=list, help_text="List of archived request IDs")
+    archived_request_numbers = models.JSONField(default=list, help_text="List of archived request numbers")
+
+    # Download tracking
+    downloaded = models.BooleanField(default=False)
+    downloaded_at = models.DateTimeField(null=True, blank=True)
+    downloaded_by = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='downloaded_archives'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-archive_date']
+        indexes = [
+            models.Index(fields=['downloaded', 'archive_date']),
+        ]
+
+    def __str__(self):
+        return f"Archive {self.period_start.date()} to {self.period_end.date()} ({self.request_count} requests)"
+
+    def mark_downloaded(self, user):
+        """Mark archive as downloaded"""
+        self.downloaded = True
+        self.downloaded_at = timezone.now()
+        self.downloaded_by = user
+        self.save(update_fields=['downloaded', 'downloaded_at', 'downloaded_by'])

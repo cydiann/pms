@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Request, ApprovalHistory, AuditLog, RequestRevision
+from .models import Request, ApprovalHistory, AuditLog, RequestRevision, RequestArchive
 
 
 @admin.register(Request)
@@ -47,3 +47,31 @@ class AuditLogAdmin(admin.ModelAdmin):
     list_filter = ['table_name', 'action', 'timestamp']
     search_fields = ['user__username', 'table_name']
     readonly_fields = ['timestamp']
+
+
+@admin.register(RequestArchive)
+class RequestArchiveAdmin(admin.ModelAdmin):
+    list_display = ['id', 'archive_date', 'period_start', 'period_end', 'request_count', 'file_size_mb', 'downloaded', 'downloaded_by']
+    list_filter = ['downloaded', 'archive_date']
+    search_fields = ['archived_request_numbers']
+    readonly_fields = ['id', 'archive_date', 'file_path', 'file_size', 'request_count', 'archived_request_ids', 'archived_request_numbers', 'downloaded', 'downloaded_at', 'downloaded_by', 'created_at']
+
+    def file_size_mb(self, obj):
+        """Display file size in MB"""
+        return f"{obj.file_size / 1024 / 1024:.2f} MB"
+    file_size_mb.short_description = 'File Size'
+
+    fieldsets = (
+        ('Archive Period', {
+            'fields': ('archive_date', 'period_start', 'period_end')
+        }),
+        ('Archive Details', {
+            'fields': ('file_path', 'file_size', 'request_count', 'archived_request_numbers')
+        }),
+        ('Download Status', {
+            'fields': ('downloaded', 'downloaded_at', 'downloaded_by')
+        }),
+        ('Metadata', {
+            'fields': ('created_at',)
+        }),
+    )

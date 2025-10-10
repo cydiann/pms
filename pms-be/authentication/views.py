@@ -1,8 +1,5 @@
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import Group, Permission
-from django.db.models import Count
-from django.utils import timezone
-from datetime import timedelta
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -27,23 +24,32 @@ class UserViewSet(viewsets.ModelViewSet):
     
     # Define permissions for each action
     action_permissions = {
-        'list': 'auth.view_user',
-        # 'retrieve', 'update', 'partial_update' allow all authenticated users (queryset filtering + object permissions handle access)
+        # 'list' now allows all authenticated users - queryset filtering handles access (admins see all, supervisors see subordinates, users see self)
         'create': 'auth.add_user',
         'destroy': 'auth.delete_user',
         'manage_groups': 'auth.change_group',
         'manage_permissions': 'auth.change_permission',
         'view_as': 'auth.view_user',
         'available_permissions': 'auth.view_permission',
-        'stats': 'auth.view_user',
-        # 'me' and 'my_permissions' don't need special permissions - all authenticated users can access
+        # 'me', 'my_permissions', 'retrieve', 'update', 'partial_update' allow all authenticated users (queryset filtering + object permissions handle access)
     }
     
     def get_queryset(self):
-        # Users can only see themselves unless they have view_user permission
-        if self.request.user.has_perm('auth.view_user'):
+        user = self.request.user
+
+        # Admins can see all users
+        if user.has_perm('auth.view_user'):
             return User.objects.filter(deleted_at__isnull=True)
-        return User.objects.filter(id=self.request.user.id)
+
+        # Supervisors can see themselves and their subordinates
+        subordinates = user.get_all_subordinates()
+        if subordinates:
+            # Return self + subordinates
+            subordinate_ids = [sub.id for sub in subordinates]
+            return User.objects.filter(id__in=[user.id] + subordinate_ids, deleted_at__isnull=True)
+
+        # Regular users can only see themselves
+        return User.objects.filter(id=user.id)
     
     def get_permissions(self):
         # Special case for 'me' and 'my_permissions' actions - only need authentication
@@ -67,7 +73,13 @@ class UserViewSet(viewsets.ModelViewSet):
             'groups': [{'id': g.id, 'name': g.name} for g in user.groups.all()],
             'permissions': list(user_permissions)
         })
-    
+
+    @action(detail=False, methods=['get'], url_path='role-info', url_name='role-info')
+    def role_info(self, request):
+        """Get current user's role information for UI display"""
+        user = request.user
+        return Response(user.get_role_info())
+
     @action(detail=True, methods=['get'], permission_classes=[permissions.IsAdminUser], url_path='view-as', url_name='view-as')
     def view_as(self, request, pk=None):
         target_user = self.get_object()
@@ -135,51 +147,6 @@ class UserViewSet(viewsets.ModelViewSet):
             'user_permissions': [{'id': p.id, 'name': p.name, 'codename': p.codename} 
                                for p in user.user_permissions.all()]
         })
-
-    @action(
-        detail=False,
-        methods=['get'],
-        permission_classes=[permissions.IsAdminUser],
-        url_path='stats',
-        url_name='stats'
-    )
-    def stats(self, request):
-        """Aggregate user statistics for admin dashboard"""
-        user_qs = User.objects.filter(deleted_at__isnull=True)
-
-        total_users = user_qs.count()
-        active_users = user_qs.filter(is_active=True).count()
-        admin_users = user_qs.filter(is_superuser=True).count()
-        users_with_subordinates = user_qs.filter(
-            direct_reports__deleted_at__isnull=True
-        ).distinct().count()
-
-        worksite_counts = user_qs.filter(
-            worksite__isnull=False
-        ).values(
-            'worksite__city',
-            'worksite__country'
-        ).annotate(count=Count('id'))
-
-        users_by_worksite = {}
-        for item in worksite_counts:
-            city = item['worksite__city'] or 'Unknown'
-            country = item['worksite__country'] or 'Unknown'
-            key = f"{city}, {country}"
-            users_by_worksite[key] = item['count']
-
-        recent_threshold = timezone.now() - timedelta(days=30)
-        new_users_this_month = user_qs.filter(created_at__gte=recent_threshold).count()
-
-        return Response({
-            'total_users': total_users,
-            'active_users': active_users,
-            'inactive_users': total_users - active_users,
-            'admin_users': admin_users,
-            'users_with_subordinates': users_with_subordinates,
-            'users_by_worksite': users_by_worksite,
-            'new_users_this_month': new_users_this_month,
-        })
     
     @action(detail=False, methods=['get'], url_path='by-group', url_name='by-group')
     def by_group(self, request):
@@ -217,7 +184,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def available_permissions(self, request):
         """Get all available permissions with content type and app label info"""
         permissions_qs = Permission.objects.all().select_related('content_type')
-        
+
         return Response([{
             'id': perm.id,
             'name': perm.name,
@@ -225,6 +192,243 @@ class UserViewSet(viewsets.ModelViewSet):
             'content_type': perm.content_type.model,
             'app_label': perm.content_type.app_label
         } for perm in permissions_qs])
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser], url_path='remove-supervisor', url_name='remove-supervisor')
+    def remove_supervisor(self, request, pk=None):
+        """Remove supervisor from user (promotes to top level)"""
+        user = self.get_object()
+
+        # Store current supervisor for response
+        old_supervisor = user.supervisor
+        old_supervisor_info = {
+            'id': old_supervisor.id if old_supervisor else None,
+            'username': old_supervisor.username if old_supervisor else None,
+            'full_name': old_supervisor.get_full_name() if old_supervisor else None,
+        } if old_supervisor else None
+
+        # Remove supervisor
+        try:
+            result = user.remove_supervisor()
+
+            if result:
+                return Response({
+                    'message': f'Supervisor removed from {user.get_full_name()}',
+                    'user': {
+                        'id': user.id,
+                        'username': user.username,
+                        'full_name': user.get_full_name(),
+                    },
+                    'old_supervisor': old_supervisor_info,
+                    'new_supervisor': None
+                })
+            else:
+                return Response({
+                    'message': f'{user.get_full_name()} had no supervisor to remove',
+                    'user': {
+                        'id': user.id,
+                        'username': user.username,
+                        'full_name': user.get_full_name(),
+                    },
+                    'old_supervisor': None,
+                    'new_supervisor': None
+                })
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser], url_path='change-supervisor', url_name='change-supervisor')
+    def change_supervisor(self, request, pk=None):
+        """Change or remove supervisor for user"""
+        user = self.get_object()
+        new_supervisor_id = request.data.get('supervisor_id')
+
+        # Store current supervisor for response
+        old_supervisor = user.supervisor
+        old_supervisor_info = {
+            'id': old_supervisor.id if old_supervisor else None,
+            'username': old_supervisor.username if old_supervisor else None,
+            'full_name': old_supervisor.get_full_name() if old_supervisor else None,
+        } if old_supervisor else None
+
+        # Get new supervisor (None if supervisor_id is None)
+        new_supervisor = None
+        if new_supervisor_id is not None:
+            try:
+                new_supervisor = User.objects.get(id=new_supervisor_id, deleted_at__isnull=True)
+            except User.DoesNotExist:
+                return Response(
+                    {'error': f'Supervisor with ID {new_supervisor_id} not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Change supervisor
+        try:
+            result = user.change_supervisor(new_supervisor)
+
+            new_supervisor_info = {
+                'id': new_supervisor.id if new_supervisor else None,
+                'username': new_supervisor.username if new_supervisor else None,
+                'full_name': new_supervisor.get_full_name() if new_supervisor else None,
+            } if new_supervisor else None
+
+            if result:
+                if new_supervisor:
+                    message = f'Changed supervisor for {user.get_full_name()} to {new_supervisor.get_full_name()}'
+                else:
+                    message = f'Removed supervisor from {user.get_full_name()}'
+            else:
+                message = f'No change needed for {user.get_full_name()}'
+
+            return Response({
+                'message': message,
+                'changed': result,
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'full_name': user.get_full_name(),
+                },
+                'old_supervisor': old_supervisor_info,
+                'new_supervisor': new_supervisor_info
+            })
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['get'], url_path='my-team', url_name='my-team')
+    def my_team(self, request):
+        """Get current user's direct reports (immediate subordinates only)"""
+        user = request.user
+        direct_reports = user.direct_reports.filter(deleted_at__isnull=True).order_by('first_name', 'last_name')
+
+        serializer = self.get_serializer(direct_reports, many=True)
+        return Response({
+            'count': direct_reports.count(),
+            'team_members': serializer.data
+        })
+
+    @action(detail=True, methods=['get'], url_path='subordinates', url_name='subordinates')
+    def subordinates(self, request, pk=None):
+        """Get direct reports of a specific user (for drill-down in team view)"""
+        target_user = self.get_object()
+        current_user = request.user
+
+        # Access control: can only view subordinates of users in your team tree or yourself
+        if target_user != current_user:
+            all_subordinates = current_user.get_all_subordinates()
+            if target_user not in all_subordinates:
+                return Response(
+                    {'error': 'You can only view subordinates of users in your team'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # Get direct reports only
+        direct_reports = target_user.direct_reports.filter(deleted_at__isnull=True).order_by('first_name', 'last_name')
+
+        serializer = self.get_serializer(direct_reports, many=True)
+        return Response({
+            'user': {
+                'id': target_user.id,
+                'username': target_user.username,
+                'full_name': target_user.get_full_name(),
+            },
+            'count': direct_reports.count(),
+            'subordinates': serializer.data
+        })
+
+    @action(detail=True, methods=['get'], url_path='team-hierarchy', url_name='team-hierarchy')
+    def team_hierarchy(self, request, pk=None):
+        """Get full team hierarchy tree starting from a specific user"""
+        target_user = self.get_object()
+        current_user = request.user
+
+        # Access control: can only view hierarchy of users in your team tree or yourself
+        if target_user != current_user:
+            all_subordinates = current_user.get_all_subordinates()
+            if target_user not in all_subordinates:
+                return Response(
+                    {'error': 'You can only view team hierarchy of users in your team'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        def build_hierarchy_tree(user):
+            """Recursively build team hierarchy"""
+            direct_reports = user.direct_reports.filter(deleted_at__isnull=True).order_by('first_name', 'last_name')
+
+            children = []
+            for report in direct_reports:
+                children.append(build_hierarchy_tree(report))
+
+            return {
+                'id': user.id,
+                'username': user.username,
+                'full_name': user.get_full_name(),
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'is_supervisor': user.has_subordinates(),
+                'subordinate_count': direct_reports.count(),
+                'worksite': user.worksite.city if user.worksite else None,
+                'children': children
+            }
+
+        hierarchy_tree = build_hierarchy_tree(target_user)
+
+        return Response({
+            'root_user': {
+                'id': target_user.id,
+                'username': target_user.username,
+                'full_name': target_user.get_full_name(),
+            },
+            'hierarchy': hierarchy_tree
+        })
+
+    @action(detail=True, methods=['get'], url_path='hierarchy-chain', url_name='hierarchy-chain')
+    def hierarchy_chain(self, request, pk=None):
+        """Get user's full hierarchy chain from themselves up to the top level"""
+        user = self.get_object()
+
+        try:
+            hierarchy = user.get_hierarchy_chain()
+
+            hierarchy_data = []
+            for i, person in enumerate(hierarchy):
+                hierarchy_data.append({
+                    'level': i,
+                    'id': person.id,
+                    'username': person.username,
+                    'full_name': person.get_full_name(),
+                    'first_name': person.first_name,
+                    'last_name': person.last_name,
+                    'is_user': person.id == user.id,
+                    'is_top_level': i == len(hierarchy) - 1,
+                    'worksite': {
+                        'city': person.worksite.city,
+                        'country': person.worksite.country
+                    } if person.worksite else None
+                })
+
+            return Response({
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'full_name': user.get_full_name(),
+                },
+                'hierarchy_levels': len(hierarchy),
+                'hierarchy': hierarchy_data,
+                'direct_supervisor': {
+                    'id': user.supervisor.id,
+                    'username': user.supervisor.username,
+                    'full_name': user.supervisor.get_full_name(),
+                } if user.supervisor else None
+            })
+        except Exception as e:
+            return Response(
+                {'error': f'Error retrieving hierarchy: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class GroupViewSet(viewsets.ModelViewSet):
