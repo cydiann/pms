@@ -1,4 +1,5 @@
 import { Alert, Platform } from 'react-native';
+import { AlertService } from '../services/AlertService';
 
 /**
  * Cross-platform alert utility that works on web, iOS, Android, and Windows
@@ -49,8 +50,8 @@ export const showAlert = (
       }
     }
   } else {
-    // Use React Native Alert for mobile/desktop apps
-    Alert.alert(title, message, buttons, options);
+    // Use custom styled global alert on native for better visuals
+    AlertService.show({ title, message, buttons });
   }
 };
 

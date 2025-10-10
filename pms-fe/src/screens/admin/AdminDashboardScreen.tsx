@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
@@ -6,7 +6,7 @@ import { useTab } from '../../store/TabContext';
 import requestService from '../../services/requestService';
 import { AdminStats, Request } from '../../types/requests';
 
-const AdminDashboardScreen: React.FC = () => {
+function AdminDashboardScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const { authState } = useAuth();
   const { setActiveTab } = useTab();
@@ -15,7 +15,7 @@ const AdminDashboardScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async (): Promise<void> => {
     try {
       // Load admin statistics for entire system
       const adminStats = await requestService.getAdminStats();
@@ -28,31 +28,32 @@ const AdminDashboardScreen: React.FC = () => {
       });
       setRecentRequests(recentResponse.results);
     } catch (error) {
+      // TODO: Add proper error handling/user feedback
       console.error('Error loading admin dashboard:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [loadDashboardData]);
 
-  const onRefresh = () => {
+  const onRefresh = useCallback((): void => {
     setRefreshing(true);
     loadDashboardData();
-  };
+  }, [loadDashboardData]);
 
-  const renderRecentRequestItem = ({ item }: { item: Request }) => (
+  const renderRecentRequestItem = useCallback(({ item }: { item: Request }): React.JSX.Element => (
     <TouchableOpacity style={styles.requestItem}>
       <View style={styles.requestHeader}>
         <Text style={styles.requestTitle}>{item.item}</Text>
         <View style={[
-          styles.statusBadge, 
+          styles.statusBadge,
           { backgroundColor: requestService.getStatusColor(item.status) }
         ]}>
-          <Text style={styles.statusText}>{item.status_display}</Text>
+          <Text style={styles.statusText}>{t(`status.${item.status}`)}</Text>
         </View>
       </View>
       <Text style={styles.requestCreator}>By: {item.created_by_name}</Text>
@@ -60,7 +61,7 @@ const AdminDashboardScreen: React.FC = () => {
         {new Date(item.created_at).toLocaleDateString()}
       </Text>
     </TouchableOpacity>
-  );
+  ), []);
 
   if (loading) {
     return (
@@ -72,7 +73,7 @@ const AdminDashboardScreen: React.FC = () => {
   }
 
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -104,7 +105,7 @@ const AdminDashboardScreen: React.FC = () => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('dashboard.systemOverview')}</Text>
-        
+
         <View style={styles.overviewGrid}>
           <View style={styles.overviewItem}>
             <Text style={styles.overviewNumber}>{stats?.approved_requests || 0}</Text>
@@ -141,8 +142,8 @@ const AdminDashboardScreen: React.FC = () => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('dashboard.quickActions')}</Text>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.actionButton}
           onPress={() => setActiveTab('allRequests')}
         >
@@ -154,7 +155,7 @@ const AdminDashboardScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.actionButton}
           onPress={() => setActiveTab('userManagement')}
         >
@@ -166,7 +167,7 @@ const AdminDashboardScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.actionButton}
           onPress={() => setActiveTab('worksiteManagement')}
         >
@@ -182,15 +183,15 @@ const AdminDashboardScreen: React.FC = () => {
       {stats && stats.total_requests > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('dashboard.systemStatusBreakdown')}</Text>
-          
+
           {Object.entries(stats.requests_by_status).map(([status, count]) => (
             <View key={status} style={styles.statusRow}>
               <View style={[
-                styles.statusIndicator, 
+                styles.statusIndicator,
                 { backgroundColor: requestService.getStatusColor(status) }
               ]} />
               <Text style={styles.statusLabel}>
-                {requestService.getStatusDisplay(status)}
+                {t(`status.${status}`)}
               </Text>
               <Text style={styles.statusCount}>{count}</Text>
             </View>
@@ -396,4 +397,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AdminDashboardScreen;
+export default AdminDashboardScreen as () => React.JSX.Element;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,34 +8,35 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import organizationService from '../../services/organizationService';
 import userService from '../../services/userService';
 import { WorkSite } from '../../types/organization';
 import { ExtendedUser } from '../../types/users';
-import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
+import { showConfirm, showError, showSuccess } from '../../utils/platformUtils';
 
 interface WorksiteDetailModalProps {
-  visible: boolean;
-  onClose: () => void;
-  worksiteId: number | null;
-  onWorksiteUpdated?: () => void;
-  currentUser: ExtendedUser;
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly worksiteId: number | null;
+  readonly onWorksiteUpdated?: () => void;
+  readonly currentUser: ExtendedUser;
 }
 
 interface UpdateWorksiteData {
-  address: string;
-  city: string;
-  country: string;
-  chief?: number;
+  readonly address: string;
+  readonly city: string;
+  readonly country: string;
+  readonly chief?: number;
 }
 
 interface FormErrors {
-  address?: string;
-  city?: string;
-  country?: string;
-  general?: string;
+  readonly address?: string;
+  readonly city?: string;
+  readonly country?: string;
+  readonly general?: string;
 }
 
 // Common countries list with translations
@@ -50,16 +51,15 @@ const COUNTRIES = [
   { en: 'Netherlands', tr: 'Hollanda' },
   { en: 'Belgium', tr: 'Belçika' },
   { en: 'Switzerland', tr: 'İsviçre' },
-];
+] as const;
 
-const WorksiteDetailModal: React.FC<WorksiteDetailModalProps> = ({
+function WorksiteDetailModal({
   visible,
   onClose,
   worksiteId,
   onWorksiteUpdated,
   currentUser,
-}) => {
-  console.log('WorksiteDetailModal: Rendered with props - visible:', visible, 'worksiteId:', worksiteId);
+}: WorksiteDetailModalProps): React.JSX.Element {
   
   const { t, i18n } = useTranslation();
   const [worksite, setWorksite] = useState<WorkSite | null>(null);
@@ -77,24 +77,20 @@ const WorksiteDetailModal: React.FC<WorksiteDetailModalProps> = ({
   });
 
   useEffect(() => {
-    console.log('WorksiteDetailModal: Effect triggered - visible:', visible, 'worksiteId:', worksiteId);
     if (visible && worksiteId) {
       loadWorksite();
       loadPotentialChiefs();
     }
-  }, [visible, worksiteId]);
+  }, [visible, worksiteId, loadWorksite, loadPotentialChiefs]);
 
-  const loadWorksite = async () => {
+  const loadWorksite = useCallback(async (): Promise<void> => {
     if (!worksiteId) {
-      console.log('WorksiteDetailModal: No worksiteId provided');
       return;
     }
     
     try {
-      console.log('WorksiteDetailModal: Loading worksite with ID:', worksiteId);
       setLoading(true);
       const worksiteData = await organizationService.getWorksite(worksiteId);
-      console.log('WorksiteDetailModal: Worksite data loaded:', worksiteData);
       
       setWorksite(worksiteData);
       setFormData({
@@ -103,32 +99,27 @@ const WorksiteDetailModal: React.FC<WorksiteDetailModalProps> = ({
         country: worksiteData.country,
         chief: worksiteData.chief,
       });
-    } catch (error: any) {
-      console.error('WorksiteDetailModal: Failed to load worksite:', error);
-      showError(
-        t('messages.error'),
-        error.message || 'Failed to load worksite details'
-      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load worksite details';
+      showError(t('messages.error'), errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [worksiteId, t]);
 
-  const loadPotentialChiefs = async () => {
+  const loadPotentialChiefs = useCallback(async (): Promise<void> => {
     try {
-      console.log('WorksiteDetailModal: Loading potential chiefs...');
       const usersData = await userService.getUsers({ page_size: 100 });
       const chiefs = usersData.results.filter(user => 
         user.id !== currentUser.id && user.is_active
       );
       setPotentialChiefs(chiefs);
-    } catch (error: any) {
-      console.error('WorksiteDetailModal: Failed to load potential chiefs:', error);
+    } catch (error: unknown) {
       setPotentialChiefs([]);
     }
-  };
+  }, [currentUser.id]);
 
-  const validateForm = (): boolean => {
+  const validateForm = useCallback((): boolean => {
     const newErrors: FormErrors = {};
 
     if (!formData.address.trim()) {
@@ -149,9 +140,9 @@ const WorksiteDetailModal: React.FC<WorksiteDetailModalProps> = ({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData, t]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async (): Promise<void> => {
     if (!worksite) return;
 
     if (!validateForm()) {
@@ -173,15 +164,13 @@ const WorksiteDetailModal: React.FC<WorksiteDetailModalProps> = ({
       setEditing(false);
       onWorksiteUpdated?.();
       showSuccess(t('messages.success'), t('worksiteManagement.worksiteUpdated'));
-    } catch (error: any) {
-      showError(
-        t('messages.error'),
-        error.message || t('worksiteManagement.updateWorksiteError')
-      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : t('worksiteManagement.updateWorksiteError');
+      showError(t('messages.error'), errorMessage);
     } finally {
       setSaving(false);
     }
-  };
+  }, [worksite, formData, validateForm, t, onWorksiteUpdated]);
 
   const handleDelete = () => {
     if (!worksite) return;
@@ -195,11 +184,9 @@ const WorksiteDetailModal: React.FC<WorksiteDetailModalProps> = ({
           onWorksiteUpdated?.();
           onClose();
           showSuccess(t('messages.success'), t('worksiteManagement.worksiteDeleted'));
-        } catch (error: any) {
-          showError(
-            t('messages.error'),
-            error.message || t('worksiteManagement.deleteWorksiteError')
-          );
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : t('worksiteManagement.deleteWorksiteError');
+          showError(t('messages.error'), errorMessage);
         }
       },
       undefined,
@@ -209,23 +196,26 @@ const WorksiteDetailModal: React.FC<WorksiteDetailModalProps> = ({
     );
   };
 
-  const updateFormField = (field: keyof UpdateWorksiteData, value: any) => {
+  const updateFormField = useCallback(<K extends keyof UpdateWorksiteData>(
+    field: K, 
+    value: UpdateWorksiteData[K]
+  ): void => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     if (errors[field as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
-  };
+  }, [errors]);
 
-  const getCountryName = (country: string): string => {
+  const getCountryName = useCallback((country: string): string => {
     const countryObj = COUNTRIES.find(c => c.en === country);
     return countryObj ? countryObj[i18n.language as 'en' | 'tr'] || countryObj.en : country;
-  };
+  }, [i18n.language]);
 
-  const getSelectedChiefName = (): string => {
+  const getSelectedChiefName = useCallback((): string => {
     const chief = potentialChiefs.find(u => u.id === formData.chief);
     return chief ? chief.full_name : t('addWorksite.noChief');
-  };
+  }, [potentialChiefs, formData.chief, t]);
 
   const canEdit = currentUser.is_superuser;
   const canDelete = currentUser.is_superuser && worksite?.id !== currentUser.worksite;
@@ -465,17 +455,27 @@ const WorksiteDetailModal: React.FC<WorksiteDetailModalProps> = ({
   );
 };
 
+// Helper function to calculate responsive modal dimensions
+const getResponsiveModalDimensions = () => {
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  return {
+    width: Math.min(screenWidth * 0.95, 600),
+    height: screenHeight * 0.9
+  };
+};
+
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 10,
+    paddingVertical: 20,
   },
   container: {
-    width: '100%',
-    maxWidth: 600,
+    width: getResponsiveModalDimensions().width,
+    height: getResponsiveModalDimensions().height,
     maxHeight: '90%',
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
@@ -486,9 +486,9 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     padding: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -503,12 +503,12 @@ const styles = StyleSheet.create({
     flex: 2,
     fontSize: 18,
     fontWeight: 'bold',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     color: '#2c3e50',
   },
   headerRight: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: 'flex-end' as const,
   },
   closeButton: {
     padding: 8,
@@ -537,8 +537,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   loadingText: {
     marginTop: 16,
@@ -558,9 +558,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f3f4',
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
     color: '#2c3e50',
     fontWeight: '500',
     flex: 2,
-    textAlign: 'right',
+    textAlign: 'right' as const,
   },
   errorContainer: {
     backgroundColor: '#f8d7da',
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
     backgroundColor: '#fff',
-    textAlignVertical: 'top',
+    textAlignVertical: 'top' as const,
   },
   inputError: {
     borderColor: '#dc3545',
@@ -665,13 +665,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#dc3545',
     paddingVertical: 12,
     borderRadius: 6,
-    alignItems: 'center',
+    alignItems: 'center' as const,
   },
   deleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
-});
+} as const);
 
-export default WorksiteDetailModal;
+export type { WorksiteDetailModalProps, UpdateWorksiteData, FormErrors };
+export default WorksiteDetailModal as (props: WorksiteDetailModalProps) => React.JSX.Element;

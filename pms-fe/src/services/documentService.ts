@@ -1,6 +1,8 @@
 import apiClient from './apiClient';
 import { API_ENDPOINTS } from '../constants/api';
 import { PaginatedResponse, DocumentQueryParams } from '../types/api';
+import { DocumentPickerResponse } from '@react-native-documents/picker';
+import { Platform } from 'react-native';
 
 export interface ProcurementDocument {
   id: string;
@@ -90,17 +92,46 @@ class DocumentService {
   }
 
   // Upload file to MinIO using presigned URL
-  async uploadFile(presignedUrl: string, file: File): Promise<boolean> {
+  async uploadFile(presignedUrl: string, file: File | DocumentPickerResponse): Promise<boolean> {
     try {
-      const response = await fetch(presignedUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
-      });
-      
-      return response.ok;
+      if (Platform.OS === 'web') {
+        // Web platform - use File object
+        const response = await fetch(presignedUrl, {
+          method: 'PUT',
+          body: file as File,
+          headers: {
+            'Content-Type': (file as File).type,
+          },
+        });
+        if (!response.ok) {
+          const text = await safeReadText(response);
+          console.error('Upload failed (web):', response.status, text);
+        }
+        return response.ok;
+      } else {
+        // React Native - upload raw bytes directly (no multipart)
+        const documentFile = file as DocumentPickerResponse;
+        const uri = documentFile.uri;
+        const contentType = documentFile.type ?? 'application/octet-stream';
+
+        // Read local file into a Blob using fetch on the uri
+        const localResp = await fetch(uri);
+        const blob = await localResp.blob();
+
+        const response = await fetch(presignedUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': contentType,
+          },
+          body: blob,
+        });
+
+        if (!response.ok) {
+          const text = await safeReadText(response);
+          console.error('Upload failed (native):', response.status, text);
+        }
+        return response.ok;
+      }
     } catch (error) {
       console.error('Error uploading file:', error);
       return false;
@@ -108,22 +139,65 @@ class DocumentService {
   }
 
   // Complete upload flow: create document -> upload file -> confirm upload
-  async completeUpload(data: CreateDocumentDto, file: File): Promise<ProcurementDocument> {
+  async completeUpload(data: CreateDocumentDto, file: File | DocumentPickerResponse): Promise<ProcurementDocument> {
+    // Derive accurate file metadata
+    const isWeb = Platform.OS === 'web';
+    const fileName = isWeb ? (file as File).name : (file as DocumentPickerResponse).name || 'unknown';
+    const fileType = isWeb ? (file as File).type : (file as DocumentPickerResponse).type || 'application/octet-stream';
+    let fileSize: number | null | undefined = isWeb ? (file as File).size : (file as DocumentPickerResponse).size;
+
+    if (!isWeb && (fileSize === null || typeof fileSize === 'undefined')) {
+      try {
+        const uri = (file as DocumentPickerResponse).uri;
+        const probeResp = await fetch(uri);
+        const probeBlob = await probeResp.blob();
+        fileSize = probeBlob.size;
+      } catch (e) {
+        console.warn('Could not determine file size from uri; proceeding without size');
+      }
+    }
+
+    const finalData: CreateDocumentDto = {
+      ...data,
+      file_name: fileName,
+      file_type: fileType,
+      file_size: typeof fileSize === 'number' ? fileSize : (data.file_size ?? 0),
+    };
+
     // 1. Create document record and get presigned URL
-    const createResponse = await this.createDocument(data);
-    
+    let createResponse: CreateDocumentResponse;
+    try {
+      createResponse = await this.createDocument(finalData);
+      if (__DEV__) {
+        console.log('createDocument OK:', { id: createResponse.id, hasUploadUrl: !!createResponse.upload_url });
+      }
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const details = e?.response?.data;
+      console.error('createDocument failed:', status, details || e?.message || e);
+      throw e;
+    }
+
     // 2. Upload file to MinIO
     const uploadSuccess = await this.uploadFile(createResponse.upload_url, file);
     if (!uploadSuccess) {
       throw new Error('Failed to upload file to storage');
     }
-    
+
     // 3. Confirm upload completion
-    const confirmResponse = await this.confirmUpload(createResponse.id);
+    let confirmResponse: { status: string; message: string };
+    try {
+      confirmResponse = await this.confirmUpload(createResponse.id);
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const details = e?.response?.data;
+      console.error('confirmUpload failed:', status, details || e?.message || e);
+      throw e;
+    }
     if (confirmResponse.status !== 'success') {
       throw new Error('Failed to confirm upload');
     }
-    
+
     // 4. Return updated document
     return await this.getDocument(createResponse.id);
   }
@@ -131,18 +205,32 @@ class DocumentService {
   // Download file from MinIO
   async downloadFile(id: string): Promise<void> {
     const { download_url, file_name } = await this.getDownloadUrl(id);
-    
-    // Create a temporary link and trigger download
-    const link = document.createElement('a');
-    link.href = download_url;
-    link.download = file_name;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    if (Platform.OS === 'web') {
+      // Web platform - use DOM manipulation
+      if (typeof document !== 'undefined') {
+        const link = document.createElement('a');
+        link.href = download_url;
+        link.download = file_name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } else {
+      // React Native - open URL (could be enhanced with file download libraries)
+      const { Linking } = require('react-native');
+      await Linking.openURL(download_url);
+    }
   }
 
   // Utility methods
-  getDocumentTypeDisplay(type: string): string {
+  getDocumentTypeDisplay(type: string, t?: (key: string) => string): string {
+    if (t) {
+      // Use translation function if provided
+      return t(`fileUpload.documentTypes.${type}`) || type;
+    }
+
+    // Fallback to English for backward compatibility
     const typeMap: Record<string, string> = {
       quote: 'Quotation',
       purchase_order: 'Purchase Order',
@@ -174,39 +262,55 @@ class DocumentService {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
-  validateFileType(file: File): boolean {
+  validateFileType(file: File | DocumentPickerResponse): boolean {
     const allowedTypes = [
       // Documents
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      
+
       // Spreadsheets
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'text/csv',
-      
+
       // Images
       'image/jpeg',
       'image/jpg',
       'image/png',
       'image/gif',
       'image/webp',
-      
+
       // Text
       'text/plain',
-      
+
       // Archives
       'application/zip',
       'application/x-zip-compressed',
       'application/x-rar-compressed',
     ];
-    
-    return allowedTypes.includes(file.type);
+
+    const fileType = Platform.OS === 'web' ? (file as File).type : (file as DocumentPickerResponse).type;
+    return allowedTypes.includes(fileType || 'application/octet-stream');
   }
 
-  validateFileSize(file: File, maxSize: number = 10485760): boolean {
-    return file.size <= maxSize; // Default 10MB
+  validateFileSize(file: File | DocumentPickerResponse | { size: number }, maxSize: number = 10485760): boolean {
+    let fileSize: number | null | undefined;
+
+    if (Platform.OS === 'web') {
+      fileSize = (file as File).size;
+    } else if ('size' in file && typeof file.size === 'number') {
+      fileSize = file.size;
+    } else {
+      fileSize = (file as DocumentPickerResponse).size;
+    }
+
+    if (fileSize === null || typeof fileSize === 'undefined') {
+      // Size unknown; allow upload but consider logging if needed
+      return true;
+    }
+
+    return fileSize <= maxSize; // Default 10MB
   }
 
   canUploadDocumentType(documentType: string, requestStatus: string): boolean {
@@ -240,3 +344,12 @@ class DocumentService {
 
 const documentService = new DocumentService();
 export default documentService;
+
+// Helper to safely read response text without throwing on empty bodies
+async function safeReadText(response: any): Promise<string> {
+  try {
+    return await response.text();
+  } catch {
+    return '';
+  }
+}

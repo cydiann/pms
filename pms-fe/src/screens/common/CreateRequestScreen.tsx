@@ -5,7 +5,7 @@ import requestService from '../../services/requestService';
 import { CreateRequestDto, RequestUnit } from '../../types/requests';
 import { showError, showSuccess } from '../../utils/platformUtils';
 
-const CreateRequestScreen: React.FC = () => {
+function CreateRequestScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<CreateRequestDto>({
@@ -18,7 +18,7 @@ const CreateRequestScreen: React.FC = () => {
     reason: '',
   });
 
-  const handleInputChange = (field: keyof CreateRequestDto, value: string) => {
+  const handleInputChange = (field: keyof CreateRequestDto, value: string): void => {
     // Special handling for quantity field - only allow valid numbers
     if (field === 'quantity') {
       // Allow empty string, numbers, and decimal point
@@ -39,7 +39,7 @@ const CreateRequestScreen: React.FC = () => {
     }));
   };
 
-  const validateForm = () => {
+  const validateForm = (): boolean => {
     if (!formData.item.trim()) {
       showError(t('messages.error'), t('requests.validation.itemRequired'));
       return false;
@@ -74,15 +74,15 @@ const CreateRequestScreen: React.FC = () => {
     return true;
   };
 
-  const saveDraft = async () => {
+  const saveDraft = async (): Promise<void> => {
     if (!validateForm()) return;
 
     setLoading(true);
     try {
       const newRequest = await requestService.createRequest(formData);
       showSuccess(
-        'Success',
-        `Draft request ${newRequest.request_number} has been saved!`,
+        t('messages.success'),
+        t('requests.success.draftSaved', { requestNumber: newRequest.request_number }),
         () => {
           // Reset form
           setFormData({
@@ -93,17 +93,18 @@ const CreateRequestScreen: React.FC = () => {
             category: '',
             delivery_address: '',
             reason: '',
-          });
+          } as const);
         }
       );
-    } catch (error: any) {
-      showError('Error', error.message || 'Failed to save draft');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save draft';
+      showError(t('messages.error'), errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     if (!validateForm()) return;
 
     setLoading(true);
@@ -115,8 +116,8 @@ const CreateRequestScreen: React.FC = () => {
       await requestService.submitRequest(newRequest.id);
       
       showSuccess(
-        'Success',
-        `Request ${newRequest.request_number} has been submitted for approval!`,
+        t('messages.success'),
+        t('requests.success.requestSubmitted', { requestNumber: newRequest.request_number }),
         () => {
           // Reset form
           setFormData({
@@ -127,11 +128,12 @@ const CreateRequestScreen: React.FC = () => {
             category: '',
             delivery_address: '',
             reason: '',
-          });
+          } as const);
         }
       );
-    } catch (error: any) {
-      showError('Error', error.message || 'Failed to submit request');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit request';
+      showError(t('messages.error'), errorMessage);
     } finally {
       setLoading(false);
     }
@@ -143,7 +145,7 @@ const CreateRequestScreen: React.FC = () => {
     { value: RequestUnit.METER, label: t('requests.units.meter') },
     { value: RequestUnit.M2, label: t('requests.units.m2') },
     { value: RequestUnit.LITER, label: t('requests.units.liter') },
-  ];
+  ] as const;
 
   return (
     <KeyboardAvoidingView 
@@ -352,10 +354,10 @@ const styles = StyleSheet.create({
   },
   textArea: {
     minHeight: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: 'top' as const,
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: 'row' as const,
   },
   flex1: {
     flex: 1,
@@ -364,8 +366,8 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   unitSelector: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
   },
   unitOption: {
     backgroundColor: '#f8f9fa',
@@ -389,8 +391,8 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
     marginTop: 20,
     marginBottom: 40,
     gap: 12,
@@ -399,14 +401,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#6c757d',
     paddingVertical: 16,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: 'center' as const,
     flex: 1,
   },
   submitButton: {
     backgroundColor: '#007bff',
     paddingVertical: 16,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: 'center' as const,
     flex: 1,
   },
   buttonDisabled: {
@@ -424,4 +426,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CreateRequestScreen;
+export default CreateRequestScreen as () => React.JSX.Element;

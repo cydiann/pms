@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -15,20 +15,25 @@ import { ExtendedUser } from '../../types/users';
 import AddGroupModal from '../../components/modals/AddGroupModal';
 import GroupDetailModal from '../../components/modals/GroupDetailModal';
 import { showError } from '../../utils/platformUtils';
+import { translatePermissionName } from '../../utils/permissionTranslations';
 
 interface UserGroup {
-  id: number;
-  name: string;
-  user_count: number;
-  permissions: Array<{
-    id: number;
-    name: string;
-    codename: string;
+  readonly id: number;
+  readonly name: string;
+  readonly user_count: number;
+  readonly permissions: ReadonlyArray<{
+    readonly id: number;
+    readonly name: string;
+    readonly codename: string;
   }>;
 }
 
-const GroupManagementScreen: React.FC = () => {
-  console.log('GroupManagementScreen: Component rendered');
+interface ApiError extends Error {
+  readonly message: string;
+  readonly status?: number;
+}
+
+function GroupManagementScreen(): React.JSX.Element {
   
   const { t } = useTranslation();
   const [groups, setGroups] = useState<UserGroup[]>([]);
@@ -43,29 +48,25 @@ const GroupManagementScreen: React.FC = () => {
   const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    console.log('GroupManagementScreen: useEffect triggered - mounting component');
     loadGroups();
     loadCurrentUser();
-  }, []);
+  }, [loadGroups, loadCurrentUser]);
 
-  const loadCurrentUser = async () => {
+  const loadCurrentUser = useCallback(async (): Promise<void> => {
     try {
-      console.log('GroupManagementScreen: Loading current user...');
       const user = await userService.getCurrentUser();
-      console.log('GroupManagementScreen: Current user loaded successfully:', user);
       setCurrentUser(user);
     } catch (error) {
-      console.error('GroupManagementScreen: Failed to load current user:', error);
+      const apiError = error as ApiError;
+      showError(t('messages.error'), apiError.message || 'Failed to load current user');
     }
-  };
+  }, [t]);
 
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async (): Promise<void> => {
     try {
-      console.log('GroupManagementScreen: Loading groups...');
       setLoading(true);
       
       const response = await userService.getGroups();
-      console.log('GroupManagementScreen: Groups loaded successfully:', response?.length || 0);
       
       // Filter groups based on search query
       let filteredGroups = response || [];
@@ -81,24 +82,24 @@ const GroupManagementScreen: React.FC = () => {
       }
       
       setGroups(filteredGroups);
-    } catch (error: any) {
-      console.error('GroupManagementScreen: Failed to load groups:', error);
+    } catch (error) {
+      const apiError = error as ApiError;
       showError(
         t('messages.error'),
-        error.message || 'Failed to load groups'
+        apiError.message || 'Failed to load groups'
       );
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, t]);
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async (): Promise<void> => {
     setRefreshing(true);
     await loadGroups();
     setRefreshing(false);
-  };
+  }, [loadGroups]);
 
-  const handleSearch = (text: string) => {
+  const handleSearch = useCallback((text: string): void => {
     setSearchQuery(text);
     // Debounce search - reload after user stops typing
     if (searchTimeoutRef.current) {
@@ -107,30 +108,26 @@ const GroupManagementScreen: React.FC = () => {
     searchTimeoutRef.current = setTimeout(() => {
       loadGroups();
     }, 500);
-  };
+  }, [loadGroups]);
 
-  const handleGroupPress = (groupId: number) => {
-    console.log('GroupManagementScreen: Group pressed:', groupId);
+  const handleGroupPress = useCallback((groupId: number): void => {
     setSelectedGroupId(groupId);
     setGroupDetailModalVisible(true);
-  };
+  }, []);
 
-  const handleAddGroupPress = () => {
-    console.log('GroupManagementScreen: Add group button pressed');
+  const handleAddGroupPress = useCallback((): void => {
     setAddGroupModalVisible(true);
-  };
+  }, []);
 
-  const handleGroupCreated = () => {
-    console.log('GroupManagementScreen: Group created, refreshing list...');
+  const handleGroupCreated = useCallback((): void => {
     loadGroups();
-  };
+  }, [loadGroups]);
 
-  const handleGroupUpdated = () => {
-    console.log('GroupManagementScreen: Group updated, refreshing list...');
+  const handleGroupUpdated = useCallback((): void => {
     loadGroups();
-  };
+  }, [loadGroups]);
 
-  const renderGroupItem = ({ item }: { item: UserGroup }) => (
+  const renderGroupItem = useCallback(({ item }: { item: UserGroup }): React.JSX.Element => (
     <TouchableOpacity 
       style={styles.groupItem}
       onPress={() => handleGroupPress(item.id)}
@@ -153,7 +150,7 @@ const GroupManagementScreen: React.FC = () => {
           {item.permissions.slice(0, 3).map(permission => (
             <View key={permission.id} style={styles.permissionTag}>
               <Text style={styles.permissionText} numberOfLines={1}>
-                {permission.name}
+                {translatePermissionName(permission.name, t)}
               </Text>
             </View>
           ))}
@@ -167,9 +164,9 @@ const GroupManagementScreen: React.FC = () => {
         </View>
       )}
     </TouchableOpacity>
-  );
+  ), [handleGroupPress, t]);
 
-  const renderEmptyState = () => (
+  const renderEmptyState = useCallback((): React.JSX.Element => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyTitle}>
         {searchQuery ? t('groupManagement.noGroupsFound') : t('groupManagement.noGroupsTitle')}
@@ -181,7 +178,7 @@ const GroupManagementScreen: React.FC = () => {
         }
       </Text>
     </View>
-  );
+  ), [searchQuery, t]);
 
   if (!currentUser) {
     return (
@@ -257,12 +254,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: 'row' as const,
     padding: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
-    alignItems: 'center',
+    alignItems: 'center' as const,
   },
   searchContainer: {
     flex: 1,
@@ -290,8 +287,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   loadingText: {
     marginTop: 16,
@@ -311,9 +308,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   groupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     marginBottom: 8,
   },
   groupName: {
@@ -339,8 +336,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   permissionsPreview: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
     marginTop: 4,
   },
   permissionTag: {
@@ -361,8 +358,8 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     paddingHorizontal: 32,
   },
   emptyList: {
@@ -370,17 +367,17 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#2c3e50',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     marginBottom: 8,
   },
   emptyMessage: {
     fontSize: 14,
     color: '#6c757d',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     lineHeight: 20,
   },
-});
+} as const);
 
-export default GroupManagementScreen;
+export default GroupManagementScreen as () => React.JSX.Element;

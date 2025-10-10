@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator, ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
 import { Request } from '../../types/requests';
+import { PaginatedResponse } from '../../types/api';
 import RequestDetailModal from '../../components/modals/RequestDetailModal';
 import CreateRequestModal from '../../components/modals/CreateRequestModal';
-import { showSimpleAlert, showSuccess, showError } from '../../utils/platformUtils';
+// Removed unused imports: showSimpleAlert, showSuccess, showError
 
-const MyRequestsScreen: React.FC = () => {
+function MyRequestsScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,63 +18,44 @@ const MyRequestsScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async (): Promise<void> => {
     try {
       setError(null);
-      const response = await requestService.getMyRequests();
+      const response: PaginatedResponse<Request> = await requestService.getMyRequests();
       setRequests(response.results || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load requests');
       setRequests([]);
-      console.error('Error loading requests:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadRequests();
-  }, []);
+  }, [loadRequests]);
 
-  const onRefresh = () => {
+  const onRefresh = useCallback((): void => {
     setRefreshing(true);
     loadRequests();
-  };
+  }, [loadRequests]);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string): string => {
     return requestService.getStatusColor(status);
-  };
+  }, []);
 
-  const handleRequestPress = (request: Request) => {
-    console.log('Opening request:', request.id);
+  const handleRequestPress = useCallback((request: Request): void => {
     setSelectedRequest(request);
     setModalVisible(true);
-  };
+  }, []);
 
-  const showRequestDetails = (request: Request) => {
-    const details = `
-Request: ${request.item}
-Number: ${request.request_number}
-Status: ${request.status}
-Quantity: ${request.quantity} ${request.unit}
-Reason: ${request.reason}
-Created: ${new Date(request.created_at).toLocaleDateString()}
-    `.trim();
-    
-    showSimpleAlert('Request Details', details);
-  };
+  const getStatusBadgeStyle = useCallback((status: string): ViewStyle => ({
+    ...styles.statusBadge,
+    backgroundColor: getStatusColor(status),
+  }), [getStatusColor]);
 
-  const submitRequest = async (request: Request) => {
-    try {
-      await requestService.submitRequest(request.id);
-      showSuccess('Success', 'Request submitted for approval!', () => loadRequests());
-    } catch (error: any) {
-      showError('Error', error.message || 'Failed to submit request');
-    }
-  };
-
-  const renderRequestItem = ({ item }: { item: Request }) => (
+  const renderRequestItem = useCallback(({ item }: { item: Request }): React.JSX.Element => (
     <TouchableOpacity 
       style={styles.requestItem}
       onPress={() => handleRequestPress(item)}
@@ -81,8 +63,8 @@ Created: ${new Date(request.created_at).toLocaleDateString()}
     >
       <View style={styles.requestHeader}>
         <Text style={styles.requestNumber}>{item.request_number}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status_display}</Text>
+        <View style={getStatusBadgeStyle(item.status)}>
+          <Text style={styles.statusText}>{t(`status.${item.status}`)}</Text>
         </View>
       </View>
       
@@ -110,9 +92,9 @@ Created: ${new Date(request.created_at).toLocaleDateString()}
         )}
       </View>
     </TouchableOpacity>
-  );
+  ), [handleRequestPress, getStatusBadgeStyle, t]);
 
-  const renderEmptyState = () => (
+  const renderEmptyState = useCallback((): React.JSX.Element => (
     <View style={styles.emptyState}>
       <Text style={styles.emptyStateTitle}>
         {t('requests.noRequestsTitle')}
@@ -124,12 +106,12 @@ Created: ${new Date(request.created_at).toLocaleDateString()}
         style={styles.createButton}
         onPress={() => setCreateModalVisible(true)}
       >
-        <Text style={styles.createButtonText}>Create Request</Text>
+        <Text style={styles.createButtonText}>{t('requests.createButton')}</Text>
       </TouchableOpacity>
     </View>
-  );
+  ), [t]);
 
-  const renderErrorState = () => (
+  const renderErrorState = useCallback((): React.JSX.Element => (
     <View style={styles.emptyState}>
       <Text style={styles.emptyStateTitle}>
         {t('messages.error')}
@@ -143,7 +125,7 @@ Created: ${new Date(request.created_at).toLocaleDateString()}
         </Text>
       </TouchableOpacity>
     </View>
-  );
+  ), [error, loadRequests, t]);
 
   if (loading) {
     return (
@@ -200,8 +182,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     backgroundColor: '#f8f9fa',
   },
   loadingText: {
@@ -214,21 +196,21 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     padding: 32,
   },
   emptyStateTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#2c3e50',
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
   emptyStateMessage: {
     fontSize: 16,
     color: '#6c757d',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     lineHeight: 24,
   },
   retryButton: {
@@ -241,7 +223,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   requestItem: {
     backgroundColor: '#fff',
@@ -255,14 +237,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   requestHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     marginBottom: 8,
   },
   requestNumber: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#6c757d',
   },
   statusBadge: {
@@ -273,11 +255,11 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   requestTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#2c3e50',
     marginBottom: 8,
   },
@@ -290,9 +272,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   requestFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
   },
   dateText: {
     fontSize: 12,
@@ -301,7 +283,7 @@ const styles = StyleSheet.create({
   revisionText: {
     fontSize: 12,
     color: '#fd7e14',
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   createButton: {
     backgroundColor: '#007bff',
@@ -313,18 +295,18 @@ const styles = StyleSheet.create({
   createButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   fab: {
-    position: 'absolute',
+    position: 'absolute' as const,
     bottom: 20,
     right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
     backgroundColor: '#007bff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -334,8 +316,8 @@ const styles = StyleSheet.create({
   fabText: {
     color: '#fff',
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
   },
-});
+} as const);
 
-export default MyRequestsScreen;
+export default MyRequestsScreen as () => React.JSX.Element;

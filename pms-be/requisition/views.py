@@ -221,7 +221,7 @@ class RequestViewSet(viewsets.ModelViewSet):
         request_obj = self.get_object()
         
         # Check if user has purchasing permissions or is superuser
-        if not (request.user.is_superuser or (request.user.role and request.user.role.can_purchase)):
+        if not (request.user.is_superuser or request.user.can_purchase()):
             return Response(
                 {'error': 'Only purchasing team can mark as purchased'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -253,7 +253,7 @@ class RequestViewSet(viewsets.ModelViewSet):
         request_obj = self.get_object()
         
         # Check if user has purchasing permissions or is superuser
-        if not (request.user.is_superuser or (request.user.role and request.user.role.can_purchase)):
+        if not (request.user.is_superuser or request.user.can_purchase()):
             return Response(
                 {'error': 'Only purchasing team can mark as delivered'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -321,7 +321,7 @@ class RequestViewSet(viewsets.ModelViewSet):
     def purchasing_queue(self, request):
         """Get requests ready for purchasing"""
         # Check if user has purchasing permissions
-        if not (request.user.is_superuser or (request.user.role and request.user.role.can_purchase)):
+        if not (request.user.is_superuser or request.user.can_purchase()):
             return Response(
                 {'error': 'Only purchasing team can access purchasing queue'}, 
                 status=status.HTTP_403_FORBIDDEN
@@ -461,14 +461,10 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(status=status_filter)
         
         # Non-admin users can only see documents for their requests or if they have purchase permissions
-        if not user.is_superuser:
-            if user.role and user.role.can_purchase:
-                # Purchasing team can see all documents
-                pass
-            else:
-                # Regular users can only see documents for their requests
-                user_requests = Request.objects.filter(created_by=user)
-                queryset = queryset.filter(request__in=user_requests)
+        if not user.is_superuser and not user.can_purchase():
+            # Regular users can only see documents for their requests
+            user_requests = Request.objects.filter(created_by=user)
+            queryset = queryset.filter(request__in=user_requests)
         
         return queryset.select_related('request', 'uploaded_by')
     
@@ -572,7 +568,7 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
         if not (
             user.is_superuser or
             document.uploaded_by == user or
-            (user.role and user.role.can_purchase)
+            user.can_purchase()
         ):
             return Response(
                 {"error": "You don't have permission to delete this document"},
@@ -606,7 +602,7 @@ class ProcurementDocumentViewSet(viewsets.ModelViewSet):
         if not (
             user.is_superuser or
             request_obj.created_by == user or
-            (user.role and user.role.can_purchase)
+            user.can_purchase()
         ):
             return Response(
                 {"error": "You don't have permission to view documents for this request"},

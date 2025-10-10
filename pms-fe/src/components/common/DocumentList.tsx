@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,31 +6,40 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  ViewStyle,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTranslation } from 'react-i18next';
 import documentService, { ProcurementDocument } from '../../services/documentService';
 import { showError, showConfirm } from '../../utils/platformUtils';
+import FileUpload from './FileUpload';
 
 interface DocumentListProps {
-  requestId: number;
-  onDocumentsChange?: (documents: ProcurementDocument[]) => void;
-  style?: any;
-  refreshTrigger?: number;
+  readonly requestId: number;
+  readonly requestStatus: string;
+  readonly onDocumentsChange?: (documents: ProcurementDocument[]) => void;
+  readonly style?: ViewStyle | ViewStyle[];
+  readonly refreshTrigger?: number;
 }
 
-const DocumentList: React.FC<DocumentListProps> = ({
+interface StatusIcon {
+  readonly name: string;
+  readonly color: string;
+}
+
+function DocumentList({
   requestId,
+  requestStatus,
   onDocumentsChange,
   style,
   refreshTrigger,
-}) => {
+}: DocumentListProps): React.JSX.Element {
   const { t } = useTranslation();
   const [documents, setDocuments] = useState<ProcurementDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     try {
       const docs = await documentService.getDocumentsByRequest(requestId);
       setDocuments(docs);
@@ -42,11 +51,11 @@ const DocumentList: React.FC<DocumentListProps> = ({
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [requestId, onDocumentsChange]);
 
   useEffect(() => {
     loadDocuments();
-  }, [requestId, refreshTrigger]);
+  }, [loadDocuments, refreshTrigger]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -86,28 +95,34 @@ const DocumentList: React.FC<DocumentListProps> = ({
     );
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'uploaded':
-        return { name: 'check-circle', color: '#28a745' };
-      case 'pending':
-        return { name: 'access-time', color: '#ffc107' };
-      case 'failed':
-        return { name: 'error', color: '#dc3545' };
-      default:
-        return { name: 'help', color: '#6c757d' };
-    }
+  const STATUS_ICONS = {
+    uploaded: { name: 'check-circle', color: '#28a745' },
+    pending: { name: 'access-time', color: '#ffc107' },
+    failed: { name: 'error', color: '#dc3545' },
+    default: { name: 'help', color: '#6c757d' },
+  } as const;
+
+  const getStatusIcon = (status: string): StatusIcon => {
+    return STATUS_ICONS[status as keyof typeof STATUS_ICONS] || STATUS_ICONS.default;
   };
 
-  const getFileIcon = (fileType: string) => {
-    if (fileType.includes('pdf')) return 'picture-as-pdf';
-    if (fileType.includes('word') || fileType.includes('document')) return 'description';
-    if (fileType.includes('sheet') || fileType.includes('excel')) return 'grid-on';
-    if (fileType.includes('image')) return 'image';
-    return 'insert-drive-file';
+  const FILE_ICONS = {
+    pdf: 'picture-as-pdf',
+    document: 'description',
+    spreadsheet: 'grid-on',
+    image: 'image',
+    default: 'insert-drive-file',
+  } as const;
+
+  const getFileIcon = (fileType: string): string => {
+    if (fileType.includes('pdf')) return FILE_ICONS.pdf;
+    if (fileType.includes('word') || fileType.includes('document')) return FILE_ICONS.document;
+    if (fileType.includes('sheet') || fileType.includes('excel')) return FILE_ICONS.spreadsheet;
+    if (fileType.includes('image')) return FILE_ICONS.image;
+    return FILE_ICONS.default;
   };
 
-  const renderDocumentItem = ({ item }: { item: ProcurementDocument }) => {
+  const renderDocumentItem = ({ item }: { item: ProcurementDocument }): React.JSX.Element => {
     const statusIcon = getStatusIcon(item.status);
     const fileIcon = getFileIcon(item.file_type);
 
@@ -121,7 +136,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                 {item.file_name}
               </Text>
               <Text style={styles.documentType}>
-                {documentService.getDocumentTypeDisplay(item.document_type)}
+                {documentService.getDocumentTypeDisplay(item.document_type, t)}
               </Text>
               <Text style={styles.fileSize}>
                 {documentService.formatFileSize(item.file_size)} • {new Date(item.created_at).toLocaleDateString()}
@@ -177,7 +192,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
     );
   };
 
-  const renderEmptyState = () => (
+  const renderEmptyState = (): React.JSX.Element => (
     <View style={styles.emptyState}>
       <Icon name="folder-open" size={48} color="#dee2e6" />
       <Text style={styles.emptyStateText}>No documents uploaded yet</Text>
@@ -193,6 +208,10 @@ const DocumentList: React.FC<DocumentListProps> = ({
     );
   }
 
+  const handleUploadComplete = () => {
+    loadDocuments(); // Refresh the document list when upload completes
+  };
+
   return (
     <View style={[styles.container, style]}>
       <View style={styles.header}>
@@ -201,7 +220,46 @@ const DocumentList: React.FC<DocumentListProps> = ({
           <Icon name="refresh" size={20} color="#007bff" />
         </TouchableOpacity>
       </View>
-      
+
+      {/* File Upload Buttons */}
+      <View style={styles.uploadSection}>
+        <FileUpload
+          requestId={requestId}
+          requestStatus={requestStatus}
+          documentType="other"
+          onUploadComplete={handleUploadComplete}
+          style={styles.uploadButton}
+        />
+        <FileUpload
+          requestId={requestId}
+          requestStatus={requestStatus}
+          documentType="quote"
+          onUploadComplete={handleUploadComplete}
+          style={styles.uploadButton}
+        />
+        <FileUpload
+          requestId={requestId}
+          requestStatus={requestStatus}
+          documentType="purchase_order"
+          onUploadComplete={handleUploadComplete}
+          style={styles.uploadButton}
+        />
+        <FileUpload
+          requestId={requestId}
+          requestStatus={requestStatus}
+          documentType="dispatch_note"
+          onUploadComplete={handleUploadComplete}
+          style={styles.uploadButton}
+        />
+        <FileUpload
+          requestId={requestId}
+          requestStatus={requestStatus}
+          documentType="receipt"
+          onUploadComplete={handleUploadComplete}
+          style={styles.uploadButton}
+        />
+      </View>
+
       <FlatList
         data={documents}
         renderItem={renderDocumentItem}
@@ -210,6 +268,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
         refreshing={refreshing}
         onRefresh={handleRefresh}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.flatListContent}
       />
     </View>
   );
@@ -232,6 +291,12 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     padding: 8,
+  },
+  uploadSection: {
+    marginBottom: 16,
+  },
+  uploadButton: {
+    marginBottom: 8,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -326,13 +391,17 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 16, // Reduced padding for more compact empty state
   },
   emptyStateText: {
     fontSize: 16,
     color: '#6c757d',
     marginTop: 8,
   },
-});
+  flatListContent: {
+    paddingBottom: 144, // Exactly one document card height for full visibility
+  },
+} as const);
 
-export default DocumentList;
+export type { DocumentListProps };
+export default DocumentList as (props: DocumentListProps) => React.JSX.Element;
