@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,28 +9,29 @@ import {
   Switch,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
 import { ExtendedUser, UpdateUserDto } from '../../types/users';
-import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
+import { showConfirm, showError, showSuccess } from '../../utils/platformUtils';
 
 interface UserDetailModalProps {
-  visible: boolean;
-  onClose: () => void;
-  userId: number | null;
-  onUserUpdated?: () => void;
-  currentUser: ExtendedUser;
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly userId: number | null;
+  readonly onUserUpdated?: () => void;
+  readonly currentUser: ExtendedUser;
 }
 
-const UserDetailModal: React.FC<UserDetailModalProps> = ({
+function UserDetailModal({
   visible,
   onClose,
   userId,
   onUserUpdated,
   currentUser,
-}) => {
-  console.log('UserDetailModal: Rendered with props - visible:', visible, 'userId:', userId, 'currentUser:', currentUser?.username);
+}: UserDetailModalProps): React.JSX.Element {
   
   const { t, i18n } = useTranslation();
   const [user, setUser] = useState<ExtendedUser | null>(null);
@@ -64,7 +65,6 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
   });
 
   useEffect(() => {
-    console.log('UserDetailModal: Effect triggered - visible:', visible, 'userId:', userId);
     if (visible && userId && (!user || user.id !== userId)) {
       // Only reload if we're opening the modal or switching to a different user
       // Reset modal state when switching users
@@ -77,45 +77,39 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
       // Always load available users for supervisor assignment
       loadAvailableUsers();
     }
-  }, [visible, userId]);
+  }, [visible, userId, user, loadUser, loadAvailablePermissions, loadAvailableUsers, currentUser.is_superuser]);
 
-  const loadAvailablePermissions = async () => {
+  const loadAvailablePermissions = useCallback(async (): Promise<void> => {
     try {
       const permissions = await userService.getAvailablePermissions();
       setAvailablePermissions(permissions);
     } catch (error) {
       console.error('Failed to load available permissions:', error);
     }
-  };
+  }, []);
 
-  const loadAvailableUsers = async () => {
+  const loadAvailableUsers = useCallback(async (): Promise<void> => {
     try {
-      console.log('UserDetailModal: Loading available users...');
       const response = await userService.getUsers({});
-      console.log('UserDetailModal: Users response:', response);
-      const mappedUsers = response.results.map(user => ({
-        id: user.id,
-        username: user.username,
-        full_name: user.full_name
+      const mappedUsers = response.results.map(userItem => ({
+        id: userItem.id,
+        username: userItem.username,
+        full_name: userItem.full_name
       }));
-      console.log('UserDetailModal: Mapped users:', mappedUsers);
       setAvailableUsers(mappedUsers);
     } catch (error) {
       console.error('Failed to load available users:', error);
     }
-  };
+  }, []);
 
-  const loadUser = async () => {
+  const loadUser = useCallback(async (): Promise<void> => {
     if (!userId) {
-      console.log('UserDetailModal: No userId provided');
       return;
     }
     
     try {
-      console.log('UserDetailModal: Loading user with ID:', userId);
       setLoading(true);
       const userData = await userService.getUser(userId);
-      console.log('UserDetailModal: User data loaded:', userData);
       
       setUser(userData);
       setFormData({
@@ -131,7 +125,6 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
       });
     } catch (error: any) {
       console.error('UserDetailModal: Failed to load user:', error);
-      console.error('UserDetailModal: Error details:', JSON.stringify(error, null, 2));
       
       showError(
         t('messages.error'),
@@ -140,10 +133,10 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, t]);
 
   // Silent refresh for updating combined permissions without showing loading spinner
-  const loadUserDataSilently = async () => {
+  const loadUserDataSilently = async (): Promise<void> => {
     if (!userId || !user) return;
     
     try {
@@ -161,7 +154,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     if (!user) return;
 
     try {
@@ -182,7 +175,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = (): void => {
     if (!user) return;
 
     showConfirm(
@@ -208,7 +201,7 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
     );
   };
 
-  const handlePermissionToggle = async (permissionId: number, hasPermission: boolean) => {
+  const handlePermissionToggle = async (permissionId: number, hasPermission: boolean): Promise<void> => {
     if (!user) return;
 
     try {
@@ -235,7 +228,6 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
         loadUserDataSilently();
       }
       
-      console.log('UserDetailModal: Permission toggled successfully, updated user permissions:', response.user_permissions);
       
       // More specific success message
       const permissionName = availablePermissions.find(p => p.id === permissionId)?.name || 'Permission';
@@ -401,8 +393,16 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
   const renderEditMode = () => {
     return (
-      <ScrollView style={styles.content}>
-        <View style={styles.section}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          style={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('userManagement.editUser')}</Text>
           
           <View style={styles.formGroup}>
@@ -483,23 +483,23 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
                   
                   {availableUsers
                     .filter(u => u.id !== formData.id)
-                    .map(user => (
+                    .map(userItem => (
                       <TouchableOpacity
-                        key={user.id}
+                        key={userItem.id}
                         style={[
                           styles.supervisorOption,
-                          formData.supervisor === user.id && styles.selectedOption
+                          formData.supervisor === userItem.id && styles.selectedOption
                         ]}
                         onPress={() => {
-                          setFormData(prev => ({ ...prev, supervisor: user.id }));
+                          setFormData(prev => ({ ...prev, supervisor: userItem.id }));
                           setShowSupervisorDropdown(false);
                         }}
                       >
                         <Text style={[
                           styles.supervisorOptionText,
-                          formData.supervisor === user.id && styles.selectedOptionText
+                          formData.supervisor === userItem.id && styles.selectedOptionText
                         ]}>
-                          {user.full_name}
+                          {userItem.full_name}
                         </Text>
                       </TouchableOpacity>
                     ))
@@ -533,11 +533,11 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
             </>
           )}
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   };
 
-  console.log('UserDetailModal: About to render Modal component - visible:', visible);
 
   return (
     <Modal 
@@ -546,9 +546,17 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
       transparent={true}
       statusBarTranslucent={true}
     >
-      <View style={styles.overlay}>
-        <View style={styles.container}>
-        <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.overlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <TouchableOpacity
+          style={styles.container}
+          activeOpacity={1}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <View style={styles.header}>
           <View style={styles.headerLeft}>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Text style={styles.closeButtonText}>{t('actions.cancel')}</Text>
@@ -594,15 +602,15 @@ const UserDetailModal: React.FC<UserDetailModalProps> = ({
           renderViewMode()
         )}
 
-        {canDelete && !editing && user && (
-          <View style={styles.footer}>
-            <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-              <Text style={styles.deleteButtonText}>{t('userManagement.deleteUser')}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        </View>
-      </View>
+          {canDelete && !editing && user && (
+            <View style={styles.footer}>
+              <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+                <Text style={styles.deleteButtonText}>{t('userManagement.deleteUser')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 };
@@ -611,14 +619,14 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 16,
+    paddingVertical: 40,
   },
   container: {
-    width: '100%',
-    maxWidth: 600,
-    maxHeight: '90%',
+    width: '90%',
+    height: '85%',
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
     shadowColor: '#000',
@@ -627,10 +635,13 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     padding: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -643,12 +654,12 @@ const styles = StyleSheet.create({
     flex: 2,
     fontSize: 18,
     fontWeight: 'bold',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     color: '#2c3e50',
   },
   headerRight: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: 'flex-end' as const,
   },
   closeButton: {
     padding: 8,
@@ -715,7 +726,7 @@ const styles = StyleSheet.create({
     color: '#2c3e50',
     fontWeight: '500',
     flex: 2,
-    textAlign: 'right',
+    textAlign: 'right' as const,
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -890,4 +901,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default UserDetailModal;
+export type { UserDetailModalProps };
+export default UserDetailModal as (props: UserDetailModalProps) => React.JSX.Element;

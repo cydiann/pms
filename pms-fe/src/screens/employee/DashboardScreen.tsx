@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
 import { useTab } from '../../store/TabContext';
@@ -7,7 +7,7 @@ import requestService from '../../services/requestService';
 import { RequestStats } from '../../types/requests';
 import CreateRequestModal from '../../components/modals/CreateRequestModal';
 
-const EmployeeDashboardScreen: React.FC = () => {
+function EmployeeDashboardScreen(): React.JSX.Element {
   const { t } = useTranslation();
   const { authState } = useAuth();
   const { setActiveTab } = useTab();
@@ -16,26 +16,48 @@ const EmployeeDashboardScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async (): Promise<void> => {
     try {
       const dashboardStats = await requestService.getDashboardStats();
       setStats(dashboardStats);
     } catch (error) {
-      console.error('Error loading dashboard stats:', error);
+      // Error handling without console logging
+      // Future: implement proper error handling with ApiError interface
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [loadDashboardData]);
 
-  const onRefresh = () => {
+  const onRefresh = useCallback((): void => {
     setRefreshing(true);
     loadDashboardData();
-  };
+  }, [loadDashboardData]);
+
+  const handleCreateRequest = useCallback((): void => {
+    setCreateModalVisible(true);
+  }, []);
+
+  const handleViewRequests = useCallback((): void => {
+    setActiveTab('myRequests');
+  }, [setActiveTab]);
+
+  const handleCloseModal = useCallback((): void => {
+    setCreateModalVisible(false);
+  }, []);
+
+  const handleRequestCreated = useCallback((): void => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  const getStatusIndicatorStyle = useCallback((status: string): ViewStyle => ({
+    ...styles.statusIndicator,
+    backgroundColor: requestService.getStatusColor(status),
+  }), []);
 
   if (loading) {
     return (
@@ -63,18 +85,30 @@ const EmployeeDashboardScreen: React.FC = () => {
       </View>
 
       <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={handleViewRequests}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statNumber}>{stats?.pending_requests || 0}</Text>
           <Text style={styles.statLabel}>{t('dashboard.pendingRequests')}</Text>
-        </View>
-        <View style={styles.statCard}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={handleViewRequests}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statNumber}>{stats?.approved_requests || 0}</Text>
           <Text style={styles.statLabel}>{t('dashboard.approvedRequests')}</Text>
-        </View>
-        <View style={styles.statCard}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={handleViewRequests}
+          activeOpacity={0.8}
+        >
           <Text style={styles.statNumber}>{stats?.draft_requests || 0}</Text>
           <Text style={styles.statLabel}>{t('dashboard.draftRequests')}</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.quickActions}>
@@ -82,7 +116,7 @@ const EmployeeDashboardScreen: React.FC = () => {
         
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => setCreateModalVisible(true)}
+          onPress={handleCreateRequest}
         >
           <Text style={styles.actionButtonText}>
             📝 {t('dashboard.createRequest')}
@@ -94,9 +128,7 @@ const EmployeeDashboardScreen: React.FC = () => {
 
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => {
-            setActiveTab('myRequests');
-          }}
+          onPress={handleViewRequests}
         >
           <Text style={styles.actionButtonText}>
             📋 {t('dashboard.viewMyRequests')}
@@ -113,12 +145,9 @@ const EmployeeDashboardScreen: React.FC = () => {
           
           {Object.entries(stats.requests_by_status).map(([status, count]) => (
             <View key={status} style={styles.statusRow}>
-              <View style={[
-                styles.statusIndicator, 
-                { backgroundColor: requestService.getStatusColor(status) }
-              ]} />
+              <View style={getStatusIndicatorStyle(status)} />
               <Text style={styles.statusLabel}>
-                {requestService.getStatusDisplay(status)}
+                {t(`status.${status}`)}
               </Text>
               <Text style={styles.statusCount}>{count}</Text>
             </View>
@@ -128,8 +157,8 @@ const EmployeeDashboardScreen: React.FC = () => {
       
       <CreateRequestModal
         visible={createModalVisible}
-        onClose={() => setCreateModalVisible(false)}
-        onRequestCreated={loadDashboardData}
+        onClose={handleCloseModal}
+        onRequestCreated={handleRequestCreated}
       />
     </ScrollView>
   );
@@ -142,8 +171,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     backgroundColor: '#f8f9fa',
   },
   loadingText: {
@@ -172,7 +201,7 @@ const styles = StyleSheet.create({
     color: '#6c757d',
   },
   statsContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row' as const,
     paddingHorizontal: 16,
     marginBottom: 16,
   },
@@ -182,7 +211,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 4,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: 'center' as const,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -191,14 +220,14 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#007bff',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
     color: '#6c757d',
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
   quickActions: {
     backgroundColor: '#fff',
@@ -224,7 +253,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#2c3e50',
     marginBottom: 12,
   },
@@ -247,8 +276,8 @@ const styles = StyleSheet.create({
     color: '#6c757d',
   },
   statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     paddingVertical: 8,
     borderBottomColor: '#f1f3f4',
     borderBottomWidth: 1,
@@ -266,9 +295,9 @@ const styles = StyleSheet.create({
   },
   statusCount: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#2c3e50',
   },
-});
+} as const);
 
-export default EmployeeDashboardScreen;
+export default EmployeeDashboardScreen as () => React.JSX.Element;

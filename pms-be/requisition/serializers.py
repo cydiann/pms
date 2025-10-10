@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Request, ApprovalHistory, AuditLog, ProcurementDocument
+from .models import Request, ApprovalHistory, AuditLog, ProcurementDocument, RequestArchive
 
 
 class RequestSerializer(serializers.ModelSerializer):
@@ -7,11 +7,24 @@ class RequestSerializer(serializers.ModelSerializer):
     latest_approval_name = serializers.CharField(source='latest_approval.name', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     unit_display = serializers.CharField(source='get_unit_display', read_only=True)
-    
+    next_approver = serializers.SerializerMethodField()
+    next_approver_name = serializers.SerializerMethodField()
+    last_approver = serializers.IntegerField(source='last_approver.id', read_only=True, allow_null=True)
+
     class Meta:
         model = Request
         fields = '__all__'
         read_only_fields = ['request_number', 'created_by', 'created_at', 'updated_at']
+
+    def get_next_approver(self, obj):
+        """Get the ID of the next approver for this request"""
+        next_approver = obj.get_next_approver()
+        return next_approver.id if next_approver else None
+
+    def get_next_approver_name(self, obj):
+        """Get the full name of the next approver for this request"""
+        next_approver = obj.get_next_approver()
+        return next_approver.get_full_name() if next_approver else None
 
 
 class RequestCreateSerializer(serializers.ModelSerializer):
@@ -69,20 +82,20 @@ class ProcurementDocumentSerializer(serializers.ModelSerializer):
     
     def get_download_url(self, obj):
         if obj.status == 'uploaded':
-            from requisition.storage import storage
-            return storage.get_presigned_download_url(obj.object_name)
+            from requisition.storage import get_storage
+            return get_storage().get_presigned_download_url(obj.object_name)
         return None
     
     def get_can_delete(self, obj):
         request = self.context.get('request')
         if not request or not request.user:
             return False
-        
+
         user = request.user
         return (
             user.is_superuser or
             obj.uploaded_by == user or
-            (user.role and user.role.can_purchase)
+            user.has_perm('requisition.can_purchase')
         )
 
 
@@ -144,31 +157,57 @@ class CreateDocumentSerializer(serializers.ModelSerializer):
         request_obj = data.get('request')
         document_type = data.get('document_type')
         user = self.context['request'].user
-        
+        is_creator = request_obj.created_by == user
+        has_purchase_perm = user.is_superuser or user.has_perm('requisition.can_purchase')
+
+        # Check if user is supervisor of the request creator
+        from authentication.models import User
+        subordinates = User.get_all_subordinates(user)
+        subordinate_ids = [sub.id for sub in subordinates]
+        is_supervisor = request_obj.created_by.id in subordinate_ids
+
         # Check permissions based on request status and document type
-        if document_type == 'dispatch_note' and request_obj.status != 'ordered':
-            raise serializers.ValidationError("Dispatch notes can only be uploaded for ordered requests")
-        
-        if document_type == 'receipt' and request_obj.status != 'delivered':
-            raise serializers.ValidationError("Receipts can only be uploaded for delivered requests")
-        
-        if document_type in ['quote', 'purchase_order'] and request_obj.status not in ['approved', 'purchasing']:
-            raise serializers.ValidationError("Quotes and POs can only be uploaded during purchasing phase")
-        
-        # Check user permissions
-        if not user.is_superuser and not (user.role and user.role.can_purchase):
-            raise serializers.ValidationError("You don't have permission to upload documents")
-        
+        if document_type == 'dispatch_note':
+            if request_obj.status != 'ordered':
+                raise serializers.ValidationError("Dispatch notes can only be uploaded for ordered requests")
+            if not has_purchase_perm:
+                raise serializers.ValidationError("Only purchasing team can upload dispatch notes")
+
+        elif document_type == 'receipt':
+            if request_obj.status != 'delivered':
+                raise serializers.ValidationError("Receipts can only be uploaded for delivered requests")
+            if not has_purchase_perm:
+                raise serializers.ValidationError("Only purchasing team can upload receipts")
+
+        elif document_type in ['quote', 'purchase_order']:
+            if request_obj.status not in ['approved', 'purchasing']:
+                raise serializers.ValidationError("Quotes and POs can only be uploaded during purchasing phase")
+            if not has_purchase_perm:
+                raise serializers.ValidationError("Only purchasing team can upload quotes and purchase orders")
+
+        elif document_type in ['invoice', 'other']:
+            # Creator can upload supporting documents to their own requests before approval
+            if is_creator or is_supervisor:
+                if request_obj.status not in ['draft', 'pending', 'in_review', 'revision_requested', 'approved', 'purchasing', 'ordered', 'delivered']:
+                    raise serializers.ValidationError("You can only upload supporting documents before completion")
+            # Purchasing team can upload anytime
+            elif not has_purchase_perm:
+                raise serializers.ValidationError("You don't have permission to upload documents to this request")
+
+        else:
+            raise serializers.ValidationError(f"Invalid document type: {document_type}")
+
         return data
     
     def create(self, validated_data):
-        from requisition.storage import storage
-        
+        from requisition.storage import get_storage
+
         # Generate object name
         request_obj = validated_data['request']
         document_type = validated_data['document_type']
         file_name = validated_data['file_name']
-        
+
+        storage = get_storage()
         object_name = storage.generate_object_name(
             request_obj.request_number,
             document_type,
@@ -192,7 +231,7 @@ class CreateDocumentSerializer(serializers.ModelSerializer):
 
 class ConfirmUploadSerializer(serializers.Serializer):
     document_id = serializers.UUIDField()
-    
+
     def validate_document_id(self, value):
         try:
             document = ProcurementDocument.objects.get(id=value)
@@ -202,14 +241,39 @@ class ConfirmUploadSerializer(serializers.Serializer):
             return value
         except ProcurementDocument.DoesNotExist:
             raise serializers.ValidationError("Document not found")
-    
+
     def save(self):
-        from requisition.storage import storage
-        
+        from requisition.storage import get_storage
+
         # Verify file exists in MinIO
+        storage = get_storage()
         if storage.object_exists(self.document.object_name):
             self.document.mark_uploaded()
             return True
         else:
             self.document.mark_failed()
             return False
+
+
+class RequestArchiveSerializer(serializers.ModelSerializer):
+    """Serializer for request archive metadata"""
+    downloaded_by_name = serializers.CharField(source='downloaded_by.get_full_name', read_only=True, allow_null=True)
+    file_size_mb = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RequestArchive
+        fields = [
+            'id', 'archive_date', 'period_start', 'period_end',
+            'file_size', 'file_size_mb', 'request_count',
+            'archived_request_numbers', 'downloaded', 'downloaded_at',
+            'downloaded_by', 'downloaded_by_name', 'created_at'
+        ]
+        read_only_fields = [
+            'id', 'archive_date', 'file_size', 'request_count',
+            'archived_request_ids', 'archived_request_numbers',
+            'downloaded', 'downloaded_at', 'downloaded_by', 'created_at'
+        ]
+
+    def get_file_size_mb(self, obj):
+        """Convert file size to MB for easier reading"""
+        return round(obj.file_size / 1024 / 1024, 2)

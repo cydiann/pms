@@ -124,6 +124,13 @@ class RequestService {
     return await apiClient.get<Request[]>(API_ENDPOINTS.REQUESTS.PENDING_APPROVALS);
   }
 
+  // Get purchasing queue (for purchasing team)
+  async getPurchasingQueue(params?: RequestQueryParams): Promise<PaginatedResponse<Request>> {
+    const queryString = params ? new URLSearchParams(params as any).toString() : '';
+    const url = `${API_ENDPOINTS.REQUESTS.PURCHASING_QUEUE}${queryString ? `?${queryString}` : ''}`;
+    return await apiClient.get<PaginatedResponse<Request>>(url);
+  }
+
   // Get admin dashboard stats (using new core endpoint)
   async getAdminStats(): Promise<AdminStats> {
     return await apiClient.get<AdminStats>(API_ENDPOINTS.CORE.SYSTEM_STATS);
@@ -151,7 +158,7 @@ class RequestService {
       pending: 'Pending Approval',
       in_review: 'Under Review',
       revision_requested: 'Revision Requested',
-      approved: 'Final Approved - Ready for Purchase',
+      approved: 'Ready for Purchase',
       rejected: 'Rejected',
       purchasing: 'Assigned to Purchasing Team',
       ordered: 'Order Placed',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,9 @@ import {
   Switch,
   ScrollView,
   ActivityIndicator,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
@@ -16,49 +19,48 @@ import organizationService from '../../services/organizationService';
 import { CreateUserDto, ExtendedUser } from '../../types/users';
 import { WorkSite } from '../../types/organization';
 import AddWorksiteModal from './AddWorksiteModal';
-import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
+import { showAlert, showError, showSuccess } from '../../utils/platformUtils';
 
 interface AddUserModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onUserCreated?: () => void;
-  currentUser: ExtendedUser;
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly onUserCreated?: () => void;
+  readonly currentUser: ExtendedUser;
 }
 
 interface UserGroup {
-  id: number;
-  name: string;
-  user_count: number;
+  readonly id: number;
+  readonly name: string;
+  readonly user_count: number;
 }
 
 interface FormData {
-  username: string;
-  first_name: string;
-  last_name: string;
-  password: string;
-  worksite: number | null;
-  supervisor: number | null;
-  is_superuser: boolean;
-  groups: number[];
-  generatePassword: boolean;
+  readonly username: string;
+  readonly first_name: string;
+  readonly last_name: string;
+  readonly password: string;
+  readonly worksite: number | null;
+  readonly supervisor: number | null;
+  readonly is_superuser: boolean;
+  readonly groups: number[];
+  readonly generatePassword: boolean;
 }
 
 interface FormErrors {
-  username?: string;
-  first_name?: string;
-  last_name?: string;
-  password?: string;
-  worksite?: string;
-  general?: string;
+  readonly username?: string;
+  readonly first_name?: string;
+  readonly last_name?: string;
+  readonly password?: string;
+  readonly worksite?: string;
+  readonly general?: string;
 }
 
-const AddUserModal: React.FC<AddUserModalProps> = ({
+function AddUserModal({
   visible,
   onClose,
   onUserCreated,
   currentUser,
-}) => {
-  console.log('AddUserModal: Rendered with visible:', visible);
+}: AddUserModalProps): React.JSX.Element {
   
   const { t, i18n } = useTranslation();
   
@@ -91,13 +93,12 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
   // Load initial data when modal opens
   useEffect(() => {
     if (visible) {
-      console.log('AddUserModal: Modal opened, loading data...');
       loadInitialData();
       resetForm();
     }
-  }, [visible]);
+  }, [visible, loadInitialData, resetForm]);
 
-  const resetForm = () => {
+  const resetForm = useCallback((): void => {
     setFormData({
       username: '',
       first_name: '',
@@ -110,49 +111,44 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
       generatePassword: true,
     });
     setErrors({});
-  };
+  }, [currentUser.worksite]);
 
-  const loadInitialData = async () => {
+  const loadInitialData = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
-      console.log('AddUserModal: Loading form options...');
       
       // Load data with individual error handling
       let worksitesData: WorkSite[] = [];
       let groupsData: UserGroup[] = [];
-      let usersData: any = { results: [] };
+      interface UserApiResponse {
+        results: ExtendedUser[];
+      }
+      let usersData: UserApiResponse = { results: [] };
 
       try {
         worksitesData = await organizationService.getWorksites();
-        console.log('AddUserModal: Loaded worksites:', worksitesData?.length || 0);
       } catch (error) {
-        console.error('AddUserModal: Failed to load worksites:', error);
         worksitesData = [];
       }
 
       try {
         groupsData = await userService.getGroups();
-        console.log('AddUserModal: Loaded groups:', groupsData?.length || 0);
       } catch (error) {
-        console.error('AddUserModal: Failed to load groups:', error);
         groupsData = [];
       }
 
       try {
         usersData = await userService.getUsers({ page_size: 100 });
-        console.log('AddUserModal: Loaded users:', usersData.results?.length || 0);
       } catch (error) {
-        console.error('AddUserModal: Failed to load users:', error);
         usersData = { results: [] };
       }
 
       // Set state with fallback to empty arrays
       setWorksites(Array.isArray(worksitesData) ? worksitesData : []);
       setGroups(Array.isArray(groupsData) ? groupsData : []);
-      setSupervisors((usersData.results || []).filter((user: any) => user.id !== currentUser.id));
+      setSupervisors((usersData.results || []).filter((user) => user.id !== currentUser.id));
       
-    } catch (error: any) {
-      console.error('AddUserModal: Failed to load initial data:', error);
+    } catch (error: unknown) {
       showError(
         t('messages.error'),
         'Failed to load form options. Please try again.'
@@ -164,9 +160,9 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser.id, t]);
 
-  const generateSecurePassword = (): string => {
+  const generateSecurePassword = useCallback((): string => {
     const length = 12;
     const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
     let password = '';
@@ -174,9 +170,9 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
       password += charset.charAt(Math.floor(Math.random() * charset.length));
     }
     return password;
-  };
+  }, []);
 
-  const validateForm = (): boolean => {
+  const validateForm = useCallback((): boolean => {
     const newErrors: FormErrors = {};
 
     // Username validation
@@ -214,13 +210,11 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData, t]);
 
   const handleSubmit = async () => {
-    console.log('AddUserModal: Submit attempted');
     
     if (!validateForm()) {
-      console.log('AddUserModal: Validation failed:', errors);
       return;
     }
 
@@ -245,10 +239,8 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
         submitData.password = formData.password.trim();
       }
 
-      console.log('AddUserModal: Submitting user data:', { ...submitData, password: '[HIDDEN]' });
 
-      const newUser = await userService.createUser(submitData);
-      console.log('AddUserModal: User created successfully:', newUser.username);
+      await userService.createUser(submitData);
 
       // Show success message with generated password if applicable
       if (formData.generatePassword && submitData.password) {
@@ -266,8 +258,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
       onUserCreated?.();
       onClose();
 
-    } catch (error: any) {
-      console.error('AddUserModal: Failed to create user:', error);
+    } catch (error: unknown) {
       
       // Handle specific validation errors from backend
       if (error.status === 400 && error.data) {
@@ -294,14 +285,14 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
     }
   };
 
-  const updateFormField = (field: keyof FormData, value: any) => {
+  const updateFormField = useCallback((field: keyof FormData, value: string | number | boolean | number[] | null): void => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear field-specific error when user starts typing
     if (errors[field as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
-  };
+  }, [errors]);
 
   const toggleGroup = (groupId: number) => {
     setFormData(prev => ({
@@ -312,8 +303,7 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
     }));
   };
 
-  const handleWorksiteCreated = (newWorksite: WorkSite) => {
-    console.log('AddUserModal: New worksite created:', newWorksite);
+  const handleWorksiteCreated = useCallback((newWorksite: WorkSite): void => {
     
     // Add the new worksite to the list
     setWorksites(prev => [...prev, newWorksite]);
@@ -321,29 +311,27 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
     // Auto-select the newly created worksite
     updateFormField('worksite', newWorksite.id);
     
-    console.log('AddUserModal: Auto-selected new worksite:', newWorksite.id);
-  };
+  }, [updateFormField]);
 
-  const handleAddWorksitePress = () => {
-    console.log('AddUserModal: Add worksite button pressed');
+  const handleAddWorksitePress = useCallback((): void => {
     setAddWorksiteModalVisible(true);
-  };
+  }, []);
 
-  const getSelectedWorksiteName = (): string => {
+  const getSelectedWorksiteName = useCallback((): string => {
     if (!Array.isArray(worksites) || worksites.length === 0) {
       return t('addUser.selectWorksite');
     }
     const worksite = worksites.find(w => w.id === formData.worksite);
     return worksite ? organizationService.getWorksiteDisplayName(worksite) : t('addUser.selectWorksite');
-  };
+  }, [worksites, formData.worksite, t]);
 
-  const getSelectedSupervisorName = (): string => {
+  const getSelectedSupervisorName = useCallback((): string => {
     if (!Array.isArray(supervisors) || supervisors.length === 0) {
       return t('addUser.selectSupervisor');
     }
     const supervisor = supervisors.find(s => s.id === formData.supervisor);
     return supervisor ? supervisor.full_name : t('addUser.selectSupervisor');
-  };
+  }, [supervisors, formData.supervisor, t]);
 
   if (loading) {
     return (
@@ -390,8 +378,17 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {errors.general && (
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <ScrollView
+            style={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {errors.general && (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{errors.general}</Text>
             </View>
@@ -598,9 +595,10 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
               </View>
             </View>
           )}
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
         </View>
-        
+
         {/* Add Worksite Modal */}
         <AddWorksiteModal
           visible={addWorksiteModalVisible}
@@ -613,17 +611,27 @@ const AddUserModal: React.FC<AddUserModalProps> = ({
   );
 };
 
+// Helper function to calculate responsive modal dimensions
+const getResponsiveModalDimensions = () => {
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  return {
+    width: Math.min(screenWidth * 0.95, 700),
+    height: screenHeight * 0.9
+  };
+};
+
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 20,
   },
   container: {
-    width: '100%',
-    maxWidth: 700,
+    width: getResponsiveModalDimensions().width,
+    height: getResponsiveModalDimensions().height,
     maxHeight: '90%',
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
@@ -632,6 +640,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 10,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   loadingContainer: {
     backgroundColor: '#fff',
@@ -824,4 +835,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AddUserModal;
+export type { AddUserModalProps, FormData, FormErrors, UserGroup };
+export default AddUserModal as (props: AddUserModalProps) => React.JSX.Element;

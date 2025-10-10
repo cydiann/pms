@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,23 +8,34 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import requestService from '../../services/requestService';
 import { CreateRequestDto, RequestUnit } from '../../types/requests';
-import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
+import { showError, showSuccess } from '../../utils/platformUtils';
 
 interface CreateRequestModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onRequestCreated?: () => void;
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly onRequestCreated?: () => void;
 }
 
-const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
+interface ApiError extends Error {
+  readonly status?: number;
+  readonly response?: {
+    readonly message?: string;
+    readonly data?: Record<string, unknown>;
+  };
+}
+
+function CreateRequestModal({
   visible,
   onClose,
   onRequestCreated,
-}) => {
+}: CreateRequestModalProps): React.JSX.Element {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<CreateRequestDto>({
@@ -37,7 +48,7 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
     reason: '',
   });
 
-  const resetForm = () => {
+  const resetForm = (): void => {
     setFormData({
       item: '',
       description: '',
@@ -49,43 +60,52 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
     });
   };
 
-  const validateForm = () => {
+  const handleSuccess = useCallback((message: string): void => {
+    showSuccess(t('messages.success'), message);
+  }, [t]);
+
+  const updateFormField = useCallback(<K extends keyof CreateRequestDto>(
+    field: K,
+    value: CreateRequestDto[K]
+  ): void => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const validateForm = (): boolean => {
     if (!formData.item.trim()) {
-      showError('Error', 'Item name is required');
+      showError(t('messages.error'), t('requests.validation.itemRequired'));
       return false;
     }
-    
+
     if (!formData.quantity.trim()) {
-      showError('Error', 'Quantity is required');
+      showError(t('messages.error'), t('requests.validation.quantityRequired'));
       return false;
     }
-    
+
     const quantityNumber = parseFloat(formData.quantity);
     if (isNaN(quantityNumber) || quantityNumber <= 0) {
-      showError('Error', 'Please enter a valid quantity');
+      showError(t('messages.error'), t('requests.validation.quantityInvalid'));
       return false;
     }
-    
+
     if (!formData.reason.trim()) {
-      showError('Error', 'Reason is required');
+      showError(t('messages.error'), t('requests.validation.reasonRequired'));
       return false;
     }
 
     return true;
   };
 
-  const handleCreateAndSubmit = async () => {
+  const handleCreateAndSubmit = async (): Promise<void> => {
     if (!validateForm()) return;
 
     setLoading(true);
     try {
       // Create the request
       const newRequest = await requestService.createRequest(formData);
-      console.log('Request created:', newRequest);
       
       // Submit it immediately
       await requestService.submitRequest(newRequest.id);
-      console.log('Request submitted');
       
       // Close modal immediately and refresh list
       resetForm();
@@ -94,77 +114,94 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
       
       // Show success message after modal is closed
       setTimeout(() => {
-        showSuccess('Success', `Request "${formData.item}" has been created and submitted for approval!`);
+        handleSuccess(t('requests.success.modalRequestSubmitted', { itemName: formData.item }));
       }, 300);
-    } catch (error: any) {
-      console.error('Create/submit error:', error);
-      showError('Error', error.message || 'Failed to create and submit request');
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      const errorMessage = apiError.response?.message || apiError.message || 'Failed to create and submit request';
+      showError(t('messages.error'), errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSaveDraft = async () => {
+  const handleSaveDraft = async (): Promise<void> => {
     if (!validateForm()) return;
 
     setLoading(true);
     try {
-      const newRequest = await requestService.createRequest(formData);
+      await requestService.createRequest(formData);
       // Close modal immediately and refresh list
       resetForm();
       onRequestCreated?.();
       onClose();
       
-      // Show success message after modal is closed  
+      // Show success message after modal is closed
       setTimeout(() => {
-        showSuccess('Success', `Draft request "${formData.item}" has been saved!`);
+        handleSuccess(t('requests.success.modalDraftSaved', { itemName: formData.item }));
       }, 300);
-    } catch (error: any) {
-      showError('Error', error.message || 'Failed to save draft');
+    } catch (error: unknown) {
+      const apiError = error as ApiError;
+      const errorMessage = apiError.response?.message || apiError.message || 'Failed to save draft';
+      showError(t('messages.error'), errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const unitOptions = [
-    { value: RequestUnit.PIECES, label: 'Pieces' },
-    { value: RequestUnit.KG, label: 'Kilograms' },
-    { value: RequestUnit.METER, label: 'Meters' },
-    { value: RequestUnit.M2, label: 'Square Meters' },
-    { value: RequestUnit.LITER, label: 'Liters' },
-  ];
+    { value: RequestUnit.PIECES, label: t('requests.units.pieces') },
+    { value: RequestUnit.KG, label: t('requests.units.kg') },
+    { value: RequestUnit.METER, label: t('requests.units.meter') },
+    { value: RequestUnit.M2, label: t('requests.units.m2') },
+    { value: RequestUnit.LITER, label: t('requests.units.liter') },
+  ] as const;
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={styles.container}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : undefined}
+      statusBarTranslucent={true}
+    >
+      <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create New Request</Text>
+          <Text style={styles.headerTitle}>{t('requests.createTitle')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
-        <ScrollView style={styles.content}>
-          <View style={styles.section}>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <ScrollView
+            style={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+          >
+            <View style={styles.section}>
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Item *</Text>
+              <Text style={styles.label}>{t('requests.item')} *</Text>
               <TextInput
                 style={styles.input}
                 value={formData.item}
-                onChangeText={(value) => setFormData(prev => ({ ...prev, item: value }))}
-                placeholder="What do you need to purchase?"
+                onChangeText={(value) => updateFormField('item', value)}
+                placeholder={t('requests.itemPlaceholder')}
                 placeholderTextColor="#6c757d"
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Description</Text>
+              <Text style={styles.label}>{t('requests.description')}</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={formData.description}
-                onChangeText={(value) => setFormData(prev => ({ ...prev, description: value }))}
-                placeholder="Provide additional details..."
+                onChangeText={(value) => updateFormField('description', value)}
+                placeholder={t('requests.descriptionPlaceholder')}
                 placeholderTextColor="#6c757d"
                 multiline={true}
                 numberOfLines={3}
@@ -172,20 +209,20 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
             </View>
 
             <View style={styles.row}>
-              <View style={[styles.formGroup, { flex: 2 }]}>
-                <Text style={styles.label}>Quantity *</Text>
+              <View style={[styles.formGroup, styles.quantityColumn]}>
+                <Text style={styles.label}>{t('requests.quantity')} *</Text>
                 <TextInput
                   style={styles.input}
                   value={formData.quantity}
-                  onChangeText={(value) => setFormData(prev => ({ ...prev, quantity: value }))}
+                  onChangeText={(value) => updateFormField('quantity', value)}
                   placeholder="0"
                   placeholderTextColor="#6c757d"
                   keyboardType="numeric"
                 />
               </View>
 
-              <View style={[styles.formGroup, { flex: 1, marginLeft: 12 }]}>
-                <Text style={styles.label}>Unit</Text>
+              <View style={[styles.formGroup, styles.unitColumn]}>
+                <Text style={styles.label}>{t('requests.unit')}</Text>
                 <View style={styles.unitContainer}>
                   {unitOptions.map((option) => (
                     <TouchableOpacity
@@ -194,7 +231,7 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
                         styles.unitOption,
                         formData.unit === option.value && styles.unitOptionActive
                       ]}
-                      onPress={() => setFormData(prev => ({ ...prev, unit: option.value }))}
+                      onPress={() => updateFormField('unit', option.value)}
                     >
                       <Text style={[
                         styles.unitOptionText,
@@ -209,34 +246,34 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Category</Text>
+              <Text style={styles.label}>{t('requests.category')}</Text>
               <TextInput
                 style={styles.input}
                 value={formData.category}
-                onChangeText={(value) => setFormData(prev => ({ ...prev, category: value }))}
-                placeholder="e.g., Office Supplies, Equipment, Materials"
+                onChangeText={(value) => updateFormField('category', value)}
+                placeholder={t('requests.categoryPlaceholder')}
                 placeholderTextColor="#6c757d"
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Delivery Address</Text>
+              <Text style={styles.label}>{t('requests.deliveryAddress')}</Text>
               <TextInput
                 style={styles.input}
                 value={formData.delivery_address}
-                onChangeText={(value) => setFormData(prev => ({ ...prev, delivery_address: value }))}
-                placeholder="Where should this be delivered?"
+                onChangeText={(value) => updateFormField('delivery_address', value)}
+                placeholder={t('requests.deliveryAddressPlaceholder')}
                 placeholderTextColor="#6c757d"
               />
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Reason *</Text>
+              <Text style={styles.label}>{t('requests.reason')} *</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 value={formData.reason}
-                onChangeText={(value) => setFormData(prev => ({ ...prev, reason: value }))}
-                placeholder="Why do you need this item?"
+                onChangeText={(value) => updateFormField('reason', value)}
+                placeholder={t('requests.reasonPlaceholder')}
                 placeholderTextColor="#6c757d"
                 multiline={true}
                 numberOfLines={3}
@@ -251,7 +288,7 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
               disabled={loading}
             >
               <Text style={styles.draftButtonText}>
-                {loading ? 'Saving...' : 'Save Draft'}
+                {loading ? t('requests.saving') : t('requests.saveDraft')}
               </Text>
             </TouchableOpacity>
 
@@ -263,12 +300,13 @@ const CreateRequestModal: React.FC<CreateRequestModalProps> = ({
               {loading ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
-                <Text style={styles.submitButtonText}>Create & Submit</Text>
+                <Text style={styles.submitButtonText}>{t('requests.createAndSubmit')}</Text>
               )}
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 };
@@ -278,9 +316,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     padding: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -291,8 +332,8 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: '#e9ecef',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   closeButtonText: {
     fontSize: 18,
@@ -301,9 +342,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    textAlign: 'center',
+    textAlign: 'center' as const,
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#2c3e50',
   },
   headerSpacer: {
@@ -323,7 +364,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   row: {
-    flexDirection: 'row',
+    flexDirection: 'row' as const,
   },
   label: {
     fontSize: 14,
@@ -343,11 +384,11 @@ const styles = StyleSheet.create({
   },
   textArea: {
     height: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: 'top' as const,
   },
   unitContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
     gap: 4,
   },
   unitOption: {
@@ -369,8 +410,8 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
     marginTop: 20,
     marginBottom: 40,
     gap: 12,
@@ -379,14 +420,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#6c757d',
     paddingVertical: 16,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: 'center' as const,
     flex: 1,
   },
   submitButton: {
     backgroundColor: '#007bff',
     paddingVertical: 16,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: 'center' as const,
     flex: 1,
   },
   buttonDisabled: {
@@ -402,6 +443,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-});
+  quantityColumn: {
+    flex: 2,
+  },
+  unitColumn: {
+    flex: 1,
+    marginLeft: 12,
+  },
+} as const);
 
-export default CreateRequestModal;
+export type { CreateRequestModalProps };
+export default CreateRequestModal as (props: CreateRequestModalProps) => React.JSX.Element;

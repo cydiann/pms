@@ -44,7 +44,7 @@ class ApiClient {
           try {
             const refreshToken = await storage.getItem('@pms_refresh_token');
             if (refreshToken) {
-              const response = await this.axiosInstance.post('/auth/refresh/', {
+              const response = await this.axiosInstance.post('/api/auth/refresh/', {
                 refresh: refreshToken,
               });
 

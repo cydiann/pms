@@ -1,19 +1,39 @@
 import React, { useState } from 'react';
-import { TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { changeLanguage, getCurrentLanguage } from '../../locales/i18n';
 
-const LanguageSwitcher: React.FC = () => {
-  const [currentLanguage, setCurrentLanguage] = useState(getCurrentLanguage());
-  
-  console.log('LanguageSwitcher rendering, current language:', currentLanguage);
+type SupportedLanguage = 'en' | 'tr';
 
-  const handleLanguageSwitch = () => {
-    console.log('Language switcher clicked!');
-    const newLanguage = currentLanguage === 'en' ? 'tr' : 'en';
+interface LanguageInfo {
+  readonly code: SupportedLanguage;
+  readonly name: string;
+  readonly flag: string;
+}
+
+const SUPPORTED_LANGUAGES = {
+  en: { code: 'en', name: 'English', flag: '🇺🇸' },
+  tr: { code: 'tr', name: 'Türkçe', flag: '🇹🇷' },
+} as const;
+
+function LanguageSwitcher(): React.JSX.Element {
+  const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>(
+    (getCurrentLanguage() as SupportedLanguage) || 'en'
+  );
+
+  const getCurrentLanguageInfo = (): LanguageInfo => {
+    return SUPPORTED_LANGUAGES[currentLanguage] || SUPPORTED_LANGUAGES.en;
+  };
+
+  const getNextLanguage = (): SupportedLanguage => {
+    return currentLanguage === 'en' ? 'tr' : 'en';
+  };
+
+  const handleLanguageSwitch = (): void => {
+    const newLanguage = getNextLanguage();
     switchLanguage(newLanguage);
   };
 
-  const switchLanguage = async (languageCode: string) => {
+  const switchLanguage = async (languageCode: SupportedLanguage): Promise<void> => {
     try {
       await changeLanguage(languageCode);
       setCurrentLanguage(languageCode);
@@ -22,22 +42,15 @@ const LanguageSwitcher: React.FC = () => {
     }
   };
 
-  const getCurrentFlag = () => {
-    return currentLanguage === 'en' ? '🇺🇸' : '🇹🇷';
-  };
-
-  const getNextFlag = () => {
-    return currentLanguage === 'en' ? '🇹🇷' : '🇺🇸';
-  };
 
   return (
     <TouchableOpacity 
       style={styles.container} 
       onPress={handleLanguageSwitch}
       accessibilityLabel="Switch Language"
-      accessibilityHint={`Currently ${currentLanguage === 'en' ? 'English' : 'Turkish'}, tap to switch`}
+      accessibilityHint={`Currently ${getCurrentLanguageInfo().name}, tap to switch`}
     >
-      <Text style={styles.flagText}>{getCurrentFlag()}</Text>
+      <Text style={styles.flagText}>{getCurrentLanguageInfo().flag}</Text>
       <Text style={styles.langText}>{currentLanguage.toUpperCase()}</Text>
     </TouchableOpacity>
   );
@@ -68,6 +81,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
   },
-});
+} as const);
 
-export default LanguageSwitcher;
+export type { SupportedLanguage };
+export default LanguageSwitcher as () => React.JSX.Element;

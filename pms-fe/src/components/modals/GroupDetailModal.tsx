@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,35 +9,17 @@ import {
   ScrollView,
   ActivityIndicator,
   Switch,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
 import { ExtendedUser } from '../../types/users';
-import { showAlert, showConfirm, showError, showSuccess } from '../../utils/platformUtils';
+import { showConfirm, showError, showSuccess } from '../../utils/platformUtils';
+import { translatePermissionName } from '../../utils/permissionTranslations';
 
-interface GroupDetailModalProps {
-  visible: boolean;
-  onClose: () => void;
-  groupId: number | null;
-  onGroupUpdated?: () => void;
-  currentUser: ExtendedUser;
-}
-
-interface GroupDetail {
-  id: number;
-  name: string;
-  users: Array<{
-    id: number;
-    username: string;
-    full_name: string;
-  }>;
-  permissions: Array<{
-    id: number;
-    name: string;
-    codename: string;
-  }>;
-}
-
+// Import types from userService instead of duplicating
 interface Permission {
   id: number;
   name: string;
@@ -45,19 +27,41 @@ interface Permission {
   content_type: string;
 }
 
-interface FormErrors {
-  name?: string;
-  general?: string;
+interface GroupDetailModalProps {
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly groupId: number | null;
+  readonly onGroupUpdated?: () => void;
+  readonly currentUser: ExtendedUser;
 }
 
-const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
+interface GroupDetail {
+  readonly id: number;
+  readonly name: string;
+  readonly users: ReadonlyArray<{
+    readonly id: number;
+    readonly username: string;
+    readonly full_name: string;
+  }>;
+  readonly permissions: ReadonlyArray<{
+    readonly id: number;
+    readonly name: string;
+    readonly codename: string;
+  }>;
+}
+
+interface FormErrors {
+  readonly name?: string;
+  readonly general?: string;
+}
+
+function GroupDetailModal({
   visible,
   onClose,
   groupId,
   onGroupUpdated,
   currentUser,
-}) => {
-  console.log('GroupDetailModal: Rendered with props - visible:', visible, 'groupId:', groupId);
+}: GroupDetailModalProps): React.JSX.Element {
   
   const { t } = useTranslation();
   const [group, setGroup] = useState<GroupDetail | null>(null);
@@ -72,30 +76,25 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
   const [permissionsLoading, setPermissionsLoading] = useState(false);
 
   useEffect(() => {
-    console.log('GroupDetailModal: Effect triggered - visible:', visible, 'groupId:', groupId);
     if (visible && groupId) {
       loadGroup();
       loadAllPermissions();
     }
-  }, [visible, groupId]);
+  }, [visible, groupId, loadGroup, loadAllPermissions]);
 
-  const loadGroup = async () => {
+  const loadGroup = useCallback(async (): Promise<void> => {
     if (!groupId) {
-      console.log('GroupDetailModal: No groupId provided');
       return;
     }
     
     try {
-      console.log('GroupDetailModal: Loading group with ID:', groupId);
       setLoading(true);
       const groupData = await userService.getGroup(groupId);
-      console.log('GroupDetailModal: Group data loaded:', groupData);
       
       setGroup(groupData);
       setGroupName(groupData.name);
       setSelectedPermissions(new Set(groupData.permissions.map(p => p.id)));
     } catch (error: any) {
-      console.error('GroupDetailModal: Failed to load group:', error);
       showError(
         t('messages.error'),
         error.message || 'Failed to load group details'
@@ -103,24 +102,21 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [groupId, t]);
 
-  const loadAllPermissions = async () => {
+  const loadAllPermissions = useCallback(async (): Promise<void> => {
     try {
-      console.log('GroupDetailModal: Loading all permissions...');
       setPermissionsLoading(true);
       const permissions = await userService.getPermissions();
-      console.log('GroupDetailModal: All permissions loaded:', permissions.length);
       setAllPermissions(permissions);
     } catch (error: any) {
-      console.error('GroupDetailModal: Failed to load permissions:', error);
       setAllPermissions([]);
     } finally {
       setPermissionsLoading(false);
     }
-  };
+  }, []);
 
-  const validateForm = (): boolean => {
+  const validateForm = useCallback((): boolean => {
     const newErrors: FormErrors = {};
 
     if (!groupName.trim()) {
@@ -131,9 +127,9 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [groupName, t]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async (): Promise<void> => {
     if (!group) return;
 
     if (!validateForm()) {
@@ -172,15 +168,15 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
     } finally {
       setSaving(false);
     }
-  };
+  }, [group, validateForm, groupName, selectedPermissions, onGroupUpdated, t, loadGroup, setsEqual]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback((): void => {
     if (!group) return;
 
     showConfirm(
       t('groupManagement.deleteGroup'),
       t('groupManagement.deleteGroupConfirm', { name: group.name }),
-      async () => {
+      async (): Promise<void> => {
         try {
           await userService.deleteGroup(group.id);
           onGroupUpdated?.();
@@ -198,9 +194,9 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
       t('actions.cancel'),
       true
     );
-  };
+  }, [group, t, onGroupUpdated, onClose]);
 
-  const togglePermission = (permissionId: number) => {
+  const togglePermission = useCallback((permissionId: number): void => {
     setSelectedPermissions(prev => {
       const newSet = new Set(prev);
       if (newSet.has(permissionId)) {
@@ -210,24 +206,26 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
       }
       return newSet;
     });
-  };
+  }, []);
 
-  const setsEqual = (a: Set<number>, b: Set<number>): boolean => {
+  const setsEqual = useCallback((a: Set<number>, b: Set<number>): boolean => {
     return a.size === b.size && [...a].every(x => b.has(x));
-  };
+  }, []);
 
   // Group permissions by content type for better organization
-  const groupedPermissions = allPermissions.reduce((acc, permission) => {
-    const contentType = permission.content_type;
-    if (!acc[contentType]) {
-      acc[contentType] = [];
-    }
-    acc[contentType].push(permission);
-    return acc;
-  }, {} as Record<string, Permission[]>);
+  const groupedPermissions = useCallback((): Record<string, Permission[]> => {
+    return allPermissions.reduce((acc, permission) => {
+      const contentType = permission.content_type;
+      if (!acc[contentType]) {
+        acc[contentType] = [];
+      }
+      acc[contentType].push(permission);
+      return acc;
+    }, {} as Record<string, Permission[]>);
+  }, [allPermissions]);
 
-  const canEdit = currentUser.is_superuser;
-  const canDelete = currentUser.is_superuser && group?.users.length === 0; // Can only delete empty groups
+  const canEdit = useCallback((): boolean => currentUser.is_superuser, [currentUser.is_superuser]);
+  const canDelete = useCallback((): boolean => currentUser.is_superuser && group?.users.length === 0, [currentUser.is_superuser, group?.users.length]); // Can only delete empty groups
 
   const renderViewMode = () => {
     if (!group) return null;
@@ -274,7 +272,7 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
             <Text style={styles.sectionTitle}>{t('groupManagement.groupPermissions')}</Text>
             {group.permissions.map(permission => (
               <View key={permission.id} style={styles.permissionItem}>
-                <Text style={styles.permissionName}>{permission.name}</Text>
+                <Text style={styles.permissionName}>{translatePermissionName(permission.name, t)}</Text>
                 <Text style={styles.permissionCode}>{permission.codename}</Text>
               </View>
             ))}
@@ -284,10 +282,19 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
     );
   };
 
-  const renderEditMode = () => {
+  const renderEditMode = useCallback((): React.JSX.Element => {
+    const permissions = groupedPermissions();
     return (
-      <ScrollView style={styles.content}>
-        {errors.general && (
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          style={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          {errors.general && (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{errors.general}</Text>
           </View>
@@ -322,15 +329,15 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
               <Text style={styles.loadingText}>{t('groupManagement.loadingPermissions')}</Text>
             </View>
           ) : (
-            Object.keys(groupedPermissions).map(contentType => (
+            Object.keys(permissions).map(contentType => (
               <View key={contentType} style={styles.permissionGroup}>
                 <Text style={styles.permissionGroupTitle}>
                   {contentType.charAt(0).toUpperCase() + contentType.slice(1)}
                 </Text>
-                {groupedPermissions[contentType].map(permission => (
+                {permissions[contentType].map(permission => (
                   <View key={permission.id} style={styles.permissionToggle}>
                     <View style={styles.permissionInfo}>
-                      <Text style={styles.permissionToggleName}>{permission.name}</Text>
+                      <Text style={styles.permissionToggleName}>{translatePermissionName(permission.name, t)}</Text>
                       <Text style={styles.permissionToggleCode}>{permission.codename}</Text>
                     </View>
                     <Switch
@@ -345,9 +352,10 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
             ))
           )}
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
-  };
+  }, [errors, t, groupName, permissionsLoading, groupedPermissions, selectedPermissions, togglePermission]);
 
   return (
     <Modal 
@@ -370,7 +378,7 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
             </Text>
             
             <View style={styles.headerRight}>
-              {canEdit && !editing && (
+              {canEdit() && !editing && (
                 <TouchableOpacity
                   style={styles.actionButton}
                   onPress={() => setEditing(true)}
@@ -404,7 +412,7 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
             renderViewMode()
           )}
 
-          {canDelete && !editing && group && (
+          {canDelete() && !editing && group && (
             <View style={styles.footer}>
               <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
                 <Text style={styles.deleteButtonText}>{t('groupManagement.deleteGroup')}</Text>
@@ -417,17 +425,27 @@ const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
   );
 };
 
+// Helper function to calculate responsive modal dimensions
+const getResponsiveModalDimensions = () => {
+  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  return {
+    width: Math.min(screenWidth * 0.95, 700),
+    height: screenHeight * 0.9
+  };
+};
+
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 10,
+    paddingVertical: 20,
   },
   container: {
-    width: '100%',
-    maxWidth: 700,
+    width: getResponsiveModalDimensions().width,
+    height: getResponsiveModalDimensions().height,
     maxHeight: '90%',
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
@@ -437,10 +455,13 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     padding: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -454,13 +475,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     flex: 2,
     fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: 'bold' as const,
+    textAlign: 'center' as const,
     color: '#2c3e50',
   },
   headerRight: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: 'flex-end' as const,
   },
   closeButton: {
     padding: 8,
@@ -481,7 +502,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   content: {
     flex: 1,
@@ -489,8 +510,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   loadingText: {
     marginTop: 16,
@@ -510,9 +531,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'flex-start' as const,
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f3f4',
@@ -525,9 +546,9 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 14,
     color: '#2c3e50',
-    fontWeight: '500',
+    fontWeight: '500' as const,
     flex: 2,
-    textAlign: 'right',
+    textAlign: 'right' as const,
   },
   errorContainer: {
     backgroundColor: '#f8d7da',
@@ -546,7 +567,7 @@ const styles = StyleSheet.create({
   },
   formLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#2c3e50',
     marginBottom: 8,
   },
@@ -568,16 +589,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   userItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f3f4',
   },
   userName: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '500' as const,
     color: '#2c3e50',
     flex: 1,
   },
@@ -592,7 +613,7 @@ const styles = StyleSheet.create({
   },
   permissionName: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '500' as const,
     color: '#2c3e50',
   },
   permissionCode: {
@@ -605,15 +626,15 @@ const styles = StyleSheet.create({
   },
   permissionGroupTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
     color: '#495057',
     marginBottom: 8,
-    textTransform: 'capitalize',
+    textTransform: 'capitalize' as const,
   },
   permissionToggle: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f3f4',
@@ -623,7 +644,7 @@ const styles = StyleSheet.create({
   },
   permissionToggleName: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '500' as const,
     color: '#2c3e50',
   },
   permissionToggleCode: {
@@ -643,13 +664,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#dc3545',
     paddingVertical: 12,
     borderRadius: 6,
-    alignItems: 'center',
+    alignItems: 'center' as const,
   },
   deleteButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
-});
+} as const);
 
-export default GroupDetailModal;
+export type { GroupDetailModalProps };
+export default GroupDetailModal as (props: GroupDetailModalProps) => React.JSX.Element;

@@ -4,6 +4,7 @@
     "username": "Username",
     "password": "Password",
     "forgotPassword": "Forgot Password?",
+    "forgotPasswordMessage": "Password reset requests are handled by your supervisor. Please contact your immediate supervisor to request a password reset.",
     "logout": "Logout",
     "loginError": "Invalid username or password",
     "loginSuccess": "Login successful"
@@ -87,6 +88,7 @@
     "submitRequestConfirm": "Are you sure you want to submit this request for approval?",
     "requestSubmitted": "Request submitted for approval successfully!",
     "submitForApproval": "Submit for Approval",
+    "createAndSubmit": "Create & Submit",
     "loading": "Loading...",
     "requestNotFound": "Request not found",
     "requestDetails": "Request Details",
@@ -104,6 +106,74 @@
       "quantityMustBePositive": "Quantity must be greater than zero",
       "quantityTooLarge": "Quantity cannot exceed 999,999",
       "reasonRequired": "Reason/justification is required"
+    },
+    "search": {
+      "placeholder": "Search requests by item name or description..."
+    },
+    "filters": {
+      "status": "Status:",
+      "all": "All"
+    },
+    "stats": {
+      "requestsFound": "{{count}} request found",
+      "requestsFound_plural": "{{count}} requests found"
+    },
+    "errors": {
+      "loadingError": "Error Loading Requests",
+      "noMatchingRequests": "No requests match your filters"
+    },
+    "details": {
+      "created": "Created:",
+      "createdBy": "Created by:",
+      "pendingApproval": "Pending Approval",
+      "revision": "Rev."
+    },
+    "success": {
+      "draftSaved": "Draft request {{requestNumber}} has been saved!",
+      "requestSubmitted": "Request {{requestNumber}} has been submitted for approval!",
+      "modalDraftSaved": "Draft request \"{{itemName}}\" has been saved!",
+      "modalRequestSubmitted": "Request \"{{itemName}}\" has been created and submitted for approval!",
+      "approved": "Request has been approved successfully!",
+      "rejected": "Request has been rejected",
+      "revisionRequested": "Revision has been requested"
+    },
+    "requestedBy": "Requested By",
+    "submitted": "Submitted",
+    "revision": "Rev.",
+    "approveRequest": "Approve Request",
+    "rejectRequest": "Reject Request",
+    "requestRevision": "Request Revision",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approvalNotes": "Approval Notes",
+    "approvalNotesPlaceholder": "Add any notes or comments (optional)",
+    "approvalNotesHelp": "These notes will be visible to the requester",
+    "rejectionReason": "Rejection Reason",
+    "rejectionReasonPlaceholder": "Please explain why this request is being rejected",
+    "additionalNotes": "Additional Notes",
+    "additionalNotesPlaceholder": "Add any additional comments (optional)",
+    "rejectWarning": "This action will reject the request and notify the requester.",
+    "revisionReason": "Revision Reason",
+    "revisionReasonPlaceholder": "Explain what needs to be revised",
+    "revisionHelpText": "Be specific about what changes are needed",
+    "revisionInfo": "The requester will be notified and can make changes before resubmitting.",
+    "supervisorActions": "Supervisor Actions",
+    "approvalHistory": "Approval History",
+    "noHistoryAvailable": "No approval history available",
+    "by": "By",
+    "notes": "Notes",
+    "reviewNotes": "Review Notes",
+    "tabs": {
+      "details": "Details",
+      "history": "History",
+      "documents": "Documents"
+    },
+    "timeline": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "daysAgo": "{{count}} day ago",
+      "daysAgo_plural": "{{count}} days ago",
+      "notSubmitted": "Not submitted yet"
     }
   },
   "status": {
@@ -111,32 +181,46 @@
     "pending": "Pending Approval",
     "in_review": "Under Review",
     "revision_requested": "Revision Requested",
-    "approved": "Final Approved - Ready for Purchase",
+    "approved": "Ready for Purchase",
     "rejected": "Rejected",
-    "purchasing": "Assigned to Purchasing Team",
+    "purchasing": "Waiting for Purchasing",
     "ordered": "Order Placed",
     "delivered": "Delivered",
     "completed": "Request Completed"
   },
   "actions": {
     "submit": "Submit",
+    "submitted": "Submitted",
     "approve": "Approve",
+    "approved": "Approved",
     "reject": "Reject",
+    "rejected": "Rejected",
     "requestRevision": "Request Revision",
+    "revision_requested": "Revision Requested",
+    "revised": "Revised",
+    "final_approved": "Final Approved",
+    "assigned_purchasing": "Assigned to Purchasing",
+    "ordered": "Ordered",
+    "delivered": "Delivered",
+    "completed": "Completed",
     "save": "Save",
     "cancel": "Cancel",
     "edit": "Edit",
     "delete": "Delete",
     "view": "View",
-    "ok": "OK"
+    "ok": "OK",
+    "retry": "Retry"
   },
   "navigation": {
     "dashboard": "Dashboard",
     "myRequests": "My Requests",
     "createRequest": "Create Request",
     "create": "Create",
+    "pendingApprovals": "Pending Approvals",
     "teamRequests": "Team Requests",
     "myTeam": "My Team",
+    "purchasingQueue": "Purchasing Queue",
+    "deliveryTracking": "Delivery Tracking",
     "allRequests": "All Requests",
     "userManagement": "User Management",
     "users": "Users",
@@ -148,6 +232,16 @@
     "profile": "Profile",
     "settings": "Settings"
   },
+  "common": {
+    "loading": "Loading...",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "notSubmitted": "Not Submitted"
+  },
+  "filters": {
+    "status": "Status",
+    "allStatuses": "All Statuses"
+  },
   "forms": {
     "required": "This field is required",
     "invalidEmail": "Invalid email address",
@@ -156,8 +250,8 @@
     "loading": "Loading..."
   },
   "messages": {
-    "success": "Operation completed successfully",
-    "error": "An error occurred",
+    "success": "Success",
+    "error": "Error",
     "networkError": "Network connection error",
     "unauthorized": "Unauthorized access",
     "notFound": "Resource not found"
@@ -203,9 +297,14 @@
     "noTeamRequestsMessage": "Your team hasn't submitted any requests yet.",
     "noTeamMembersTitle": "No Team Members",
     "noTeamMembersMessage": "You don't have any team members assigned to you yet.",
+    "noPendingApprovalsTitle": "No Pending Approvals",
+    "noPendingApprovalsMessage": "All requests have been reviewed. Great job!",
+    "pendingApprovals": "Pending Approvals",
     "myTeamTitle": "My Team",
     "teamMemberCount": "{{count}} team member",
-    "teamMemberCount_plural": "{{count}} team members"
+    "teamMemberCount_plural": "{{count}} team members",
+    "joined": "Joined",
+    "pending": "Pending"
   },
   "userManagement": {
     "title": "User Management",
@@ -451,6 +550,96 @@
     },
     "error": {
       "createFailed": "Failed to create group. Please try again."
+    }
+  },
+  "fileUpload": {
+    "errors": {
+      "uploadNotAllowed": "Upload Not Allowed",
+      "uploadNotAllowedMessage": "Cannot upload {{documentType}} for requests with status \"{{status}}\"",
+      "fileTooLarge": "File Too Large",
+      "fileTooLargeMessage": "File size must be less than {{maxSize}}",
+      "selectionFailed": "Selection Failed",
+      "selectionFailedMessage": "Failed to select file. Please try again.",
+      "uploadFailed": "Upload Failed",
+      "uploadFailedMessage": "Failed to upload file. Please try again.",
+      "featureNotAvailable": "Feature Not Available",
+      "featureNotAvailableMessage": "File upload is not yet implemented for mobile"
+    },
+    "success": {
+      "uploadSuccessful": "Upload Successful",
+      "uploadSuccessfulMessage": "{{fileName}} has been uploaded successfully!"
+    },
+    "actions": {
+      "selectFile": "Select File",
+      "upload": "Upload",
+      "uploading": "Uploading...",
+      "cancel": "Cancel",
+      "uploadDocument": "Upload {{documentType}}"
+    },
+    "labels": {
+      "selectedFile": "Selected: {{fileName}}",
+      "enterDescription": "Enter document description",
+      "warningCannotUpload": "{{documentType}} can only be uploaded when request status is appropriate"
+    },
+    "documentTypes": {
+      "quote": "Quotation",
+      "purchase_order": "Purchase Order",
+      "dispatch_note": "Dispatch Note",
+      "receipt": "Delivery Receipt",
+      "invoice": "Invoice",
+      "other": "Other Document"
+    }
+  },
+  "purchasing": {
+    "queue": "Purchasing Queue",
+    "actions": "Purchasing Actions",
+    "markAsOrdered": "Mark as Ordered",
+    "urgent": "Urgent",
+    "waitingDays": "{{count}} day waiting",
+    "waitingDays_plural": "{{count}} days waiting",
+    "noRequestsTitle": "No Purchasing Requests",
+    "noRequestsMessage": "There are no requests waiting for purchasing action at this time.",
+    "poNumber": "Purchase Order Number",
+    "poNumberPlaceholder": "Enter PO number (e.g., PO-2024-001)",
+    "supplier": "Supplier Information",
+    "supplierPlaceholder": "Enter supplier name and contact details",
+    "expectedDelivery": "Expected Delivery Date",
+    "expectedDeliveryPlaceholder": "Enter expected delivery date (e.g., 2024-12-31)",
+    "orderNotes": "Order Notes",
+    "orderNotesPlaceholder": "Additional notes about the order...",
+    "orderInfo": "Please provide order details to mark this request as ordered.",
+    "validation": {
+      "poNumberRequired": "Purchase order number is required"
+    },
+    "success": {
+      "markedAsOrdered": "Request has been successfully marked as ordered"
+    }
+  },
+  "delivery": {
+    "tracking": "Delivery Tracking",
+    "actions": "Delivery Actions",
+    "markAsDelivered": "Mark as Delivered",
+    "overdue": "Overdue",
+    "daysSinceOrdered": "{{count}} day since ordered",
+    "daysSinceOrdered_plural": "{{count}} days since ordered",
+    "noOrdersTitle": "No Orders to Track",
+    "noOrdersMessage": "There are no ordered items awaiting delivery at this time.",
+    "deliveryDate": "Delivery Date",
+    "deliveryDatePlaceholder": "Enter delivery date (e.g., 2024-12-15)",
+    "receivedBy": "Received By",
+    "receivedByPlaceholder": "Enter name of person who received the delivery",
+    "condition": "Item Condition",
+    "conditionGood": "Good Condition",
+    "conditionDamaged": "Damaged",
+    "deliveryNotes": "Delivery Notes",
+    "deliveryNotesPlaceholder": "Additional notes about the delivery...",
+    "deliveryInfo": "Please confirm delivery details to mark this item as delivered.",
+    "validation": {
+      "dateRequired": "Delivery date is required",
+      "conditionRequired": "Item condition selection is required"
+    },
+    "success": {
+      "markedAsDelivered": "Item has been successfully marked as delivered"
     }
   }
 }

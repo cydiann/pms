@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput, ListRenderItem } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import userService from '../../services/userService';
 import { UserListItem, ExtendedUser } from '../../types/users';
@@ -7,8 +7,7 @@ import UserDetailModal from '../../components/modals/UserDetailModal';
 import AddUserModal from '../../components/modals/AddUserModal';
 import { showError } from '../../utils/platformUtils';
 
-const UserManagementScreen: React.FC = () => {
-  console.log('UserManagementScreen: Component rendered');
+function UserManagementScreen(): React.JSX.Element {
   
   const { t, i18n } = useTranslation();
   const [users, setUsers] = useState<UserListItem[]>([]);
@@ -21,50 +20,44 @@ const UserManagementScreen: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<ExtendedUser | null>(null);
 
   useEffect(() => {
-    console.log('UserManagementScreen: useEffect triggered - mounting component');
     loadUsers();
     loadCurrentUser();
-  }, []);
+  }, [loadUsers, loadCurrentUser]);
 
-  const loadCurrentUser = async () => {
+  const loadCurrentUser = useCallback(async (): Promise<void> => {
     try {
-      console.log('UserManagementScreen: Loading current user...');
       const user = await userService.getCurrentUser();
-      console.log('UserManagementScreen: Current user loaded successfully:', user);
       setCurrentUser(user);
     } catch (error) {
-      console.error('UserManagementScreen: Failed to load current user:', error);
-      console.error('UserManagementScreen: Error details:', JSON.stringify(error, null, 2));
+      // Silently fail - current user loading is not critical for the screen
     }
-  };
+  }, []);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async (): Promise<void> => {
     try {
-      console.log('UserManagementScreen: Loading users...');
       setLoading(true);
-      const queryParams: any = {};
+      interface UserQueryParams {
+        search?: string;
+      }
+      const queryParams: UserQueryParams = {};
       if (searchQuery.trim()) {
         queryParams.search = searchQuery.trim();
       }
-      console.log('UserManagementScreen: Query params:', queryParams);
       
       const response = await userService.getUsers(queryParams);
-      console.log('UserManagementScreen: Users response:', response);
-      console.log('UserManagementScreen: Users count:', response.results?.length || 0);
       
       setUsers(response.results || []);
-    } catch (error: any) {
-      console.error('UserManagementScreen: Failed to load users:', error);
-      console.error('UserManagementScreen: Error details:', JSON.stringify(error, null, 2));
+    } catch (error: unknown) {
+      const apiError = error as { message?: string };
       
       showError(
         t('messages.error'), 
-        `${error.message || t('userManagement.loadUsersError')}\n\nCheck console for details.`
+        apiError.message || t('userManagement.loadUsersError')
       );
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, t]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -76,19 +69,16 @@ const UserManagementScreen: React.FC = () => {
     loadUsers();
   };
 
-  const handleUserPress = (user: UserListItem) => {
-    console.log('UserManagementScreen: User pressed:', user);
+  const handleUserPress = useCallback((user: UserListItem): void => {
     setSelectedUserId(user.id);
     setUserDetailModalVisible(true);
-    console.log('UserManagementScreen: Modal should be visible now');
-  };
+  }, []);
 
-  const handleCreateUser = () => {
-    console.log('UserManagementScreen: Create user button pressed');
+  const handleCreateUser = useCallback((): void => {
     setAddUserModalVisible(true);
-  };
+  }, []);
 
-  const renderUserItem = ({ item }: { item: UserListItem }) => (
+  const renderUserItem: ListRenderItem<UserListItem> = useCallback(({ item }) => (
     <TouchableOpacity style={styles.userItem} onPress={() => handleUserPress(item)}>
       <View style={styles.userInfo}>
         <View style={styles.userHeader}>
@@ -119,9 +109,9 @@ const UserManagementScreen: React.FC = () => {
         <Text style={styles.actionArrow}>›</Text>
       </View>
     </TouchableOpacity>
-  );
+  ), [handleUserPress, t, i18n.language]);
 
-  const renderEmptyState = () => (
+  const renderEmptyState = useCallback((): React.JSX.Element => (
     <View style={styles.emptyState}>
       <Text style={styles.emptyStateTitle}>
         {searchQuery ? t('userManagement.noUsersFound') : t('admin.noUsersTitle')}
@@ -130,12 +120,17 @@ const UserManagementScreen: React.FC = () => {
         {searchQuery ? t('userManagement.tryDifferentSearch') : t('admin.noUsersMessage')}
       </Text>
     </View>
-  );
+  ), [searchQuery, t]);
 
-  console.log('UserManagementScreen: Render state - loading:', loading, 'users:', users.length, 'currentUser:', currentUser?.username, 'modalVisible:', userDetailModalVisible);
+  const modalCloseHandlers = useMemo(() => ({
+    userDetail: () => {
+      setUserDetailModalVisible(false);
+      setSelectedUserId(null);
+    },
+    addUser: () => setAddUserModalVisible(false),
+  }), []);
 
   if (loading) {
-    console.log('UserManagementScreen: Rendering loading state');
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007bff" />
@@ -144,7 +139,6 @@ const UserManagementScreen: React.FC = () => {
     );
   }
 
-  console.log('UserManagementScreen: About to render main UI');
 
   return (
     <View style={styles.container}>
@@ -184,10 +178,7 @@ const UserManagementScreen: React.FC = () => {
       {currentUser && (
         <UserDetailModal
           visible={userDetailModalVisible}
-          onClose={() => {
-            setUserDetailModalVisible(false);
-            setSelectedUserId(null);
-          }}
+          onClose={modalCloseHandlers.userDetail}
           userId={selectedUserId}
           onUserUpdated={loadUsers}
           currentUser={currentUser}
@@ -197,7 +188,7 @@ const UserManagementScreen: React.FC = () => {
       {currentUser && (
         <AddUserModal
           visible={addUserModalVisible}
-          onClose={() => setAddUserModalVisible(false)}
+          onClose={modalCloseHandlers.addUser}
           onUserCreated={loadUsers}
           currentUser={currentUser}
         />
@@ -364,4 +355,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default UserManagementScreen;
+export default UserManagementScreen as () => React.JSX.Element;

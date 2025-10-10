@@ -1,12 +1,16 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import RequestViewSet, ApprovalHistoryViewSet, AuditLogViewSet, ProcurementDocumentViewSet
+from .views import (
+    RequestViewSet, ApprovalHistoryViewSet, AuditLogViewSet,
+    ProcurementDocumentViewSet, RequestArchiveViewSet
+)
 
 router = DefaultRouter()
 router.register(r'documents', ProcurementDocumentViewSet, basename='document')
 router.register(r'approval-history', ApprovalHistoryViewSet, basename='approvalhistory')
+router.register(r'admin/archives', RequestArchiveViewSet, basename='archive')
+router.register(r'admin/audit-logs', AuditLogViewSet, basename='auditlog')
 router.register(r'', RequestViewSet, basename='request')
-router.register(r'admin/audit-logs', AuditLogViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

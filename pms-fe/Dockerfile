@@ -13,6 +13,12 @@ RUN npm ci --only=production=false
 # Copy source code
 COPY . .
 
+# Build the production version
+RUN npm run build:web
+
+# Install sirv-cli for production static serving (supports --host)
+RUN npm install -g sirv-cli
+
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S reactjs -u 1001
@@ -21,8 +27,8 @@ RUN adduser -S reactjs -u 1001
 RUN chown -R reactjs:nodejs /app
 USER reactjs
 
-# Expose port for development server
+# Expose port
 EXPOSE 3000
 
-# Default command for development
-CMD ["npm", "run", "web"]
+# Serve the built production files on all interfaces
+CMD ["sirv", "dist", "--port", "3000", "--host", "0.0.0.0"]

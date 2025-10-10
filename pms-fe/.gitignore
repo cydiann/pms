@@ -59,7 +59,19 @@ android/build/
 android/.gradle/
 android/gradle.properties
 android/local.properties
+android/app/.cxx/
+android/app/src/main/assets/
+android/app/src/main/res/drawable-*/
+android/app/src/main/res/raw/
+android/.cxx/
 *.keystore
+*.jks
+*.apk
+*.aab
+# Android Studio
+android/.idea/
+android/captures/
+android/app/google-services.json
 
 # MacOS
 .DS_Store

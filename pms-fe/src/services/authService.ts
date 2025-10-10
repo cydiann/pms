@@ -1,4 +1,5 @@
 import apiClient from './apiClient';
+import { isAxiosError } from 'axios';
 import storage from '../utils/storage';
 import { API_ENDPOINTS } from '../constants/api';
 import {
@@ -39,17 +40,22 @@ class AuthService {
       await storage.setItem(this.USER_KEY, JSON.stringify(user));
 
       return { user, tokens };
-    } catch (error: any) {
-      // Handle different error cases
-      if (error.response?.status === 401) {
-        throw new Error('Invalid username or password');
-      } else if (error.response?.status >= 500) {
-        throw new Error('Server error. Please try again later.');
-      } else if (error.code === 'NETWORK_ERROR') {
-        throw new Error('Network error. Please check your connection.');
-      } else {
-        throw new Error('Login failed. Please try again.');
+    } catch (error: unknown) {
+      // Handle different error cases (Axios-aware)
+      if (isAxiosError(error)) {
+        const status = error.response?.status;
+        if (status === 401) {
+          throw new Error('Invalid username or password');
+        }
+        if (status && status >= 500) {
+          throw new Error('Server error. Please try again later.');
+        }
+        // Network error: no response from server or generic network failure
+        if (!error.response || error.code === 'ERR_NETWORK') {
+          throw new Error('Network error. Please check your connection.');
+        }
       }
+      throw new Error('Login failed. Please try again.');
     }
   }
 
