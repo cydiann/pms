@@ -335,7 +335,7 @@ class ProcurementDocument(models.Model):
         if user.is_superuser:
             return True
 
-        has_purchase_perm = user.has_perm('requisition.can_purchase')
+        has_purchase_perm = user.can_purchase()
 
         # Purchasing-specific documents (only purchasing team)
         if self.document_type == 'dispatch_note':

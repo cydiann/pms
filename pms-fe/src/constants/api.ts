@@ -63,7 +63,10 @@ export const API_ENDPOINTS = {
     MARK_PURCHASED: (id: number) => `/api/requests/${id}/mark-purchased/`,
     MARK_DELIVERED: (id: number) => `/api/requests/${id}/mark-delivered/`,
     MY_REQUESTS: '/api/requests/my-requests/',
+    MY_TEAM_REQUESTS: '/api/requests/my-team-requests/',
     PENDING_APPROVALS: '/api/requests/pending-approvals/',
+    MY_STATS: '/api/requests/my-stats/',
+    SUBORDINATE_STATS: '/api/requests/subordinate-stats/',
     PURCHASING_QUEUE: '/api/requests/purchasing-queue/',
     HISTORY: (id: number) => `/api/requests/${id}/history/`,
     // Document endpoints

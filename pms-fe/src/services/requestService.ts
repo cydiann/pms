@@ -11,6 +11,7 @@ import {
   ApprovalHistory,
   RequestStats,
   AdminStats,
+  RequestStatus,
 } from '../types/requests';
 import { PaginatedResponse, RequestQueryParams } from '../types/api';
 
@@ -42,8 +43,9 @@ class RequestService {
 
   // Get requests from subordinates (for supervisors)
   async getSubordinateRequests(params?: RequestQueryParams): Promise<PaginatedResponse<Request>> {
-    const queryString = params ? new URLSearchParams(params as any).toString() : '';
-    const url = `${API_ENDPOINTS.REQUESTS.MY_REQUESTS}${queryString ? `?${queryString}` : ''}`;
+    const cleanParams = this.cleanParams(params);
+    const queryString = cleanParams ? new URLSearchParams(cleanParams).toString() : '';
+    const url = `${API_ENDPOINTS.REQUESTS.MY_TEAM_REQUESTS}${queryString ? `?${queryString}` : ''}`;
     return await apiClient.get<PaginatedResponse<Request>>(url);
   }
 
@@ -111,17 +113,22 @@ class RequestService {
 
   // Get dashboard statistics
   async getDashboardStats(): Promise<RequestStats> {
-    return await apiClient.get<RequestStats>(`${API_ENDPOINTS.REQUESTS.LIST}stats/`);
+    const stats = await apiClient.get<RequestStats>(API_ENDPOINTS.REQUESTS.MY_STATS);
+    return this.normalizeRequestStats(stats);
   }
 
   // Get subordinate dashboard stats (for supervisors)
   async getSubordinateStats(): Promise<RequestStats> {
-    return await apiClient.get<RequestStats>(`${API_ENDPOINTS.REQUESTS.LIST}subordinate-stats/`);
+    const stats = await apiClient.get<RequestStats>(API_ENDPOINTS.REQUESTS.SUBORDINATE_STATS);
+    return this.normalizeRequestStats(stats);
   }
 
   // Get pending approvals for current user (supervisor)
   async getPendingApprovals(): Promise<Request[]> {
-    return await apiClient.get<Request[]>(API_ENDPOINTS.REQUESTS.PENDING_APPROVALS);
+    const response = await apiClient.get<PaginatedResponse<Request> | Request[]>(
+      API_ENDPOINTS.REQUESTS.PENDING_APPROVALS
+    );
+    return this.extractResults(response);
   }
 
   // Get purchasing queue (for purchasing team)
@@ -197,18 +204,64 @@ class RequestService {
     return request.status === 'draft' && request.created_by === currentUserId;
   }
 
+  private normalizeRequestStats(stats: RequestStats): RequestStats {
+    const defaultStatuses: Record<RequestStatus, number> = {
+      [RequestStatus.DRAFT]: 0,
+      [RequestStatus.PENDING]: 0,
+      [RequestStatus.IN_REVIEW]: 0,
+      [RequestStatus.REVISION_REQUESTED]: 0,
+      [RequestStatus.APPROVED]: 0,
+      [RequestStatus.REJECTED]: 0,
+      [RequestStatus.PURCHASING]: 0,
+      [RequestStatus.ORDERED]: 0,
+      [RequestStatus.DELIVERED]: 0,
+      [RequestStatus.COMPLETED]: 0,
+    };
+
+    const requestsByStatus = {
+      ...defaultStatuses,
+      ...(stats.requests_by_status || {}),
+    };
+
+    const pendingRequests =
+      requestsByStatus[RequestStatus.PENDING] + requestsByStatus[RequestStatus.IN_REVIEW];
+
+    return {
+      ...stats,
+      pending_requests: pendingRequests,
+      requests_by_status: requestsByStatus,
+      requests_by_category: stats.requests_by_category || {},
+    };
+  }
+
   // Utility method to clean parameters for API calls
   private cleanParams(params?: RequestQueryParams): Record<string, string> | null {
     if (!params) return null;
-    
+
     const cleanParams: Record<string, string> = {};
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         cleanParams[key] = String(value);
       }
     });
-    
+
     return Object.keys(cleanParams).length > 0 ? cleanParams : null;
+  }
+
+  private extractResults<T>(data?: PaginatedResponse<T> | T[] | null): T[] {
+    if (!data) {
+      return [];
+    }
+
+    if (Array.isArray(data)) {
+      return data;
+    }
+
+    if ('results' in data && Array.isArray(data.results)) {
+      return data.results;
+    }
+
+    return [];
   }
 }
 

@@ -15,6 +15,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
 import LoadingButton from '../../components/common/LoadingButton';
+import LanguageSwitcher from '../../components/common/LanguageSwitcher';
 import { LoginRequest } from '../../types/auth';
 
 interface LoginFormData {
@@ -61,17 +62,6 @@ function LoginScreen(): React.JSX.Element {
     setShowForgotPasswordInfo(!showForgotPasswordInfo);
   }, [showForgotPasswordInfo]);
 
-  // Dev helper function - remove in production
-  const quickLogin = useCallback(async (username: string, password: string): Promise<void> => {
-    try {
-      clearError();
-      console.log(`Quick login as ${username}`);
-      await login({ username, password });
-    } catch (error: unknown) {
-      console.error('Quick login failed:', error);
-    }
-  }, [login, clearError]);
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#f8f9fa" barStyle="dark-content" />
@@ -83,6 +73,9 @@ function LoginScreen(): React.JSX.Element {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={styles.topBar}>
+          <LanguageSwitcher variant="light" />
+        </View>
         <View style={styles.headerContainer}>
           <Text style={styles.title}>
             {t('auth.login')} - PMS
@@ -199,40 +192,6 @@ function LoginScreen(): React.JSX.Element {
             </View>
           )}
 
-          {/* Dev Login Helpers - Remove in production */}
-          <View style={styles.devSection}>
-            <Text style={styles.devTitle}>Dev Quick Login:</Text>
-            <View style={styles.devButtons}>
-              <TouchableOpacity
-                style={styles.devButton}
-                onPress={() => quickLogin('admin', 'admin123')}
-                disabled={authState.loading}
-              >
-                <Text style={styles.devButtonText}>Admin</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.devButton}
-                onPress={() => quickLogin('ceo', 'ceo123')}
-                disabled={authState.loading}
-              >
-                <Text style={styles.devButtonText}>CEO</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.devButton}
-                onPress={() => quickLogin('manager', 'manager123')}
-                disabled={authState.loading}
-              >
-                <Text style={styles.devButtonText}>Manager</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.devButton}
-                onPress={() => quickLogin('engineer', 'engineer123')}
-                disabled={authState.loading}
-              >
-                <Text style={styles.devButtonText}>Engineer</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -252,6 +211,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     padding: 24,
+  },
+  topBar: {
+    width: '100%',
+    alignItems: 'flex-end',
+    marginBottom: 16,
   },
   headerContainer: {
     alignItems: 'center',
@@ -346,40 +310,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'left',
-  },
-  devSection: {
-    marginTop: 20,
-    padding: 16,
-    backgroundColor: '#f1f3f4',
-    borderRadius: 8,
-    borderColor: '#e9ecef',
-    borderWidth: 1,
-  },
-  devTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6c757d',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  devButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-  },
-  devButton: {
-    backgroundColor: '#6c757d',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginBottom: 8,
-    minWidth: '22%',
-    alignItems: 'center',
-  },
-  devButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
   },
 });
 

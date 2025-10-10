@@ -29,6 +29,7 @@ wheels/
 # Django
 *.log
 logging/
+logs/
 archive/
 archive_*.zip
 archives/

@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { changeLanguage, getCurrentLanguage } from '../../locales/i18n';
 
 type SupportedLanguage = 'en' | 'tr';
+
+type LanguageSwitcherVariant = 'primary' | 'light';
 
 interface LanguageInfo {
   readonly code: SupportedLanguage;
@@ -15,7 +17,11 @@ const SUPPORTED_LANGUAGES = {
   tr: { code: 'tr', name: 'Türkçe', flag: '🇹🇷' },
 } as const;
 
-function LanguageSwitcher(): React.JSX.Element {
+interface LanguageSwitcherProps {
+  variant?: LanguageSwitcherVariant;
+}
+
+function LanguageSwitcher({ variant = 'primary' }: LanguageSwitcherProps): React.JSX.Element {
   const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>(
     (getCurrentLanguage() as SupportedLanguage) || 'en'
   );
@@ -42,46 +48,77 @@ function LanguageSwitcher(): React.JSX.Element {
     }
   };
 
+  const containerStyle = useMemo(() => {
+    return [
+      styles.containerBase,
+      variant === 'primary' ? styles.containerPrimary : styles.containerLight,
+    ];
+  }, [variant]);
+
+  const langTextStyle = useMemo(() => {
+    return [
+      styles.langTextBase,
+      variant === 'primary' ? styles.langTextPrimary : styles.langTextLight,
+    ];
+  }, [variant]);
 
   return (
     <TouchableOpacity 
-      style={styles.container} 
+      style={containerStyle}
       onPress={handleLanguageSwitch}
       accessibilityLabel="Switch Language"
       accessibilityHint={`Currently ${getCurrentLanguageInfo().name}, tap to switch`}
     >
       <Text style={styles.flagText}>{getCurrentLanguageInfo().flag}</Text>
-      <Text style={styles.langText}>{currentLanguage.toUpperCase()}</Text>
+      <Text style={langTextStyle}>{currentLanguage.toUpperCase()}</Text>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 12,
+  containerBase: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     marginRight: 10,
     borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     minWidth: 50,
     minHeight: 50,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  containerPrimary: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  containerLight: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
   },
   flagText: {
     fontSize: 24,
     textAlign: 'center',
     lineHeight: 28,
   },
-  langText: {
+  langTextBase: {
     fontSize: 10,
-    color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
     marginTop: 2,
   },
+  langTextPrimary: {
+    color: '#ffffff',
+  },
+  langTextLight: {
+    color: '#212529',
+  },
 } as const);
 
 export type { SupportedLanguage };
-export default LanguageSwitcher as () => React.JSX.Element;
+export default LanguageSwitcher;

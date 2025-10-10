@@ -149,8 +149,30 @@ class User(AbstractUser):
         return self.get_all_permissions()
 
     def can_purchase(self) -> bool:
-        """Return True if user has purchasing permissions."""
-        return self.is_superuser or self.has_perm('requisition.can_purchase')
+        """Return True if user has purchasing privileges."""
+        if self.is_superuser:
+            return True
+
+        # Direct permission check first
+        if self.has_perm('requisition.can_purchase'):
+            return True
+
+        # Equivalent purchasing permissions grant access as well
+        purchasing_permissions = [
+            'requisition.view_purchasing_queue',
+            'requisition.mark_ordered',
+            'requisition.mark_delivered',
+            'requisition.complete_request',
+        ]
+        if any(self.has_perm(code) for code in purchasing_permissions):
+            return True
+
+        # Finally, fall back to group membership for legacy setups
+        purchasing_groups = ['Purchasing', 'Purchasing Team', 'Procurement']
+        if self.groups.filter(name__in=purchasing_groups).exists():
+            return True
+
+        return False
 
     def has_subordinates(self) -> bool:
         """Return True if user has direct reports."""

@@ -15,6 +15,7 @@ def user_can_purchase(user) -> bool:
         return True
 
     purchasing_perms = (
+        'requisition.can_purchase',
         'requisition.view_purchasing_queue',
         'requisition.mark_ordered',
         'requisition.mark_delivered',

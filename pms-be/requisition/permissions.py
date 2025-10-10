@@ -194,8 +194,9 @@ def setup_default_request_groups():
     
     # Purchasing Team - Can handle approved requests
     purchasing_group, created = Group.objects.get_or_create(name='Purchasing')
-    if created or not purchasing_group.permissions.filter(codename='view_purchasing_queue').exists():
+    if created or not purchasing_group.permissions.filter(codename='can_purchase').exists():
         purchasing_permissions = [
+            'requisition.can_purchase',
             'requisition.view_purchasing_queue',
             'requisition.mark_ordered',
             'requisition.mark_delivered', 

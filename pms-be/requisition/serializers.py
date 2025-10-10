@@ -95,7 +95,7 @@ class ProcurementDocumentSerializer(serializers.ModelSerializer):
         return (
             user.is_superuser or
             obj.uploaded_by == user or
-            user.has_perm('requisition.can_purchase')
+            user.can_purchase()
         )
 
 
@@ -158,7 +158,7 @@ class CreateDocumentSerializer(serializers.ModelSerializer):
         document_type = data.get('document_type')
         user = self.context['request'].user
         is_creator = request_obj.created_by == user
-        has_purchase_perm = user.is_superuser or user.has_perm('requisition.can_purchase')
+        has_purchase_perm = user.can_purchase()
 
         # Check if user is supervisor of the request creator
         from authentication.models import User
