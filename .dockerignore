@@ -1,0 +1,31 @@
+# Ignore .env files (use Railway environment variables instead)
+pms-be/.env
+pms-be/.env.local
+pms-be/.env.*.local
+
+# Ignore logs
+pms-be/logs/
+pms-be/*.log
+
+# Ignore Python cache
+pms-be/__pycache__/
+pms-be/**/__pycache__/
+pms-be/*.pyc
+pms-be/**/*.pyc
+
+# Ignore test files
+pms-be/.pytest_cache/
+pms-be/.coverage
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignore frontend (we're only building backend)
+pms-fe/
