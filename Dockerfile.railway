@@ -22,6 +22,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy entire backend directory
 COPY pms-be /app
 
+# Create logs directory
+RUN mkdir -p /app/logs
+
 # Make scripts executable
 RUN chmod +x /app/entrypoint.sh
 
