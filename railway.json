@@ -1,11 +1,11 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "nixpacksPath": "pms-be"
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile.railway"
   },
   "deploy": {
-    "startCommand": "cd pms-be && ./entrypoint.sh",
+    "startCommand": "./entrypoint.sh",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
